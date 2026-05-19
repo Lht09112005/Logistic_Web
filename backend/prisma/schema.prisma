@@ -1,0 +1,296 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  ADMIN
+  STAFF
+  DRIVER
+}
+
+enum WarehouseStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum ProductCategory {
+  ELECTRONICS
+  CLOTHING
+  FOOD
+  FURNITURE
+  MEDICAL
+  AUTOMOTIVE
+  CHEMICAL
+  OTHER
+}
+
+enum ShipmentStatus {
+  PENDING
+  CONFIRMED
+  LOADING
+  IN_TRANSIT
+  AT_CHECKPOINT
+  DELIVERING
+  DELIVERED
+  CANCELLED
+  FAILED
+}
+
+enum AlertType {
+  LOW_STOCK
+  OUT_OF_STOCK
+  EXPIRING
+  OVERSTOCK
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ==================== MODELS ====================
+
+model User {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  password       String
+  role           Role     @default(STAFF)
+  phone          String?
+  avatar         String?
+  refreshToken   String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  auditedInventory InventoryItem[] @relation("AuditedBy")
+  managedWarehouses Warehouse[]    @relation("WarehouseManager")
+  drivenShipments  Shipment[]      @relation("Driver")
+  createdShipments Shipment[]      @relation("CreatedBy")
+
+  @@map("users")
+}
+
+model Warehouse {
+  id          String          @id @default(uuid())
+  name        String
+  code        String          @unique
+  address     String
+  city        String
+  province    String
+  country     String          @default("Vietnam")
+  latitude    Float?
+  longitude   Float?
+  totalArea   Float           // m2
+  usedArea    Float           @default(0)
+  capacity    Int             // max items
+  managerId   String?
+  status      WarehouseStatus @default(ACTIVE)
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  manager     User?           @relation("WarehouseManager", fields: [managerId], references: [id])
+  inventory   InventoryItem[]
+  zones       WarehouseZone[]
+  originShipments   Shipment[] @relation("OriginWarehouse")
+  destinationShipments Shipment[] @relation("DestinationWarehouse")
+
+  @@map("warehouses")
+}
+
+model WarehouseZone {
+  id          String    @id @default(uuid())
+  warehouseId String
+  name        String    // A, B, C, ...
+  description String?
+  capacity    Int
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  racks       InventoryItem[]
+
+  @@map("warehouse_zones")
+}
+
+model Product {
+  id            String          @id @default(uuid())
+  name          String
+  sku           String          @unique
+  barcode       String?         @unique
+  category      ProductCategory @default(OTHER)
+  description   String?
+  unit          String          // pcs, kg, box, liter...
+  weight        Float?          // kg per unit
+  length        Float?          // cm
+  width         Float?          // cm
+  height        Float?          // cm
+  imageUrl      String?
+  qrCode        String?         // Generated QR code data URL
+  minStockLevel Int             @default(10)
+  maxStockLevel Int?
+  costPrice     Float?
+  sellPrice     Float?
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // Relations
+  inventory     InventoryItem[]
+  shipmentItems ShipmentItem[]
+  alerts        StockAlert[]
+
+  @@map("products")
+}
+
+model InventoryItem {
+  id          String    @id @default(uuid())
+  productId   String
+  warehouseId String
+  zoneId      String?
+  rack        String?   // Rack number
+  shelf       String?   // Shelf number
+  quantity    Int       @default(0)
+  reservedQty Int       @default(0) // Reserved for outgoing shipments
+  lastAuditAt DateTime?
+  auditedById String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  product     Product       @relation(fields: [productId], references: [id])
+  warehouse   Warehouse     @relation(fields: [warehouseId], references: [id])
+  zone        WarehouseZone? @relation(fields: [zoneId], references: [id])
+  auditedBy   User?         @relation("AuditedBy", fields: [auditedById], references: [id])
+
+  @@unique([productId, warehouseId, zoneId, rack, shelf])
+  @@map("inventory_items")
+}
+
+model Shipment {
+  id                  String         @id @default(uuid())
+  shipmentCode        String         @unique
+  status              ShipmentStatus @default(PENDING)
+  driverId            String?
+  createdById         String
+  vehicleNumber       String?
+  vehicleType         String?        // truck, van, motorbike
+  originWarehouseId   String?
+  destinationWarehouseId String?
+  originAddress       String
+  destinationAddress  String
+  originLat           Float?
+  originLng           Float?
+  destinationLat      Float?
+  destinationLng      Float?
+  currentLat          Float?
+  currentLng          Float?
+  estimatedWeight     Float?         // kg
+  actualWeight        Float?
+  estimatedArrival    DateTime?
+  actualArrival       DateTime?
+  startedAt           DateTime?
+  totalDistance       Float?         // km
+  notes               String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  // Relations
+  driver              User?          @relation("Driver", fields: [driverId], references: [id])
+  createdBy           User           @relation("CreatedBy", fields: [createdById], references: [id])
+  originWarehouse     Warehouse?     @relation("OriginWarehouse", fields: [originWarehouseId], references: [id])
+  destinationWarehouse Warehouse?   @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id])
+  items               ShipmentItem[]
+  checkpoints         ShipmentCheckpoint[]
+  trackingHistory     TrackingHistory[]
+
+  @@map("shipments")
+}
+
+model ShipmentItem {
+  id          String   @id @default(uuid())
+  shipmentId  String
+  productId   String
+  quantity    Int
+  weight      Float?
+  notes       String?
+
+  // Relations
+  shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id])
+
+  @@map("shipment_items")
+}
+
+model ShipmentCheckpoint {
+  id          String   @id @default(uuid())
+  shipmentId  String
+  name        String
+  address     String
+  latitude    Float?
+  longitude   Float?
+  sequence    Int
+  arrivedAt   DateTime?
+  estimatedAt DateTime?
+  notes       String?
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@map("shipment_checkpoints")
+}
+
+model TrackingHistory {
+  id          String   @id @default(uuid())
+  shipmentId  String
+  latitude    Float
+  longitude   Float
+  speed       Float?   // km/h
+  status      ShipmentStatus?
+  description String?
+  recordedAt  DateTime @default(now())
+
+  // Relations
+  shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@map("tracking_history")
+}
+
+model StockAlert {
+  id          String        @id @default(uuid())
+  productId   String
+  alertType   AlertType
+  severity    AlertSeverity
+  message     String
+  threshold   Int?          // Ngưỡng cảnh báo
+  currentQty  Int
+  isResolved  Boolean       @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  product     Product       @relation(fields: [productId], references: [id])
+
+  @@map("stock_alerts")
+}
