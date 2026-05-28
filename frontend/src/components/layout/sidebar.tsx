@@ -47,7 +47,9 @@ const adminItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarOpen, toggleSidebar, unreadAlertCount } = useAppStore();
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const unreadAlertCount = useAppStore((s) => s.unreadAlertCount);
   const { user, logout, isAdmin } = useAuth();
 
   const allItems = isAdmin ? [...navItems, ...adminItems] : navItems;

@@ -27,8 +27,8 @@ function ShipmentsContent() {
         });
         setShipments(res.data.data || []);
         setTotal(res.data.meta?.total || 0);
-      } catch (err) {
-        console.error("Lỗi lấy danh sách vận đơn:", err);
+      } catch (err: any) {
+        console.warn("Lỗi lấy danh sách vận đơn:", err.message || err);
       } finally {
         setLoading(false);
       }

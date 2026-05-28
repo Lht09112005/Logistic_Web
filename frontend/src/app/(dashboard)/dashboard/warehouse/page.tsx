@@ -13,8 +13,8 @@ export default function WarehousePage() {
       try {
         const res = await warehousesApi.getAll();
         setWarehouses(res.data.data || []);
-      } catch (err) {
-        console.error("Lỗi lấy danh sách kho:", err);
+      } catch (err: any) {
+        console.warn("Lỗi lấy danh sách kho:", err.message || err);
       } finally {
         setLoading(false);
       }

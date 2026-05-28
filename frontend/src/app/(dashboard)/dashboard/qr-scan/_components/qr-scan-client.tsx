@@ -81,10 +81,10 @@ export default function QRScanClient() {
         },
         () => {}
       );
-    } catch (err) {
+    } catch (err: any) {
+      console.warn(err.message || err);
       setCameraError("Không thể truy cập camera. Vui lòng cho phép quyền camera.");
       setScanState("idle");
-      console.error(err);
     }
   };
 

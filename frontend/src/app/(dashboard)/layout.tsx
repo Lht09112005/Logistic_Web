@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/app-store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -8,30 +8,35 @@ import { inventoryApi } from "@/lib/api";
 import { io } from "socket.io-client";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { sidebarOpen, setAlerts, addAlert, updatePosition } = useAppStore();
+  const sidebarOpen = useAppStore((state) => state.sidebarOpen);
 
-  // Load alerts on mount
+  // Load alerts on mount — get actions directly from store to avoid stale closures
   useEffect(() => {
+    const { setAlerts } = useAppStore.getState();
     inventoryApi.getAlerts({ isResolved: "false" })
       .then((res) => setAlerts(res.data.data || []))
       .catch(() => {});
-  }, [setAlerts]);
+  }, []);
 
-  // Socket.io for realtime
+  // Socket.io for realtime — stable ref so effect doesn't re-run on every render
+  const socketInitialized = useRef(false);
   useEffect(() => {
+    if (socketInitialized.current) return;
+    socketInitialized.current = true;
+
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000";
     const socket = io(socketUrl, { transports: ["websocket"] });
 
     socket.on("alert:new", (alert) => {
-      addAlert(alert);
+      useAppStore.getState().addAlert(alert);
     });
 
     socket.on("shipment:position", (data) => {
-      updatePosition(data);
+      useAppStore.getState().updatePosition(data);
     });
 
     return () => { socket.disconnect(); };
-  }, [addAlert, updatePosition]);
+  }, []);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>

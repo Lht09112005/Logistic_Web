@@ -19,8 +19,8 @@ export default function WarehouseDetailPage() {
       try {
         const res = await warehousesApi.getById(id);
         setWarehouse(res.data.data);
-      } catch (err) {
-        console.error("Lỗi lấy chi tiết kho:", err);
+      } catch (err: any) {
+        console.warn("Lỗi lấy chi tiết kho:", err.message || err);
         setError(true);
       } finally {
         setLoading(false);

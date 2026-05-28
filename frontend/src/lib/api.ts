@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getSession, signOut } from "next-auth/react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000/api";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -20,19 +20,99 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Handle 401 — refresh token
+// Handle 401 — try refresh token, then retry; if mock token just ignore silently
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> = [];
+
+function processQueue(error: unknown, token: string | null) {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (token) resolve(token);
+    else reject(error);
+  });
+  failedQueue = [];
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== "undefined") {
-        // Sign out to clear session cookies and break infinite redirect loop
-        await signOut({ callbackUrl: "/auth/login" });
-      }
+    const originalRequest = error.config;
+
+    if (
+      error.response?.status !== 401 ||
+      typeof window === "undefined" ||
+      originalRequest._retry
+    ) {
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    // Get session to check if token is real or mock
+    const session: any = await getSession();
+    const accessToken = session?.accessToken as string | undefined;
+    const refreshToken = session?.refreshToken as string | undefined;
+    const isMockToken = !accessToken || accessToken.startsWith("mock-");
+
+    // Mock token — skip silently, don't retry or sign out
+    if (isMockToken) {
+      return Promise.reject(error);
+    }
+
+    // No refresh token — sign out
+    if (!refreshToken) {
+      await signOut({ callbackUrl: "/auth/login" });
+      return Promise.reject(error);
+    }
+
+    // Queue concurrent requests while refreshing
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then((newToken) => {
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      });
+    }
+
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    try {
+      // Call backend refresh endpoint directly (no auth interceptor)
+      const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+      const newAccessToken: string = res.data?.data?.accessToken;
+
+      if (!newAccessToken) throw new Error("No access token returned");
+
+      // Update NextAuth session via update (next-auth v5)
+      // Since next-auth doesn't expose update client-side easily,
+      // store in memory for this session lifetime
+      (window as any).__newAccessToken = newAccessToken;
+
+      // Patch future requests
+      api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+      processQueue(null, newAccessToken);
+      return api(originalRequest);
+    } catch (refreshError) {
+      processQueue(refreshError, null);
+      await signOut({ callbackUrl: "/auth/login" });
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
   }
 );
+
+// Use in-memory refreshed token if available
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const inMemoryToken = (window as any).__newAccessToken;
+    if (inMemoryToken) {
+      config.headers.Authorization = `Bearer ${inMemoryToken}`;
+    }
+  }
+  return config;
+});
 
 export default api;
 

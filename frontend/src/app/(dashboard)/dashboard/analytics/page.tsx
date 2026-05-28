@@ -108,6 +108,7 @@ function AnimatedBar({ pct, color }: { pct: number; color: string }) {
 // ─── Page ───────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
   const [stats, setStats] = useState({ total: 0, inTransit: 0, delivered: 0, pending: 0, failed: 0 });
   const [inventoryCount, setInventoryCount] = useState(0);
   const [alertsCount, setAlertsCount] = useState(0);
@@ -116,18 +117,27 @@ export default function AnalyticsPage() {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const [statsRes, invRes, alertsRes, whRes] = await Promise.all([
+        // Use allSettled so one failing API won't crash the whole page
+        const [statsRes, invRes, alertsRes, whRes] = await Promise.allSettled([
           shipmentsApi.getStats(),
           inventoryApi.getAll({ limit: 1 }),
           inventoryApi.getAlerts({ isResolved: "false" }),
           warehousesApi.getAll(),
         ]);
-        setStats(statsRes.data.data);
-        setInventoryCount(invRes.data.meta?.total || 0);
-        setAlertsCount((alertsRes.data.data || []).length);
-        setWarehouseCount((whRes.data.data || []).length);
-      } catch (err) {
-        console.error("Lỗi tải phân tích:", err);
+
+        let anyFailed = false;
+        if (statsRes.status === "fulfilled") setStats(statsRes.value.data.data);
+        else anyFailed = true;
+        if (invRes.status === "fulfilled") setInventoryCount(invRes.value.data.meta?.total || 0);
+        else anyFailed = true;
+        if (alertsRes.status === "fulfilled") setAlertsCount((alertsRes.value.data.data || []).length);
+        else anyFailed = true;
+        if (whRes.status === "fulfilled") setWarehouseCount((whRes.value.data.data || []).length);
+        else anyFailed = true;
+
+        if (anyFailed) setIsOffline(true);
+      } catch {
+        setIsOffline(true);
       } finally {
         setLoading(false);
       }
@@ -212,6 +222,15 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
+      {isOffline && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+          style={{ background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", color: "#b45309" }}
+        >
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          <span>Backend chưa kết nối hoặc token không hợp lệ — hiển thị dữ liệu mặc định (chế độ offline)</span>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

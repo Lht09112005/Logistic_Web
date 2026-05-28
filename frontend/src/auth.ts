@@ -18,7 +18,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           );
           const { user, accessToken, refreshToken } = res.data.data;
           return { ...user, accessToken, refreshToken };
-        } catch {
+        } catch (error: any) {
+          console.error("====== MOCK LOGIN FALLBACK ERROR ======");
+          console.error(error?.response?.data || error?.message || error);
+          console.error("=======================================");
           // Mock login fallback if backend/DB is offline to let user explore the UI
           const email = credentials.email as string;
           const password = credentials.password as string;

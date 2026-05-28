@@ -39,8 +39,8 @@ function InventoryContent() {
         if (alertRes.status === "fulfilled") {
           setAlerts(alertRes.value.data.data || []);
         }
-      } catch (err) {
-        console.error("Lỗi lấy dữ liệu tồn kho:", err);
+      } catch (err: any) {
+        console.warn("Lỗi lấy dữ liệu tồn kho:", err.message || err);
       } finally {
         setLoading(false);
       }

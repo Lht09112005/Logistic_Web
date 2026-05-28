@@ -19,8 +19,8 @@ export default function ShipmentDetailPage() {
       try {
         const res = await shipmentsApi.getById(id);
         setShipment(res.data.data);
-      } catch (err) {
-        console.error("Lỗi lấy chi tiết vận đơn:", err);
+      } catch (err: any) {
+        console.warn("Lỗi lấy chi tiết vận đơn:", err.message || err);
         setError(true);
       } finally {
         setLoading(false);

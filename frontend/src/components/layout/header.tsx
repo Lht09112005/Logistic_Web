@@ -11,7 +11,9 @@ interface HeaderProps {
 }
 
 export function Header({ title }: HeaderProps) {
-  const { toggleSidebar, sidebarOpen, unreadAlertCount } = useAppStore();
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const unreadAlertCount = useAppStore((s) => s.unreadAlertCount);
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
 

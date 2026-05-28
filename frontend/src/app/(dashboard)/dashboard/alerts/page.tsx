@@ -46,8 +46,8 @@ export default function AlertsPage() {
       if (filter === "unresolved") {
         setAlerts(data);
       }
-    } catch (err) {
-      console.error("Lỗi lấy cảnh báo:", err);
+    } catch (err: any) {
+      console.warn("Lỗi lấy cảnh báo:", err.message || err);
     } finally {
       setLoading(false);
     }
@@ -66,8 +66,8 @@ export default function AlertsPage() {
       );
       // Update global unread alert count
       fetchAlerts();
-    } catch (err) {
-      console.error("Lỗi xử lý cảnh báo:", err);
+    } catch (err: any) {
+      console.warn("Lỗi xử lý cảnh báo:", err.message || err);
     }
   };
 

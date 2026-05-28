@@ -25,8 +25,8 @@ export default function DashboardPage() {
         if (alertsRes.status === "fulfilled") setActiveAlerts(alertsRes.value.data.data || []);
         if (warehousesRes.status === "fulfilled") setWarehouseCount((warehousesRes.value.data.data || []).length);
         if (shipmentsRes.status === "fulfilled") setRecentShipments(shipmentsRes.value.data.data || []);
-      } catch (err) {
-        console.error("Lỗi lấy dữ liệu trang tổng quan:", err);
+      } catch (err: any) {
+        console.warn("Lỗi lấy dữ liệu trang tổng quan:", err.message || err);
       } finally {
         setLoading(false);
       }

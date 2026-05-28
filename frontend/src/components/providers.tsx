@@ -6,7 +6,7 @@ import { AuthProvider } from "@/context/auth-context";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
       <ThemeProvider>
         <AuthProvider>
           {children}
