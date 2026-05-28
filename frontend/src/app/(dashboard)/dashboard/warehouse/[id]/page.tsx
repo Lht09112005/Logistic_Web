@@ -1,47 +1,31 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams, notFound } from "next/navigation";
-import { warehousesApi } from "@/lib/api";
+import { notFound } from "next/navigation";
+import { isrFetch, ssgFetch } from "@/lib/server-api";
 import WarehouseDetailClient from "./_components/warehouse-detail-client";
 
-export default function WarehouseDetailPage() {
-  const params = useParams();
-  const id = params?.id as string;
+export const revalidate = 30;
 
-  const [warehouse, setWarehouse] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (!id) return;
-    const fetchWarehouse = async () => {
-      try {
-        const res = await warehousesApi.getById(id);
-        setWarehouse(res.data.data);
-      } catch (err: any) {
-        console.warn("Lỗi lấy chi tiết kho:", err.message || err);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchWarehouse();
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse p-6">
-        <div className="skeleton h-10 w-48 rounded-xl" />
-        <div className="skeleton h-64 rounded-2xl" />
-        <div className="skeleton h-96 rounded-2xl" />
-      </div>
-    );
+// SSG: Pre-generate warehouse detail pages at build time
+// Falls back gracefully if the API is unavailable (returns empty array → all pages are ISR-only)
+export async function generateStaticParams() {
+  try {
+    const warehouses = await ssgFetch("/warehouses");
+    if (!Array.isArray(warehouses)) return [];
+    return warehouses.map((w: { id: string }) => ({ id: w.id }));
+  } catch {
+    return [];
   }
+}
 
-  if (error || !warehouse) {
+// ISR: Fetch warehouse detail with revalidation every 30 seconds
+// After revalidation, the page is re-rendered with fresh data
+export default async function WarehouseDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
+  const warehouse = await isrFetch(`/warehouses/${id}`, 30);
+
+  if (!warehouse) {
     return notFound();
   }
 
-  return <WarehouseDetailClient warehouse={warehouse} />;
+  return <WarehouseDetailClient warehouse={warehouse as any} />;
 }
