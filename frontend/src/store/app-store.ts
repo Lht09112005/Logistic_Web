@@ -35,7 +35,6 @@ interface AppState {
   // Sidebar
   sidebarOpen: boolean;
   toggleSidebar: () => void;
-  setSidebarOpen: (open: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -71,10 +70,6 @@ export const useAppStore = create<AppState>()(
     toggleSidebar: () =>
       set((state) => {
         state.sidebarOpen = !state.sidebarOpen;
-      }),
-    setSidebarOpen: (open) =>
-      set((state) => {
-        state.sidebarOpen = open;
       }),
   }))
 );
