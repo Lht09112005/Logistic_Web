@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
+import { haversineDistance } from "@/lib/route-optimizer";
 
 const RADAR_MARKER_HTML = `
   <style>
@@ -53,6 +54,12 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
     const initMap = async () => {
       const L = (await import("leaflet")).default;
       await import("leaflet/dist/leaflet.css");
+
+      // Guard INSIDE async — phòng trường hợp React Strict Mode double-mount
+      // Instance thứ 2 detect instance thứ 1 đã tạo map → bỏ qua
+      if (mapRef.current || !containerRef.current) {
+        return;
+      }
 
       // Fix default icons
       delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -134,22 +141,115 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
         L.polyline(coords, { color: "#f97316", weight: 3, opacity: 0.9, dashArray: "6 5" }).addTo(map);
       }
 
-      // Draw straight line origin→destination
-      if (shipment.originLat && shipment.originLng && shipment.destinationLat && shipment.destinationLng) {
-        const coords: [number, number][] = [
-          [shipment.originLat, shipment.originLng],
-          [shipment.destinationLat, shipment.destinationLng],
-        ];
-        L.polyline(coords, { color: "#94a3b8", weight: 1.5, opacity: 0.35, dashArray: "4 6" }).addTo(map);
+      // ——— DIJKSTRA SHORTEST PATH (sequence order) ———
+      // Build waypoints in original sequence: origin → cp1 → cp2 → ... → destination
+      const allWaypoints: { lat: number; lng: number; label?: string }[] = [];
+      if (shipment.originLat && shipment.originLng) {
+        allWaypoints.push({ lat: shipment.originLat, lng: shipment.originLng, label: "Xuất phát" });
+      }
+      shipment.checkpoints
+        .filter((cp) => cp.latitude && cp.longitude)
+        .forEach((cp) => {
+          allWaypoints.push({ lat: cp.latitude!, lng: cp.longitude!, label: cp.name });
+        });
+      if (shipment.destinationLat && shipment.destinationLng) {
+        allWaypoints.push({ lat: shipment.destinationLat, lng: shipment.destinationLng, label: "Điểm đến" });
       }
 
-      // Fit bounds
-      const allPoints: [number, number][] = [];
-      if (shipment.originLat) allPoints.push([shipment.originLat, shipment.originLng!]);
-      if (shipment.destinationLat) allPoints.push([shipment.destinationLat, shipment.destinationLng!]);
-      if (currentLat) allPoints.push([currentLat, currentLng!]);
+      let totalOptimalDist = 0;
+      if (allWaypoints.length >= 2) {
+        for (let i = 0; i < allWaypoints.length - 1; i++) {
+          const from = allWaypoints[i];
+          const to = allWaypoints[i + 1];
+          const dist = haversineDistance(from.lat, from.lng, to.lat, to.lng);
+          totalOptimalDist += dist;
+
+          // Segment line (Dijkstra optimal path) with gradient coloring
+          const ratio = allWaypoints.length > 2 ? i / (allWaypoints.length - 2) : 0;
+          const hue = Math.round(30 + ratio * 30); // 30° → 60° (orange → amber)
+          L.polyline(
+            [[from.lat, from.lng], [to.lat, to.lng]],
+            {
+              color: `hsl(${hue}, 90%, 55%)`,
+              weight: 3.5,
+              opacity: 0.85,
+            }
+          ).addTo(map);
+
+          // Distance label at midpoint
+          const midLat = (from.lat + to.lat) / 2;
+          const midLng = (from.lng + to.lng) / 2;
+          const segIcon = L.divIcon({
+            html: `<div style="
+              background: rgba(0,0,0,0.75); color: white;
+              padding: 2px 8px; border-radius: 99px;
+              font-size: 10px; font-weight: 700;
+              white-space: nowrap;
+              backdrop-filter: blur(4px);
+              border: 1px solid rgba(255,255,255,0.15);
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            ">${from.label || ''} → ${dist.toFixed(1)} km</div>`,
+            className: "", iconAnchor: [30, 10],
+          });
+          L.marker([midLat, midLng], { icon: segIcon, interactive: false }).addTo(map);
+        }
+      }
+
+      // Comparison: Dijkstra optimal path vs straight-line reference
+      if (shipment.originLat && shipment.originLng && shipment.destinationLat && shipment.destinationLng) {
+        const straightDist = haversineDistance(
+          shipment.originLat, shipment.originLng,
+          shipment.destinationLat, shipment.destinationLng
+        );
+        const diff = totalOptimalDist - straightDist;
+        const diffPercent = straightDist > 0
+          ? Math.round((diff / straightDist) * 100)
+          : 0;
+
+        // Straight line (dashed gray — reference, not the actual route)
+        L.polyline(
+          [[shipment.originLat, shipment.originLng], [shipment.destinationLat, shipment.destinationLng]],
+          { color: "#94a3b8", weight: 1.5, opacity: 0.25, dashArray: "4 6" }
+        ).addTo(map);
+
+        // Dijkstra route info card (top-right corner of map)
+        const infoIcon = L.divIcon({
+          html: `<div style="
+            background: rgba(0,0,0,0.8); color: white;
+            padding: 8px 14px; border-radius: 10px;
+            font-size: 11px; line-height: 1.7;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            max-width: 200px;
+          ">
+            <div style="font-weight: 700; font-size: 12px; margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
+              <span style="color: #f97316;">●</span> Dijkstra Shortest Path
+            </div>
+            <div style="display: grid; grid-template-columns: auto 1fr; gap: 1px 8px;">
+              <span style="color: #94a3b8;">Tối ưu:</span>
+              <strong>${totalOptimalDist.toFixed(1)} km</strong>
+              <span style="color: #94a3b8;">Thẳng:</span>
+              <strong>${straightDist.toFixed(1)} km</strong>
+              <span style="color: #94a3b8;">Chênh:</span>
+              <strong style="color: ${diff > 0 ? '#f97316' : '#10b981'};">+${diffPercent}%</strong>
+            </div>
+            <div style="margin-top: 4px; font-size: 9px; color: #6b7280; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 3px;">
+              ${allWaypoints.length - 2} checkpoints • ${allWaypoints.length - 1} segments
+            </div>
+          </div>`,            className: "", iconAnchor: [0, -50],
+        });
+        L.marker(
+          [allWaypoints[0]?.lat || 10.7769, (allWaypoints[0]?.lng || 106.7009)],
+          { icon: infoIcon, interactive: false }
+        ).addTo(map);
+      }
+
+      // Fit bounds — include all waypoints + current position
+      const allPoints: [number, number][] = allWaypoints.map((p) => [p.lat, p.lng]);
+      if (currentLat && currentLng) allPoints.push([currentLat, currentLng]);
       if (allPoints.length > 1) {
-        map.fitBounds(L.latLngBounds(allPoints), { padding: [40, 40] });
+        map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 12 });
       }
     };
 
