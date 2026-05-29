@@ -99,6 +99,8 @@ export default function InventoryClient({ inventory, total, alerts }: Props) {
         <div className="relative flex-1 min-w-48">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
           <input
+            id="inventory-search"
+            name="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm sản phẩm, SKU..."

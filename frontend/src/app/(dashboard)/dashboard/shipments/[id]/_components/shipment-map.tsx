@@ -49,7 +49,10 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
   const leafletRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!containerRef.current) return;
+
+    let isMounted = true;
+    let mapInstance: LeafletMap | null = null;
 
     const initMap = async () => {
       const L = (await import("leaflet")).default;
@@ -57,7 +60,9 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
 
       // Guard INSIDE async — phòng trường hợp React Strict Mode double-mount
       // Instance thứ 2 detect instance thứ 1 đã tạo map → bỏ qua
-      if (mapRef.current || !containerRef.current) {
+      if (!isMounted || !containerRef.current) return;
+
+      if (mapRef.current || (containerRef.current as any)._leaflet_id) {
         return;
       }
 
@@ -76,6 +81,7 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
         : [10.7769, 106.7009] as [number, number];
 
       const map = L.map(containerRef.current!, { zoom: 7, center });
+      mapInstance = map;
       mapRef.current = map;
 
       // CartoDB Positron - Premium Minimalist Map Theme
@@ -255,6 +261,10 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
 
     initMap();
     return () => {
+      isMounted = false;
+      if (mapInstance) {
+        mapInstance.remove();
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

@@ -185,3 +185,27 @@ export const resolveAlert = async (req: Request, res: Response): Promise<void> =
     sendError(res, 'Không tìm thấy cảnh báo', 404)
   }
 }
+
+// GET /api/inventory/:id
+export const getInventoryById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const item = await prisma.inventoryItem.findUnique({
+      where: { id: req.params.id },
+      include: {
+        product: { select: { id: true, name: true, sku: true, category: true, unit: true, minStockLevel: true, imageUrl: true, qrCode: true } },
+        warehouse: { select: { id: true, name: true, code: true, city: true } },
+        zone: true,
+        auditedBy: { select: { id: true, name: true } },
+      },
+    })
+
+    if (!item) {
+      sendError(res, 'Không tìm thấy bản ghi tồn kho', 404)
+      return
+    }
+
+    sendSuccess(res, item, 'Lấy chi tiết tồn kho thành công')
+  } catch (error) {
+    sendError(res, 'Lỗi lấy chi tiết tồn kho', 500, error)
+  }
+}
