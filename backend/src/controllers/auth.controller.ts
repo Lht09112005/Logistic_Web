@@ -126,3 +126,16 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
     sendError(res, 'Lỗi lấy thông tin', 500, error)
   }
 }
+
+// GET /api/auth/drivers
+export const getDrivers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const drivers = await prisma.user.findMany({
+      where: { role: 'DRIVER', isActive: true },
+      select: { id: true, name: true, email: true, phone: true, avatar: true },
+    })
+    sendSuccess(res, drivers, 'Lấy danh sách tài xế thành công')
+  } catch (error) {
+    sendError(res, 'Lỗi lấy danh sách tài xế', 500, error)
+  }
+}
