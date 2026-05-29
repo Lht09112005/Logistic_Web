@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/app-store";
-import { inventoryApi } from "@/lib/api";
+import { resolveAlertAction, fetchAlertsAction } from "./actions";
 import {
   Bell, AlertTriangle, CheckCircle, RefreshCw,
   Clock, XCircle, Package, ArrowRight
@@ -29,28 +29,27 @@ interface Alert {
 }
 
 export default function AlertsPage() {
-  const { setAlerts } = useAppStore();
+  const { setAlerts, resolveAlert: resolveAlertStore } = useAppStore();
   const [alerts, setLocalAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("unresolved");
 
   const fetchAlerts = async () => {
     setLoading(true);
-    try {
-      const res = await inventoryApi.getAlerts({
-        isResolved: filter === "resolved" ? "true" : filter === "unresolved" ? "false" : ""
-      });
-      const data = res.data.data || [];
-      setLocalAlerts(data);
-      // Synchronize with global store if showing unresolved
-      if (filter === "unresolved") {
-        setAlerts(data);
-      }
-    } catch (err: any) {
-      console.warn("Lỗi lấy cảnh báo:", err.message || err);
-    } finally {
-      setLoading(false);
+    const params =
+      filter === "resolved"
+        ? { isResolved: "true" }
+        : filter === "unresolved"
+          ? { isResolved: "false" }
+          : undefined;
+    const res = await fetchAlertsAction(params);
+    const data = res.data || [];
+    setLocalAlerts(data);
+    // Synchronize with global store if showing unresolved
+    if (filter === "unresolved") {
+      setAlerts(data);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -59,13 +58,24 @@ export default function AlertsPage() {
 
   const handleResolve = async (id: string) => {
     try {
-      await inventoryApi.resolveAlert(id);
-      // Remove or mark resolved in local state
+      // Optimistic update: mark as resolved immediately
       setLocalAlerts((prev) =>
         prev.map((a) => (a.id === id ? { ...a, isResolved: true } : a))
       );
-      // Update global unread alert count
-      fetchAlerts();
+      // Update global unread alert count immediately
+      resolveAlertStore(id);
+
+      // Call Server Action to persist the change on the backend
+      const res = await resolveAlertAction(id);
+
+      if (!res.success) {
+        // Revert optimistic update on failure
+        setLocalAlerts((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, isResolved: false } : a))
+        );
+        console.warn("Lỗi xử lý cảnh báo:", res.message);
+      }
+      // On success, the server action already revalidated the path
     } catch (err: any) {
       console.warn("Lỗi xử lý cảnh báo:", err.message || err);
     }
