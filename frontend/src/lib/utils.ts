@@ -15,27 +15,6 @@ export function formatRelative(date: string | Date) {
   return formatDistanceToNow(new Date(date), { addSuffix: true, locale: vi });
 }
 
-export function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-  }).format(amount);
-}
-
-export function formatNumber(n: number) {
-  return new Intl.NumberFormat("vi-VN").format(n);
-}
-
-export function formatWeight(kg: number) {
-  if (kg >= 1000) return `${(kg / 1000).toFixed(1)} tấn`;
-  return `${kg} kg`;
-}
-
-export function formatDistance(km: number) {
-  if (km >= 1000) return `${(km / 1000).toFixed(1)}K km`;
-  return `${km} km`;
-}
-
 export function getShipmentStatusLabel(status: string) {
   const map: Record<string, string> = {
     PENDING: "Chờ xác nhận",
@@ -95,11 +74,4 @@ export function getStockPercent(qty: number, min: number) {
   return Math.min(100, Math.round((qty / (min * 2)) * 100));
 }
 
-export function generateInitials(name: string) {
-  return name
-    .split(" ")
-    .slice(-2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
+

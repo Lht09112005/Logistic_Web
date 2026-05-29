@@ -13,6 +13,12 @@ import {
 } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
 import { io } from "socket.io-client";
+import {
+  findShortestRoute,
+  interpolateOptimizedPath,
+  type RouteNode,
+  type OptimizedRoute,
+} from "@/lib/route-optimizer";
 
 interface Checkpoint {
   id: string; name: string; address: string;
@@ -70,6 +76,8 @@ export default function ShipmentDetailClient({ shipment: initial }: Props) {
       MapRef.current = mod.ShipmentMap;
       setMapLoaded(true);
     });
+    // Pre-compute optimal route using Dijkstra + nearest-neighbor
+    computeOptimizedRoute();
   }, []);
 
   // Socket.io — live location updates
@@ -105,45 +113,45 @@ export default function ShipmentDetailClient({ shipment: initial }: Props) {
     } catch { /* ignore */ }
   };
 
-  // Generate route coordinates from Origin -> Checkpoints -> Destination
+  // Route optimizer — cached computation ref
+  const routeCacheRef = useRef<{
+    route: OptimizedRoute;
+    coords: { latitude: number; longitude: number; checkpointId?: string }[];
+  } | null>(null);
+
+  // Compute optimal route using Dijkstra + Nearest-Neighbor TSP
+  const computeOptimizedRoute = () => {
+    if (!shipment.originLat || !shipment.originLng ||
+        !shipment.destinationLat || !shipment.destinationLng) {
+      return null;
+    }
+
+    const originNode: RouteNode = {
+      id: "origin", lat: shipment.originLat, lng: shipment.originLng, label: "Xuất phát",
+    };
+    const checkpointNodes: RouteNode[] = shipment.checkpoints
+      .filter((cp) => cp.latitude && cp.longitude)
+      .map((cp) => ({
+        id: `cp:${cp.id}`, lat: cp.latitude!, lng: cp.longitude!, label: cp.name,
+      }));
+    const destinationNode: RouteNode = {
+      id: "destination", lat: shipment.destinationLat, lng: shipment.destinationLng, label: "Điểm đến",
+    };
+
+    const route = findShortestRoute(originNode, checkpointNodes, destinationNode);
+    const coords = interpolateOptimizedPath(route, 30);
+
+    routeCacheRef.current = { route, coords };
+    return { route, coords };
+  };
+
+  // Get cached route coordinates for simulation
   const getRouteCoordinates = () => {
-    const anchors: { lat: number; lng: number; checkpointId?: string }[] = [];
-    if (shipment.originLat && shipment.originLng) {
-      anchors.push({ lat: shipment.originLat, lng: shipment.originLng });
+    if (!routeCacheRef.current) {
+      const result = computeOptimizedRoute();
+      return result?.coords || [];
     }
-    shipment.checkpoints.forEach((cp) => {
-      if (cp.latitude && cp.longitude) {
-        anchors.push({ lat: cp.latitude, lng: cp.longitude, checkpointId: cp.id });
-      }
-    });
-    if (shipment.destinationLat && shipment.destinationLng) {
-      anchors.push({ lat: shipment.destinationLat, lng: shipment.destinationLng });
-    }
-
-    if (anchors.length < 2) return [];
-
-    const coords: { latitude: number; longitude: number; checkpointId?: string }[] = [];
-    const stepsPerSegment = 30; // Smooth 30 points between stops
-
-    for (let i = 0; i < anchors.length - 1; i++) {
-      const start = anchors[i];
-      const end = anchors[i + 1];
-      for (let j = 0; j < stepsPerSegment; j++) {
-        const t = j / stepsPerSegment;
-        coords.push({
-          latitude: start.lat + (end.lat - start.lat) * t,
-          longitude: start.lng + (end.lng - start.lng) * t,
-          checkpointId: j === 0 && start.checkpointId ? start.checkpointId : undefined,
-        });
-      }
-    }
-    // Push destination
-    coords.push({
-      latitude: anchors[anchors.length - 1].lat,
-      longitude: anchors[anchors.length - 1].lng,
-      checkpointId: anchors[anchors.length - 1].checkpointId,
-    });
-    return coords;
+    return routeCacheRef.current.coords;
   };
 
   const startSimulation = () => {
