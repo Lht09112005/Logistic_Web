@@ -225,6 +225,8 @@ export default function InventoryDetailClient({ item, zones }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Số lượng thực tế *</label>
                 <input
+                  id="detail-inventory-quantity"
+                  name="quantity"
                   type="number"
                   required
                   min="0"
@@ -237,6 +239,8 @@ export default function InventoryDetailClient({ item, zones }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Phân khu (Zone)</label>
                 <select
+                  id="detail-inventory-zone"
+                  name="zoneId"
                   value={zoneId}
                   onChange={(e) => setZoneId(e.target.value)}
                   className="input-base text-sm"
@@ -251,6 +255,8 @@ export default function InventoryDetailClient({ item, zones }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kệ hàng (Rack)</label>
                 <input
+                  id="detail-inventory-rack"
+                  name="rack"
                   value={rack}
                   onChange={(e) => setRack(e.target.value)}
                   placeholder="VD: R1"
@@ -261,6 +267,8 @@ export default function InventoryDetailClient({ item, zones }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ngăn kệ (Shelf)</label>
                 <input
+                  id="detail-inventory-shelf"
+                  name="shelf"
                   value={shelf}
                   onChange={(e) => setShelf(e.target.value)}
                   placeholder="VD: S1"
@@ -271,6 +279,8 @@ export default function InventoryDetailClient({ item, zones }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ghi chú điều chỉnh</label>
                 <textarea
+                  id="detail-inventory-notes"
+                  name="notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Nhập ghi chú hoặc lý do điều chỉnh kệ/số lượng..."

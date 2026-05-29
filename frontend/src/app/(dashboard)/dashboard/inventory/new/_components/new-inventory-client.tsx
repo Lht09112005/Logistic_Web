@@ -106,6 +106,8 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Sản phẩm *</label>
                 <select
+                  id="new-inventory-product"
+                  name="productId"
                   required
                   value={productId}
                   onChange={(e) => setProductId(e.target.value)}
@@ -121,6 +123,8 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kho lưu trữ *</label>
                 <select
+                  id="new-inventory-warehouse"
+                  name="warehouseId"
                   required
                   value={warehouseId}
                   onChange={(e) => {
@@ -148,6 +152,8 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Phân khu (Zone)</label>
                 <select
+                  id="new-inventory-zone"
+                  name="zoneId"
                   value={zoneId}
                   onChange={(e) => setZoneId(e.target.value)}
                   className="input-base text-sm"
@@ -166,6 +172,8 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Số lượng tồn kho ban đầu *</label>
                 <input
+                  id="new-inventory-quantity"
+                  name="quantity"
                   type="number"
                   required
                   min="0"
@@ -178,6 +186,8 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kệ hàng (Rack)</label>
                 <input
+                  id="new-inventory-rack"
+                  name="rack"
                   value={rack}
                   onChange={(e) => setRack(e.target.value)}
                   placeholder="VD: R-A1"
@@ -188,6 +198,8 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ngăn chứa (Shelf)</label>
                 <input
+                  id="new-inventory-shelf"
+                  name="shelf"
                   value={shelf}
                   onChange={(e) => setShelf(e.target.value)}
                   placeholder="VD: S-02"
@@ -209,6 +221,8 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
             <div>
               <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ghi chú kệ kho</label>
               <textarea
+                id="new-inventory-notes"
+                name="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="VD: Hàng dễ vỡ, lưu ý nhiệt độ phòng..."
