@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
 import { shipmentsApi, inventoryApi, warehousesApi } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
+import DashboardDriver from "./dashboard-driver";
 
 interface ShipmentStats {
   total: number; inTransit: number; delivered: number; pending: number; failed: number;
@@ -176,6 +178,24 @@ function useRealtimeDashboard(initial: Props) {
 
 export default function DashboardClient(props: Props) {
   const { stats, alerts, whCount, shipments, lastUpdated, socketConnected, liveEvents, refresh, refreshing } = useRealtimeDashboard(props);
+  const auth = useAuth();
+  const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
+
+  // DRIVER — show driver-specific dashboard
+  if (isDriver) {
+    return <DashboardDriver />;
+  }
+
+  const [pendingLoading, setPendingLoading] = useState<RecentShipment[]>([]);
+  const [pendingReceiving, setPendingReceiving] = useState<RecentShipment[]>([]);
+
+  // Fetch pending tasks for staff
+  useEffect(() => {
+    if (!isStaffOnly) return;
+    shipmentsApi.getAll({ limit: "10", status: "PENDING" }).then((r) => setPendingLoading(r.data.data ?? [])).catch(() => {});
+    shipmentsApi.getAll({ limit: "10", status: "DELIVERING" }).then((r) => setPendingReceiving(r.data.data ?? [])).catch(() => {});
+  }, [isStaffOnly]);
+
   const cards = statCards(stats, alerts.count, whCount);
 
   return (
@@ -203,9 +223,11 @@ export default function DashboardClient(props: Props) {
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
-          <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
-            <Truck size={15} /> Tạo vận đơn
-          </Link>
+          {isAdmin || isManager ? (
+            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
+              <Truck size={15} /> Tạo vận đơn
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -341,6 +363,75 @@ export default function DashboardClient(props: Props) {
           )}
         </div>
       </div>
+
+      {/* Staff tasks section */}
+      {isStaffOnly && (pendingLoading.length > 0 || pendingReceiving.length > 0) && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Chờ chuẩn bị hàng */}
+          {pendingLoading.length > 0 && (
+            <div className="card overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
+                <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                  <Package size={16} style={{ color: "#6366f1" }} /> Chờ xuất hàng
+                </h2>
+                <Link href="/dashboard/shipments?status=PENDING" className="text-xs font-medium" style={{ color: "#f97316" }}>
+                  Xem tất cả
+                </Link>
+              </div>
+              <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
+                {pendingLoading.slice(0, 5).map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/dashboard/shipments/${s.id}`}
+                    className="flex items-center gap-3 px-6 py-3 hover:bg-[var(--bg-input)] transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#eef2ff" }}>
+                      <Package size={15} style={{ color: "#6366f1" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{s.shipmentCode}</div>
+                      <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{s.destinationAddress}</div>
+                    </div>
+                    <button className="btn btn-primary btn-xs">Chuẩn bị</button>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Chờ nhập hàng */}
+          {pendingReceiving.length > 0 && (
+            <div className="card overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
+                <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                  <Warehouse size={16} style={{ color: "#10b981" }} /> Chờ nhập kho
+                </h2>
+                <Link href="/dashboard/shipments?status=DELIVERING" className="text-xs font-medium" style={{ color: "#f97316" }}>
+                  Xem tất cả
+                </Link>
+              </div>
+              <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
+                {pendingReceiving.slice(0, 5).map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/dashboard/shipments/${s.id}`}
+                    className="flex items-center gap-3 px-6 py-3 hover:bg-[var(--bg-input)] transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#ecfdf5" }}>
+                      <Warehouse size={15} style={{ color: "#10b981" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{s.shipmentCode}</div>
+                      <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{s.destinationAddress}</div>
+                    </div>
+                    <button className="btn btn-primary btn-xs">Nhập kho</button>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quick stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

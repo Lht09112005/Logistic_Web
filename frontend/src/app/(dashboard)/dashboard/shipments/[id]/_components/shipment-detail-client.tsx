@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MapPin, Clock, Truck, User, Phone,
@@ -11,6 +11,10 @@ import {
   formatDate, formatRelative, getShipmentStatusLabel, getShipmentStatusBadge,
 } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
+import DriverCheckpointPanel from "./driver-checkpoint-panel";
+import StaffLoadingPanel from "./staff-loading-panel";
+import StaffReceivingPanel from "./staff-receiving-panel";
 import {
   findShortestRoute,
   interpolateOptimizedPath,
@@ -46,6 +50,8 @@ interface Shipment {
   estimatedArrival?: string; actualArrival?: string;
   startedAt?: string; totalDistance?: number;
   notes?: string; createdAt: string;
+  originWarehouse?: { id: string; name: string; code: string } | null;
+  destinationWarehouse?: { id: string; name: string; code: string } | null;
   driver?: { id: string; name: string; phone?: string };
   checkpoints: Checkpoint[];
   items: ShipmentItem[];
@@ -63,6 +69,9 @@ let MapComponent: React.ComponentType<{ shipment: Shipment; currentLat?: number;
 
 export default function ShipmentDetailClient({ shipment: initial, lastUpdated, refresh, refreshing }: Props) {
   const router = useRouter();
+  const auth = useAuth();
+  const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
+  const canControlShipment = isAdmin || isManager;
   const [shipment, setShipment] = useState(initial);
   const [socketConnected, setSocketConnected] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -175,6 +184,19 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
     try { await shipmentsApi.update(shipment.id, { status: newStatus }); setShipment((prev) => ({ ...prev, status: newStatus })); }
     catch { /* ignore */ }
   };
+
+  const handleCheckpointUpdate = useCallback((cpId: string) => {
+    setShipment((prev) => ({
+      ...prev,
+      checkpoints: prev.checkpoints.map((cp) =>
+        cp.id === cpId ? { ...cp, isCompleted: true, arrivedAt: new Date().toISOString() } : cp
+      ),
+    }));
+    // Emit socket event so manager can see in realtime
+    if (socketRef.current) {
+      socketRef.current.emit("checkpoint:arrived", { shipmentId: shipment.id, checkpointId: cpId });
+    }
+  }, [shipment.id]);
 
   const routeCacheRef = useRef<{ route: OptimizedRoute; coords: { latitude: number; longitude: number; checkpointId?: string; speed?: number; roadName?: string }[] } | null>(null);
 
@@ -303,12 +325,12 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
-          {shipment.status === "PENDING" && (
+          {canControlShipment && shipment.status === "PENDING" && (
             <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("IN_TRANSIT")}>
               <Navigation size={14} /> Bắt đầu vận chuyển
             </button>
           )}
-          {shipment.status === "IN_TRANSIT" && (
+          {canControlShipment && shipment.status === "IN_TRANSIT" && (
             <button className="btn btn-secondary btn-sm" style={{ color: "#10b981", borderColor: "#10b981" }} onClick={() => handleStatusUpdate("DELIVERED")}>
               <CheckCircle size={14} /> Đánh dấu đã giao
             </button>
@@ -319,8 +341,8 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
       {/* ── Main content: flex row, fills remaining height ── */}
       <div className="flex flex-1 min-h-0 gap-6 p-6 overflow-hidden">
 
-        {/* Map — chiếm 3/5 chiều rộng, full height của content area */}
-        <div className="flex-3 min-w-0 card overflow-hidden flex flex-col">
+        {/* Map — chiếm 2/3 chiều rộng */}
+        <div className="flex-[2] min-w-0 card overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--border-color)" }}>
             <div className="flex items-center gap-2">
               <MapPin size={16} style={{ color: "#f97316" }} />
@@ -347,11 +369,50 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           </div>
         </div>
 
-        {/* Right panel — 2/5 chiều rộng, scroll nội bộ */}
-        <div className="flex-2 min-w-0 overflow-y-auto space-y-4" style={{ minHeight: 0 }}>
+        {/* Right panel — 1/3 chiều rộng, scroll nội bộ */}
+        <div className="flex-1 min-w-0 overflow-y-auto space-y-3" style={{ minHeight: 0 }}>
 
-          {/* GPS Simulator */}
-          <div className="card p-5 space-y-4 border-2 transition-all duration-300" style={{ borderColor: isSimulating ? "#f97316" : "var(--border-color)" }}>
+          {/* Driver Checkpoint Panel — chỉ hiển thị với DRIVER */}
+          {isDriver && (
+            <DriverCheckpointPanel
+              shipmentId={shipment.id}
+              shipmentCode={shipment.shipmentCode}
+              status={shipment.status}
+              originAddress={shipment.originAddress}
+              destinationAddress={shipment.destinationAddress}
+              checkpoints={shipment.checkpoints}
+              items={shipment.items}
+              driver={shipment.driver}
+              onStatusUpdate={handleStatusUpdate}
+              onCheckpointUpdate={handleCheckpointUpdate}
+            />
+          )}
+
+          {/* Staff Loading Panel — nhân viên kho xuất */}
+          {isStaffOnly && (
+            <StaffLoadingPanel
+              shipmentId={shipment.id}
+              shipmentCode={shipment.shipmentCode}
+              status={shipment.status}
+              items={shipment.items}
+              originWarehouse={shipment.originWarehouse}
+              onStatusUpdate={handleStatusUpdate}
+            />
+          )}
+
+          {/* Staff Receiving Panel — nhân viên kho nhập */}
+          {isStaffOnly && (
+            <StaffReceivingPanel
+              shipmentId={shipment.id}
+              shipmentCode={shipment.shipmentCode}
+              status={shipment.status}
+              items={shipment.items}
+              destinationWarehouse={shipment.destinationWarehouse}
+              onStatusUpdate={handleStatusUpdate}
+            />
+          )}
+
+          {canControlShipment && <div className="card p-5 space-y-4 border-2 transition-all duration-300" style={{ borderColor: isSimulating ? "#f97316" : "var(--border-color)" }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={`w-2.5 h-2.5 rounded-full ${isSimulating ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
@@ -402,7 +463,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                 <Flame size={12} /> Sự cố
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Driver */}
           <div className="card p-5">

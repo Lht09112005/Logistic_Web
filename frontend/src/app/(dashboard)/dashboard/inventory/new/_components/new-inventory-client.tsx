@@ -6,6 +6,7 @@ import {
   Package, ArrowLeft, Plus, MapPin, Clipboard, Tag, AlertCircle, RefreshCw
 } from "lucide-react";
 import { createInventoryAction } from "@/app/actions/inventory";
+import { RoleGuard } from "@/components/auth/role-guard";
 
 interface Warehouse {
   id: string; name: string; code: string; city: string; zones?: { id: string; name: string }[];
@@ -70,6 +71,7 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
   };
 
   return (
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER", "STAFF"]} fallback="redirect">
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -258,5 +260,6 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
         </div>
       </form>
     </div>
+    </RoleGuard>
   );
 }

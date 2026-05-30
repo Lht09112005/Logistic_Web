@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Package, Search, Filter, AlertTriangle, QrCode, Plus, Eye, Activity } from "lucide-react";
 import { formatDate, getCategoryLabel, getAlertSeverityBadge, getStockPercent } from "@/lib/utils";
 import { inventoryApi } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
 interface InventoryItem {
   id: string; quantity: number; reservedQty: number;
@@ -116,6 +117,7 @@ function useRealtimeInventory(initial: Props) {
 export default function InventoryClient(props: Props) {
   const router = useRouter();
   const { items: inventory, total, alerts, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeInventory(props);
+  const { isAdmin, isManager, isStaff } = useAuth();
   const [search, setSearch] = useState(props.initialSearch || "");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
 
@@ -167,9 +169,11 @@ export default function InventoryClient(props: Props) {
           <Link href="/dashboard/qr-scan" className="btn btn-secondary btn-sm">
             <QrCode size={14} /> Kiểm kho QR
           </Link>
-          <Link href="/dashboard/inventory/new" className="btn btn-primary btn-sm">
-            <Plus size={14} /> Thêm tồn kho
-          </Link>
+          {isAdmin || isManager || isStaff ? (
+            <Link href="/dashboard/inventory/new" className="btn btn-primary btn-sm">
+              <Plus size={14} /> Thêm tồn kho
+            </Link>
+          ) : null}
         </div>
       </div>
 

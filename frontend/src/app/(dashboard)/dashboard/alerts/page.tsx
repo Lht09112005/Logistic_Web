@@ -8,6 +8,7 @@ import {
   Clock, XCircle, Package, ArrowRight
 } from "lucide-react";
 import { formatDate, getAlertSeverityBadge } from "@/lib/utils";
+import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 
 interface Alert {
@@ -30,6 +31,7 @@ interface Alert {
 
 export default function AlertsPage() {
   const { setAlerts, resolveAlert: resolveAlertStore } = useAppStore();
+  const { isAdmin, isManager, isStaff } = useAuth();
   const [alerts, setLocalAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("unresolved");
@@ -182,18 +184,22 @@ export default function AlertsPage() {
                   <div className="flex flex-col gap-2">
                     {!alert.isResolved ? (
                       <>
-                        <button
-                          onClick={() => handleResolve(alert.id)}
-                          className="btn btn-secondary btn-sm text-emerald-600 hover:text-emerald-700"
-                        >
-                          Giải quyết
-                        </button>
-                        <Link
-                          href={`/dashboard/qr-scan?productId=${alert.productId}`}
-                          className="btn btn-primary btn-sm justify-center"
-                        >
-                          Nhập kho
-                        </Link>
+                        {isAdmin || isManager || isStaff ? (
+                          <button
+                            onClick={() => handleResolve(alert.id)}
+                            className="btn btn-secondary btn-sm text-emerald-600 hover:text-emerald-700"
+                          >
+                            Giải quyết
+                          </button>
+                        ) : null}
+                        {isAdmin || isManager || isStaff ? (
+                          <Link
+                            href={`/dashboard/qr-scan?productId=${alert.productId}`}
+                            className="btn btn-primary btn-sm justify-center"
+                          >
+                            Nhập kho
+                          </Link>
+                        ) : null}
                       </>
                     ) : (
                       <span className="badge badge-success text-xs font-semibold py-1">Đã giải quyết</span>

@@ -12,6 +12,7 @@ import {
   getShipmentStatusLabel, getShipmentStatusBadge,
 } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
 const STATUS_TABS = [
   { label: "Tất cả", value: "" },
@@ -29,7 +30,7 @@ interface Props {
 
 const POLL_INTERVAL = 15_000;
 
-function useRealtimeShipments(status?: string, page?: string, search?: string) {
+function useRealtimeShipments(status?: string, page?: string, search?: string, driverId?: string) {
   const [shipments, setShipments] = useState<unknown[]>([]);
   const [total, setTotal] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -43,6 +44,7 @@ function useRealtimeShipments(status?: string, page?: string, search?: string) {
         limit: "15",
         ...(status && { status }),
         ...(search && { search }),
+        ...(driverId && { driverId }),
       });
       const data = res.data.data || [];
       const metaTotal = res.data.meta?.total || 0;
@@ -52,7 +54,7 @@ function useRealtimeShipments(status?: string, page?: string, search?: string) {
       // keep existing data
     }
     setLastUpdated(new Date());
-  }, [page, status, search]);
+  }, [page, status, search, driverId]);
 
   // Initial fetch + polling
   useEffect(() => {
@@ -96,7 +98,9 @@ function useRealtimeShipments(status?: string, page?: string, search?: string) {
 export default function ShipmentsClient({ status, page, search }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { shipments, total, loading, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeShipments(status, page, search);
+  const { isAdmin, isManager, isDriver, user } = useAuth();
+  const driverId = isDriver && user?.id ? user.id : undefined;
+  const { shipments, total, loading, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeShipments(status, page, search, driverId);
   const [searchText, setSearchText] = useState(search || "");
   const activeStatus = status || "";
 
@@ -152,9 +156,11 @@ export default function ShipmentsClient({ status, page, search }: Props) {
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
-          <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
-            <Plus size={14} /> Tạo vận đơn
-          </Link>
+          {isAdmin || isManager ? (
+            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
+              <Plus size={14} /> Tạo vận đơn
+            </Link>
+          ) : null}
         </div>
       </div>
 

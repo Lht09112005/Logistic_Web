@@ -58,6 +58,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               refreshToken: "mock-refresh-token",
             };
           }
+          if (email === "driver1@logistiq.vn" && password === "staff123") {
+            return {
+              id: "mock-driver-id",
+              name: "Lê Minh Đức (Offline)",
+              email: "driver1@logistiq.vn",
+              role: "DRIVER",
+              phone: "0923456789",
+              accessToken: "mock-access-token",
+              refreshToken: "mock-refresh-token",
+            };
+          }
           return null;
         }
       },

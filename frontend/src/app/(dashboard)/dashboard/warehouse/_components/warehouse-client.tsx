@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Warehouse, Plus, Search, MapPin, Layers, Activity } from "lucide-react";
 import { getStockPercent } from "@/lib/utils";
 import { warehousesApi } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
 interface WarehouseItem {
   id: string;
@@ -90,6 +91,7 @@ function useRealtimeWarehouses(initial: unknown[]) {
 
 export default function WarehouseClient({ warehouses: initial }: Props) {
   const { items, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeWarehouses(initial);
+  const { isAdmin, isManager } = useAuth();
   const [search, setSearch] = useState("");
   const list = items as WarehouseItem[];
 
@@ -125,9 +127,11 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
-          <Link href="/dashboard/warehouse/new" className="btn btn-primary btn-sm">
-            <Plus size={14} /> Thêm kho mới
-          </Link>
+          {isAdmin || isManager ? (
+            <Link href="/dashboard/warehouse/new" className="btn btn-primary btn-sm">
+              <Plus size={14} /> Thêm kho mới
+            </Link>
+          ) : null}
         </div>
       </div>
 

@@ -18,6 +18,8 @@ interface AuthContextType {
   isAdmin: boolean;
   isManager: boolean;
   isStaff: boolean;
+  isStaffOnly: boolean;
+  isDriver: boolean;
   logout: () => Promise<void>;
 }
 
@@ -27,6 +29,8 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isManager: false,
   isStaff: false,
+  isStaffOnly: false,
+  isDriver: false,
   logout: async () => {},
 });
 
@@ -61,6 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin: user?.role === "ADMIN",
         isManager: user?.role === "MANAGER" || user?.role === "ADMIN",
         isStaff: user?.role === "STAFF" || user?.role === "MANAGER" || user?.role === "ADMIN",
+        isStaffOnly: user?.role === "STAFF",
+        isDriver: user?.role === "DRIVER",
         logout,
       }}
     >
