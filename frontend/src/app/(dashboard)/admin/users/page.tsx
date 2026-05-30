@@ -9,6 +9,7 @@ import {
   Edit3, Trash2, X, CheckCircle, AlertTriangle,
   UserCheck, UserX, RefreshCw,
 } from "lucide-react";
+import { RoleGuard } from "@/components/auth/role-guard";
 
 interface User {
   id: string;
@@ -53,7 +54,7 @@ const ROLE_BG: Record<string, string> = {
 
 const emptyForm: UserForm = { name: "", email: "", password: "", role: "STAFF", phone: "" };
 
-export default function AdminUsersPage() {
+function AdminUsersContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -496,5 +497,13 @@ export default function AdminUsersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminUsersPage() {
+  return (
+    <RoleGuard allowedRoles={["ADMIN"]} fallback="redirect">
+      <AdminUsersContent />
+    </RoleGuard>
   );
 }

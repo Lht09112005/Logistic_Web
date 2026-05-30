@@ -6,6 +6,7 @@ import {
   AlertTriangle, Truck, Layers, Activity
 } from "lucide-react";
 import { shipmentsApi, inventoryApi, warehousesApi } from "@/lib/api";
+import { RoleGuard } from "@/components/auth/role-guard";
 
 // ─── SVG Donut Chart ────────────────────────────────────────────────
 function DonutChart({
@@ -224,8 +225,8 @@ function useRealtimeAnalytics() {
   return { ...data, loading, isOffline, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
 }
 
-// ─── Page ───────────────────────────────────────────────────────────
-export default function AnalyticsPage() {
+// ─── Content ────────────────────────────────────────────────────────
+function AnalyticsContent() {
   const {
     stats, inventoryCount, alertsCount, warehouseCount,
     loading, isOffline, lastUpdated, socketConnected, refresh, refreshing
@@ -478,5 +479,14 @@ export default function AnalyticsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Page Export ────────────────────────────────────────────────────
+export default function AnalyticsPage() {
+  return (
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]}>
+      <AnalyticsContent />
+    </RoleGuard>
   );
 }
