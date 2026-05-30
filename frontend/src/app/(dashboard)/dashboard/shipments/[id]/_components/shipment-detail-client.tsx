@@ -80,9 +80,8 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
   const simIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [simStepIndex, setSimStepIndex] = useState(0);
 
-  // ETA & traffic
+  // ETA
   const [simETA, setSimETA] = useState<string>("—");
-  const [simTraffic, setSimTraffic] = useState<"none" | "light" | "moderate" | "heavy">("none");
 
   // ORS road route for simulation
   const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
@@ -373,7 +372,6 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
     setSimSpeed(Math.round(initialSpeed));
     const initialETA = calculateETA(currentIndex, routeCoords, initialSpeed);
     setSimETA(formatETA(initialETA));
-    setSimTraffic(initialSpeed < (roadRoute?.averageSpeed || 72) * 0.8 ? "moderate" : "none");
 
     simIntervalRef.current = setInterval(async () => {
       if (currentIndex >= routeCoords.length - 1) {
@@ -398,14 +396,6 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
       // Update ETA
       const eta = calculateETA(currentIndex, routeCoords, currentSpeed);
       setSimETA(formatETA(eta));
-
-      // Traffic estimate based on speed vs route average
-      const avgRouteSpeed = roadRoute?.averageSpeed || 72;
-      const ratio = currentSpeed / avgRouteSpeed;
-      if (ratio < 0.7) setSimTraffic("heavy");
-      else if (ratio < 0.85) setSimTraffic("moderate");
-      else if (ratio < 0.95) setSimTraffic("light");
-      else setSimTraffic("none");
 
       if (socketRef.current) {
         socketRef.current.emit("location:update", {
@@ -575,7 +565,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
             </p>
 
             {/* Telemetry data */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-2 text-center border-t border-b text-xs" style={{ borderColor: "var(--border-light)" }}>
+            <div className="grid grid-cols-3 gap-2 py-2 text-center border-t border-b text-xs" style={{ borderColor: "var(--border-light)" }}>
               <div className="space-y-0.5">
                 <span className="text-[10px] text-gray-400 font-medium">Tốc độ</span>
                 <div className="font-bold text-sm text-orange-500 flex items-center justify-center gap-0.5">
@@ -593,16 +583,6 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                 <div className="font-bold text-sm" style={{ color: isSimulating ? "#22c55e" : "var(--text-muted)" }}>
                   <Clock size={12} className="inline mr-0.5" />
                   {isSimulating ? simETA : "—"}
-                </div>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-[10px] text-gray-400 font-medium">Giao thông</span>
-                <div className="font-bold text-sm flex items-center justify-center gap-1">
-                  {simTraffic === "none" && <span><span className="w-2 h-2 rounded-full inline-block bg-emerald-500" /> Bình thường</span>}
-                  {simTraffic === "light" && <span><span className="w-2 h-2 rounded-full inline-block bg-yellow-400" /> Nhẹ</span>}
-                  {simTraffic === "moderate" && <span><span className="w-2 h-2 rounded-full inline-block bg-orange-500" /> Trung bình</span>}
-                  {simTraffic === "heavy" && <span><span className="w-2 h-2 rounded-full inline-block bg-red-500 animate-pulse" /> Nặng</span>}
-                  {!isSimulating && <span style={{ color: "var(--text-muted)" }}>—</span>}
                 </div>
               </div>
               <div className="space-y-0.5">
