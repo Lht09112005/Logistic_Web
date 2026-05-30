@@ -290,6 +290,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 .animate-badge-pop { animation: badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
+/* ─── Subtle bounce (alert badge on sidebar) ─── */
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+.animate-bounce-subtle {
+  animation: bounce-subtle 2s ease-in-out infinite;
+}
+
 /* ─── Sparkle rotate ─── */
 @keyframes sparkle {
   0%   { transform: scale(0) rotate(0deg); opacity: 0; }

@@ -184,126 +184,36 @@ function RoleSnapshot({ collapsed, role }: { collapsed: boolean; role: string })
   const accent = ROLE_ACCENT[role] || ROLE_ACCENT.STAFF;
 
   if (collapsed) {
-    const hasAlerts = data.alerts > 0;
-    const hasActive = data.activeShipments > 0;
-    const hasPending = data.pendingTasks > 0;
-    const accentColor = accent.primary;
+    const ROLE_COLLAPSED: Record<string, { icon: typeof BarChart3; }> = {
+      MANAGER: { icon: TrendingUp },
+      STAFF: { icon: ClipboardList },
+      ADMIN: { icon: BarChart3 },
+    };
+    const cfg = ROLE_COLLAPSED[role] || ROLE_COLLAPSED.STAFF;
+    const Icon = cfg.icon;
 
-    // ── MANAGER collapsed: Trend-focused, purple dot for pending tasks ──
-    if (role === "MANAGER") {
-      return (
-        <div className="px-2 pt-1.5 pb-1.5">
-          <div
-            className="rounded-xl border overflow-hidden transition-all duration-200 hover:scale-[1.03] group cursor-default"
-            style={{
-              borderColor: hasAlerts ? `${accentColor}40` : "var(--border-color)",
-              background: "var(--bg-card)",
-              boxShadow: hasAlerts ? `0 0 8px ${accentColor}15` : undefined,
-            }}
-            title={`${data.activeShipments} đang giao · ${data.alerts} cảnh báo · ${data.warehouses} kho`}
-          >
-            <div className="flex items-center justify-center p-2 relative">
-              {/* Pending tasks indicator */}
-              {hasPending && (
-                <span className="absolute -top-0.5 -left-0.5 w-2 h-2 rounded-full bg-purple-400 ring-2 ring-white dark:ring-gray-950" />
-              )}
-              <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
-                style={{ background: accent.gradient }}
-              >
-                <TrendingUp size={12} color="white" />
-              </div>
-              {/* Alert badge */}
-              {hasAlerts && (
-                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[7px] font-bold leading-none ring-2 ring-white dark:ring-gray-950">
-                  {data.alerts > 9 ? '9+' : data.alerts}
-                </span>
-              )}
-            </div>
-            {/* Bottom activity bar */}
-            {(hasAlerts || hasPending) && (
-              <div className="h-0.5" style={{ background: hasAlerts ? accentColor : "#a78bfa" }} />
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ── STAFF collapsed: Task-focused, orange dot for active shipments ──
-    if (role === "STAFF") {
-      return (
-        <div className="px-2 pt-1.5 pb-1.5">
-          <div
-            className="rounded-xl border overflow-hidden transition-all duration-200 hover:scale-[1.03] group cursor-default"
-            style={{
-              borderColor: hasAlerts ? `${accentColor}40` : "var(--border-color)",
-              background: "var(--bg-card)",
-              boxShadow: hasAlerts ? `0 0 8px ${accentColor}15` : undefined,
-            }}
-            title={`${data.activeShipments} đang giao · ${data.alerts} cảnh báo · ${data.warehouses} kho`}
-          >
-            <div className="flex items-center justify-center p-2 relative">
-              {/* Active shipments indicator */}
-              {hasActive && (
-                <span className="absolute -top-0.5 -left-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-gray-950 animate-pulse" />
-              )}
-              <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
-                style={{ background: accent.gradient }}
-              >
-                <ClipboardList size={12} color="white" />
-              </div>
-              {/* Alert badge */}
-              {hasAlerts && (
-                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[7px] font-bold leading-none ring-2 ring-white dark:ring-gray-950">
-                  {data.alerts > 9 ? '9+' : data.alerts}
-                </span>
-              )}
-            </div>
-            {/* Bottom activity bar */}
-            {(hasAlerts || hasActive) && (
-              <div className="h-0.5" style={{ background: hasAlerts ? accentColor : "#fbbf24" }} />
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ── ADMIN collapsed: Overview-focused, green dot for active shipments ──
     return (
       <div className="px-2 pt-1.5 pb-1.5">
-        <div
-          className="rounded-xl border overflow-hidden transition-all duration-200 hover:scale-[1.03] group cursor-default"
-          style={{
-            borderColor: hasAlerts ? `${accentColor}40` : "var(--border-color)",
-            background: "var(--bg-card)",
-            boxShadow: hasAlerts ? `0 0 8px ${accentColor}15` : undefined,
-          }}
+        <Link
+          href="/dashboard"
           title={`${data.activeShipments} đang giao · ${data.alerts} cảnh báo · ${data.warehouses} kho`}
+          className="group block"
         >
-          <div className="flex items-center justify-center p-2 relative">
-            {/* Active shipments indicator */}
-            {hasActive && (
-              <span className="absolute -top-0.5 -left-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-950 animate-pulse" />
-            )}
+          <div
+            className="rounded-xl border overflow-hidden transition-all duration-200 hover:scale-[1.05] group-hover:shadow-lg flex items-center justify-center p-2 relative"
+            style={{
+              borderColor: "var(--border-color)",
+              background: "var(--bg-card)",
+            }}
+          >
             <div
-              className="w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
+              className="w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 group-hover:scale-110"
               style={{ background: accent.gradient }}
             >
-              <BarChart3 size={12} color="white" />
+              <Icon size={16} color="white" />
             </div>
-            {/* Alert badge */}
-            {hasAlerts && (
-              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[7px] font-bold leading-none ring-2 ring-white dark:ring-gray-950">
-                {data.alerts > 9 ? '9+' : data.alerts}
-              </span>
-            )}
           </div>
-          {/* Bottom activity bar */}
-          {(hasAlerts || hasActive) && (
-            <div className="h-0.5" style={{ background: hasAlerts ? accentColor : "#10b981" }} />
-          )}
-        </div>
+        </Link>
       </div>
     );
   }
