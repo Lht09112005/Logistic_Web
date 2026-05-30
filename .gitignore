@@ -74,6 +74,7 @@ jspm_packages/
 .yarn-integrity
 
 # dotenv environment variable files
+!.env.example
 .env
 .env.development.local
 .env.test.local
@@ -82,8 +83,7 @@ jspm_packages/
 *.env
 **/.env
 **/*.env
-!*.env.example
-!**/*.env.example
+
 
 # parcel-bundler cache directory: https://parceljs.org/cli.html#cache
 .parcel-cache
