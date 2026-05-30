@@ -305,8 +305,10 @@ async function main() {
   console.log('✅ Stock alerts seeded')
 
   // --- Shipments ---
-  const shipment1 = await prisma.shipment.create({
-    data: {
+  const shipment1 = await prisma.shipment.upsert({
+    where: { shipmentCode: 'SHP-000001' },
+    update: {},
+    create: {
       shipmentCode: 'SHP-000001',
       status: 'IN_TRANSIT',
       driverId: driver1.id,
@@ -343,8 +345,10 @@ async function main() {
     },
   })
 
-  await prisma.shipment.create({
-    data: {
+  await prisma.shipment.upsert({
+    where: { shipmentCode: 'SHP-000002' },
+    update: {},
+    create: {
       shipmentCode: 'SHP-000002',
       status: 'PENDING',
       driverId: driver2.id,
@@ -376,8 +380,10 @@ async function main() {
     },
   })
 
-  await prisma.shipment.create({
-    data: {
+  await prisma.shipment.upsert({
+    where: { shipmentCode: 'SHP-000003' },
+    update: {},
+    create: {
       shipmentCode: 'SHP-000003',
       status: 'DELIVERED',
       driverId: driver1.id,

@@ -73,7 +73,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
   const simIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [simStepIndex, setSimStepIndex] = useState(0);
 
-  // Load Leaflet map dynamically (SSR-safe)
+  // Load map component dynamically (SSR-safe)
   useEffect(() => {
     import("./shipment-map").then((mod) => {
       MapRef.current = mod.ShipmentMap;
