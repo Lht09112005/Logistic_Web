@@ -11,8 +11,8 @@ router.use(authenticate)
 
 router.get('/', getWarehouses)
 router.get('/:id', getWarehouseById)
-router.post('/', authorize('ADMIN'), createWarehouse)
-router.put('/:id', authorize('ADMIN'), updateWarehouse)
-router.delete('/:id', authorize('ADMIN'), deleteWarehouse)
+router.post('/', authorize('ADMIN', 'MANAGER'), createWarehouse)
+router.put('/:id', authorize('ADMIN', 'MANAGER'), updateWarehouse)
+router.delete('/:id', authorize('ADMIN', 'MANAGER'), deleteWarehouse)
 
 export default router

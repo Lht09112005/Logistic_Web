@@ -35,11 +35,21 @@ const navItems = [
   },
 ];
 
-const adminItems = [
+// Only ADMIN sees "Quản trị" → "Người dùng"
+const adminOnlyItems = [
   {
     group: "Quản trị",
     items: [
       { href: "/admin/users", icon: Users, label: "Người dùng" },
+    ],
+  },
+];
+
+// ADMIN + MANAGER see "Cài đặt"
+const settingsItems = [
+  {
+    group: "Cá nhân",
+    items: [
       { href: "/admin/settings", icon: Settings, label: "Cài đặt" },
     ],
   },
@@ -50,9 +60,14 @@ export function Sidebar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const unreadAlertCount = useAppStore((s) => s.unreadAlertCount);
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isManager } = useAuth();
 
-  const allItems = isAdmin ? [...navItems, ...adminItems] : navItems;
+  // Build items based on role
+  let extraItems = [...settingsItems];
+  if (isAdmin) {
+    extraItems = [...adminOnlyItems, ...settingsItems];
+  }
+  const allItems = [...navItems, ...extraItems];
 
   return (
     <>
@@ -176,7 +191,7 @@ export function Sidebar() {
                   {user?.name}
                 </p>
                 <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                  {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "DRIVER" ? "Tài xế" : "Nhân viên"}
+                  {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "MANAGER" ? "Quản lý kho" : user?.role === "DRIVER" ? "Tài xế" : "Nhân viên"}
                 </p>
               </div>
               <button onClick={logout} className="btn-icon flex-shrink-0" title="Đăng xuất">

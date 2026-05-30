@@ -1,13 +1,20 @@
 import { Request, Response } from 'express'
 import { prisma } from '../config/database'
 import { sendSuccess, sendError } from '../utils/response'
+import { AuthRequest } from '../middleware/auth.middleware'
 
 // GET /api/warehouses
-export const getWarehouses = async (req: Request, res: Response): Promise<void> => {
+export const getWarehouses = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { status, search } = req.query
 
     const where: Record<string, unknown> = {}
+
+    // MANAGER only sees warehouses they are assigned to manage
+    if (req.user?.role === 'MANAGER') {
+      where.managerId = req.user.userId
+    }
+
     if (status) where.status = status
     if (search) {
       where.OR = [
@@ -33,7 +40,7 @@ export const getWarehouses = async (req: Request, res: Response): Promise<void> 
 }
 
 // GET /api/warehouses/:id
-export const getWarehouseById = async (req: Request, res: Response): Promise<void> => {
+export const getWarehouseById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const warehouse = await prisma.warehouse.findUnique({
       where: { id: req.params.id },
@@ -52,6 +59,12 @@ export const getWarehouseById = async (req: Request, res: Response): Promise<voi
 
     if (!warehouse) {
       sendError(res, 'Không tìm thấy kho', 404)
+      return
+    }
+
+    // MANAGER can only view detail of their own warehouse
+    if (req.user?.role === 'MANAGER' && warehouse.managerId !== req.user.userId) {
+      sendError(res, 'Bạn không có quyền xem kho này', 403)
       return
     }
 

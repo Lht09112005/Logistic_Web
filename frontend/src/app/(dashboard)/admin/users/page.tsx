@@ -14,7 +14,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: "ADMIN" | "STAFF" | "DRIVER";
+  role: "ADMIN" | "MANAGER" | "STAFF" | "DRIVER";
   phone?: string;
   avatar?: string;
   isActive: boolean;
@@ -32,18 +32,21 @@ interface UserForm {
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Quản trị viên",
+  MANAGER: "Quản lý kho",
   STAFF: "Nhân viên",
   DRIVER: "Tài xế",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "#ef4444",
+  MANAGER: "#8b5cf6",
   STAFF: "#6366f1",
   DRIVER: "#f97316",
 };
 
 const ROLE_BG: Record<string, string> = {
   ADMIN: "#fef2f2",
+  MANAGER: "#f5f3ff",
   STAFF: "#eef2ff",
   DRIVER: "#fff7ed",
 };
@@ -209,6 +212,7 @@ export default function AdminUsersPage() {
           {[
             { v: "", label: "Tất cả" },
             { v: "ADMIN", label: "Quản trị" },
+            { v: "MANAGER", label: "Quản lý" },
             { v: "STAFF", label: "Nhân viên" },
             { v: "DRIVER", label: "Tài xế" },
           ].map((tab) => (
@@ -259,7 +263,7 @@ export default function AdminUsersPage() {
                       <div className="flex items-center gap-3">
                         <div
                           className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${ROLE_COLORS[user.role]}, ${user.role === "ADMIN" ? "#dc2626" : user.role === "STAFF" ? "#4f46e5" : "#ea580c"})` }}
+                          style={{ background: `linear-gradient(135deg, ${ROLE_COLORS[user.role]}, ${user.role === "ADMIN" ? "#dc2626" : user.role === "MANAGER" ? "#7c3aed" : user.role === "STAFF" ? "#4f46e5" : "#ea580c"})` }}
                         >
                           {user.name.charAt(0).toUpperCase()}
                         </div>
@@ -279,6 +283,7 @@ export default function AdminUsersPage() {
                         style={{ background: ROLE_BG[user.role], color: ROLE_COLORS[user.role] }}
                       >
                         {user.role === "ADMIN" ? <ShieldAlert size={12} /> :
+                         user.role === "MANAGER" ? <ShieldCheck size={12} /> :
                          user.role === "STAFF" ? <ShieldCheck size={12} /> :
                          <Shield size={12} />}
                         {ROLE_LABELS[user.role]}
@@ -445,7 +450,7 @@ export default function AdminUsersPage() {
                   Vai trò
                 </label>
                 <div className="flex gap-2">
-                  {["ADMIN", "STAFF", "DRIVER"].map((role) => (
+                  {["ADMIN", "MANAGER", "STAFF", "DRIVER"].map((role) => (
                     <button
                       key={role}
                       onClick={() => setForm({ ...form, role })}
