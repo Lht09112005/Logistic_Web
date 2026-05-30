@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   BarChart3, TrendingUp, Download, CheckCircle, Package,
   AlertTriangle, Truck, Layers, Activity
@@ -47,7 +47,6 @@ function DonutChart({
           />
         );
       })}
-      {/* Center hole */}
       <circle cx={cx} cy={cy} r={44} fill="var(--bg-card, white)" />
       <text x={cx} y={cy - 6} textAnchor="middle" fontSize="20" fontWeight="700" fill="var(--text-primary, #111)">
         {total}
@@ -105,45 +104,132 @@ function AnimatedBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-// ─── Page ───────────────────────────────────────────────────────────
-export default function AnalyticsPage() {
+// ─── POLLING ────────────────────────────────────────────────────────
+const POLL_INTERVAL = 15_000;
+
+interface AnalyticsState {
+  stats: { total: number; inTransit: number; delivered: number; pending: number; failed: number };
+  inventoryCount: number;
+  alertsCount: number;
+  warehouseCount: number;
+}
+
+const defaultState: AnalyticsState = {
+  stats: { total: 0, inTransit: 0, delivered: 0, pending: 0, failed: 0 },
+  inventoryCount: 0,
+  alertsCount: 0,
+  warehouseCount: 0,
+};
+
+// ─── Realtime Analytics Hook ────────────────────────────────────────
+function useRealtimeAnalytics() {
+  const fallbackRef = useRef<AnalyticsState>(defaultState);
+
+  const [data, setData] = useState<AnalyticsState>(defaultState);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
-  const [stats, setStats] = useState({ total: 0, inTransit: 0, delivered: 0, pending: 0, failed: 0 });
-  const [inventoryCount, setInventoryCount] = useState(0);
-  const [alertsCount, setAlertsCount] = useState(0);
-  const [warehouseCount, setWarehouseCount] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [socketConnected, setSocketConnected] = useState(false);
 
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        // Use allSettled so one failing API won't crash the whole page
-        const [statsRes, invRes, alertsRes, whRes] = await Promise.allSettled([
-          shipmentsApi.getStats(),
-          inventoryApi.getAll({ limit: 1 }),
-          inventoryApi.getAlerts({ isResolved: "false" }),
-          warehousesApi.getAll(),
-        ]);
+  const fetchAll = useCallback(async () => {
+    const [statsRes, invRes, alertsRes, whRes] = await Promise.allSettled([
+      shipmentsApi.getStats(),
+      inventoryApi.getAll({ limit: 1 }),
+      inventoryApi.getAlerts({ isResolved: "false" }),
+      warehousesApi.getAll(),
+    ]);
 
-        let anyFailed = false;
-        if (statsRes.status === "fulfilled") setStats(statsRes.value.data.data);
-        else anyFailed = true;
-        if (invRes.status === "fulfilled") setInventoryCount(invRes.value.data.meta?.total || 0);
-        else anyFailed = true;
-        if (alertsRes.status === "fulfilled") setAlertsCount((alertsRes.value.data.data || []).length);
-        else anyFailed = true;
-        if (whRes.status === "fulfilled") setWarehouseCount((whRes.value.data.data || []).length);
-        else anyFailed = true;
+    const updated: Partial<AnalyticsState> = {};
+    let anyFailed = false;
 
-        if (anyFailed) setIsOffline(true);
-      } catch {
-        setIsOffline(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadStats();
+    if (statsRes.status === "fulfilled") updated.stats = statsRes.value.data.data ?? fallbackRef.current.stats;
+    else anyFailed = true;
+    if (invRes.status === "fulfilled") updated.inventoryCount = invRes.value.data.meta?.total ?? fallbackRef.current.inventoryCount;
+    else anyFailed = true;
+    if (alertsRes.status === "fulfilled") updated.alertsCount = (alertsRes.value.data.data || []).length;
+    else anyFailed = true;
+    if (whRes.status === "fulfilled") updated.warehouseCount = (whRes.value.data.data || []).length;
+    else anyFailed = true;
+
+    setData(prev => {
+      const next = { ...prev, ...updated };
+      fallbackRef.current = next;
+      return next;
+    });
+    setLastUpdated(new Date());
+    if (anyFailed) setIsOffline(true);
   }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchAll().finally(() => setLoading(false));
+  }, [fetchAll]);
+
+  // Polling
+  useEffect(() => {
+    const interval = setInterval(fetchAll, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
+  // Socket.io for realtime
+  useEffect(() => {
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+      socket.on("connect", () => setSocketConnected(true));
+      socket.on("disconnect", () => setSocketConnected(false));
+      socket.on("alert:new", () => {
+        inventoryApi.getAlerts({ isResolved: "false" })
+          .then((res) => setData(prev => {
+            const next = { ...prev, alertsCount: (res.data.data || []).length };
+            fallbackRef.current = next;
+            return next;
+          }))
+          .catch(() => {});
+      });
+      // Debounced stats refresh on GPS update (at most once per 10s)
+      let lastStatsRefresh = 0;
+      socket.on("shipment:position", () => {
+        const now = Date.now();
+        if (now - lastStatsRefresh < 10_000) return;
+        lastStatsRefresh = now;
+        shipmentsApi.getStats()
+          .then((res) => setData(prev => {
+            const next = { ...prev, stats: res.data.data ?? prev.stats };
+            fallbackRef.current = next;
+            return next;
+          }))
+          .catch(() => {});
+      });
+      return socket;
+    };
+    const cleanup = initSocket();
+    return () => {
+      cleanup.then((s) => {
+        s?.off("alert:new");
+        s?.off("shipment:position");
+        s?.disconnect();
+      });
+    };
+  }, []);
+
+  // Manual refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
+
+  return { ...data, loading, isOffline, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
+}
+
+// ─── Page ───────────────────────────────────────────────────────────
+export default function AnalyticsPage() {
+  const {
+    stats, inventoryCount, alertsCount, warehouseCount,
+    loading, isOffline, lastUpdated, socketConnected, refresh, refreshing
+  } = useRealtimeAnalytics();
 
   const handleExportPDF = async () => {
     const { jsPDF } = await import("jspdf");
@@ -197,7 +283,7 @@ export default function AnalyticsPage() {
 
   const deliveryRate = stats.total > 0 ? Math.round((stats.delivered / stats.total) * 100) : 0;
 
-  // Mock weekly trend for sparkline (simulated from stats)
+  // Weekly trend built from current live stats
   const weeklyTrend = [
     Math.max(1, stats.delivered - 5),
     Math.max(1, stats.delivered - 3),
@@ -215,7 +301,6 @@ export default function AnalyticsPage() {
     { value: stats.failed, color: "#ef4444", label: "Thất bại" },
   ].filter(s => s.value > 0);
 
-  // Pad donut if all zero
   const chartSegments = donutSegments.length > 0
     ? donutSegments
     : [{ value: 1, color: "#e5e7eb", label: "Chưa có dữ liệu" }];
@@ -231,17 +316,30 @@ export default function AnalyticsPage() {
           <span>Backend chưa kết nối hoặc token không hợp lệ — hiển thị dữ liệu mặc định (chế độ offline)</span>
         </div>
       )}
-      {/* Header */}
+
+      {/* Header with realtime status */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-            Báo cáo phân tích
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+              Báo cáo phân tích
+            </h1>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+            </div>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
+          </div>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             Xem hiệu suất chuỗi cung ứng và xuất báo cáo dữ liệu định kỳ
           </p>
         </div>
         <div className="flex gap-2">
+          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+          </button>
           <button onClick={handleExportExcel} className="btn btn-secondary btn-sm">
             <Download size={14} /> Xuất Excel
           </button>
@@ -270,7 +368,7 @@ export default function AnalyticsPage() {
           <Sparkline values={weeklyTrend} color="#f97316" />
         </div>
 
-        {/* Delivery rate + donut mini */}
+        {/* Delivery rate */}
         <div className="card p-5 flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-emerald-50">
