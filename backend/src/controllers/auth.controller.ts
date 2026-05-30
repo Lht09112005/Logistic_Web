@@ -127,6 +127,58 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   }
 }
 
+// PUT /api/auth/me
+export const updateMe = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { name, email, phone, password } = req.body
+    const userId = req.user!.userId
+
+    // Validate required fields
+    if (name !== undefined && !name.toString().trim()) {
+      sendError(res, 'Họ tên không được để trống', 400)
+      return
+    }
+    if (email !== undefined && !email.toString().trim()) {
+      sendError(res, 'Email không được để trống', 400)
+      return
+    }
+
+    // Check email uniqueness if changing
+    if (email !== undefined) {
+      const existing = await prisma.user.findFirst({
+        where: { email, NOT: { id: userId } },
+      })
+      if (existing) {
+        sendError(res, 'Email đã được sử dụng', 409)
+        return
+      }
+    }
+
+    // Build update payload — only include provided fields
+    const data: Record<string, unknown> = {}
+    if (name !== undefined) data.name = name
+    if (email !== undefined) data.email = email
+    if (phone !== undefined) data.phone = phone
+    if (password !== undefined) {
+      if (password.length < 6) {
+        sendError(res, 'Mật khẩu phải có ít nhất 6 ký tự', 400)
+        return
+      }
+      data.password = await bcrypt.hash(password, 12)
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: { id: true, name: true, email: true, role: true, phone: true, avatar: true, updatedAt: true },
+    })
+
+    sendSuccess(res, updated, 'Cập nhật thông tin thành công')
+  } catch (error) {
+    sendError(res, 'Lỗi cập nhật thông tin', 500, error)
+  }
+}
+
 // GET /api/auth/drivers
 export const getDrivers = async (req: Request, res: Response): Promise<void> => {
   try {

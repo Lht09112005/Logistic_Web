@@ -126,6 +126,7 @@ export const authApi = {
   refresh: (refreshToken: string) =>
     api.post("/auth/refresh", { refreshToken }),
   me: () => api.get("/auth/me"),
+  updateMe: (data: Record<string, unknown>) => api.put("/auth/me", data),
 };
 
 export const productsApi = {

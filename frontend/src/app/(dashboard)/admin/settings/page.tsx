@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
-import { usersApi } from "@/lib/api";
+import { authApi } from "@/lib/api";
 import {
   Settings, User, Lock, Bell, Monitor,
   Save, X, AlertTriangle, CheckCircle,
@@ -82,7 +82,7 @@ export default function AdminSettingsPage() {
     }
     setProfileSaving(true);
     try {
-      await usersApi.update(user!.id, profile);
+      await authApi.updateMe(profile);
       setProfileSuccess("Cập nhật hồ sơ thành công");
       setTimeout(() => {
         setProfileSuccess("");
@@ -112,7 +112,7 @@ export default function AdminSettingsPage() {
     }
     setPwSaving(true);
     try {
-      await usersApi.update(user!.id, { password: passwords.newPass });
+      await authApi.updateMe({ password: passwords.newPass });
       setPwSuccess("Đổi mật khẩu thành công");
       setPasswords({ newPass: "", confirm: "" });
       setTimeout(() => setPwSuccess(""), 3000);
