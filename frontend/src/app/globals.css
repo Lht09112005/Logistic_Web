@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "./styles/tw-animate.css";
+@import "./styles/shadcn-tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -202,6 +202,124 @@ h1, h2, h3, h4, h5, h6 {
   100% { background-position: 200% 0; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Confetti ─── */
+@keyframes confetti-fall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  40%  { opacity: 1; }
+  100% { transform: translateY(120px) rotate(720deg); opacity: 0; }
+}
+@keyframes confetti-badge {
+  0%   { transform: scale(0) translateY(20px); opacity: 0; }
+  50%  { transform: scale(1.15) translateY(-4px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.animate-confetti-fall  { animation: confetti-fall 1.8s ease-out forwards; }
+.animate-confetti-badge  { animation: confetti-badge 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* ─── Toast slide in ─── */
+@keyframes toast-slide-in {
+  0%   { transform: translateX(120%) scale(0.9); opacity: 0; }
+  60%  { transform: translateX(-8px) scale(1.02); opacity: 1; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+.animate-toast-slide-in { animation: toast-slide-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* ─── Bounce in ─── */
+@keyframes bounceIn {
+  0%   { transform: scale(0.3); opacity: 0; }
+  50%  { transform: scale(1.08); }
+  70%  { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ─── Checkpoint dot complete (burst ring) ─── */
+@keyframes checkpoint-complete {
+  0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+  50%  { transform: scale(1.25); box-shadow: 0 0 0 12px rgba(16,185,129,0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+.animate-checkpoint-complete { animation: checkpoint-complete 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* ─── Step complete slide in ─── */
+@keyframes step-complete {
+  0%   { opacity: 0.6; transform: translateX(-8px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+.animate-step-complete { animation: step-complete 0.4s ease-out; }
+
+/* ─── Icon pop ─── */
+@keyframes icon-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.35) rotate(-10deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.animate-icon-pop { animation: icon-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* ─── Badge pop ─── */
+@keyframes badge-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-badge-pop { animation: badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* ─── Sparkle rotate ─── */
+@keyframes sparkle {
+  0%   { transform: scale(0) rotate(0deg); opacity: 0; }
+  50%  { transform: scale(1.3) rotate(180deg); opacity: 1; }
+  100% { transform: scale(1) rotate(360deg); opacity: 0; }
+}
+.animate-sparkle { animation: sparkle 0.8s ease-out forwards; }
+
+/* ─── Label pop ─── */
+@keyframes label-pop {
+  0%   { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-label-pop { animation: label-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* ─── Text pop ─── */
+@keyframes text-pop {
+  0%   { transform: scale(0.9); color: #d1d5db; }
+  50%  { transform: scale(1.08); }
+  100% { transform: scale(1); color: #059669; }
+}
+.animate-text-pop { animation: text-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* ─── Shake (error) ─── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+.animate-shake { animation: shake 0.5s ease-in-out; }
+
+/* ─── Slide in (generic) ─── */
+@keyframes slideIn {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-in { animation: slideIn 0.35s ease-out; }
+
+/* ─── Trip card slide down (sidebar driver) ─── */
+@keyframes trip-slide-down {
+  0%   { opacity: 0; transform: translateY(-24px) scale(0.96); max-height: 0; }
+  50%  { opacity: 1; transform: translateY(4px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); max-height: 300px; }
+}
+.animate-trip-arrive {
+  animation: trip-slide-down 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Idle state fade up (sidebar driver) ─── */
+@keyframes idle-fade-in {
+  0%   { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-idle-in { animation: idle-fade-in 0.35s ease-out forwards; }
 
 /* ===================== Utility Classes ===================== */
 .animate-fade-in    { animation: fadeIn 0.3s ease both; }
