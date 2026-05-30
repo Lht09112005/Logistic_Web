@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/map";
 import MapLibreGL from "maplibre-gl";
 import { haversineDistance } from "@/lib/route-optimizer";
-import { fetchRoadRoute, parseSegmentsFromRoute, type RouteWaypoint, type RoadRoute } from "@/lib/routing-service";
+import { fetchRoadRoute, type RouteWaypoint, type RoadRoute } from "@/lib/routing-service";
 
 const RADAR_MARKER_HTML = `
   <style>
@@ -130,11 +130,7 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
     return segs;
   }, [waypoints]);
 
-  // Tracking history as [lng, lat] for MapLibre
-  const trackingCoords = useMemo(() => {
-    if (shipment.trackingHistory.length < 2) return [];
-    return shipment.trackingHistory.map((p) => [p.longitude, p.latitude] as [number, number]);
-  }, [shipment.trackingHistory]);
+
 
   // ── OpenRouteService road route ──
   const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
@@ -171,16 +167,9 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
     };
   }, [waypoints]);
 
-  // Parse segment-level distances & waypoint indices from ORS route
-  const roadSegmentData = useMemo(() => {
-    if (!roadRoute) return null;
-    const wps: RouteWaypoint[] = waypoints.map((w) => ({
-      lng: w.lng,
-      lat: w.lat,
-      label: w.label,
-    }));
-    return parseSegmentsFromRoute(roadRoute.coordinates, wps);
-  }, [roadRoute, waypoints]);
+
+
+
 
   // All points for fitting map bounds
   const allPoints = useMemo(() => {
@@ -294,14 +283,6 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
         </MapMarker>
       )}
 
-      {/* ── Tracking history polyline (glowing path) ── */}
-      {trackingCoords.length > 1 && (
-        <>
-          <MapRoute coordinates={trackingCoords} color="#f97316" width={6} opacity={0.15} interactive={false} />
-          <MapRoute coordinates={trackingCoords} color="#f97316" width={3} opacity={0.9} dashArray={[6, 5]} interactive={false} />
-        </>
-      )}
-
       {/* ── Loading indicator for road route ── */}
       {roadLoading && (
         <div className="absolute top-2 left-2 z-20 bg-black/60 text-white text-[10px] px-2.5 py-1 rounded-full backdrop-blur-sm flex items-center gap-1.5">
@@ -310,10 +291,18 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
         </div>
       )}
 
-      {/* ── Road route (ORS) or fallback to straight segments ── */}
+      {/* ── Road route (ORS) — one continuous line ── */}
       {isRoadRoute && roadRoute ? (
         <>
-          {/* Single continuous road-following polyline */}
+          {/* Glow underneath */}
+          <MapRoute
+            coordinates={roadRoute.coordinates}
+            color="#f97316"
+            width={7}
+            opacity={0.12}
+            interactive={false}
+          />
+          {/* Main route line */}
           <MapRoute
             coordinates={roadRoute.coordinates}
             color="#f97316"
@@ -321,63 +310,33 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
             opacity={0.9}
             interactive={false}
           />
-          {/* Glow underneath */}
+        </>
+      ) : hasOrigin && hasDest ? (
+        /* ── Fallback: single straight line (chim bay) when ORS unavailable ── */
+        <>
           <MapRoute
-            coordinates={roadRoute.coordinates}
-            color="#f97316"
-            width={8}
-            opacity={0.15}
+            coordinates={[[shipment.originLng!, shipment.originLat!], [shipment.destinationLng!, shipment.destinationLat!]]}
+            color="#94a3b8"
+            width={2.5}
+            opacity={0.7}
+            dashArray={[8, 6]}
+            interactive={false}
+          />
+          {/* Glow */}
+          <MapRoute
+            coordinates={[[shipment.originLng!, shipment.originLat!], [shipment.destinationLng!, shipment.destinationLat!]]}
+            color="#94a3b8"
+            width={6}
+            opacity={0.1}
             interactive={false}
           />
         </>
-      ) : (
-        /* ── Fallback: straight-line segments when ORS unavailable ── */
-        segments.map((seg, i) => {
-          const hue = Math.round(30 + seg.ratio * 30);
-          return (
-            <MapRoute
-              key={`route-${i}`}
-              coordinates={[[seg.from.lng, seg.from.lat], [seg.to.lng, seg.to.lat]]}
-              color={`hsl(${hue}, 90%, 55%)`}
-              width={3.5}
-              opacity={0.85}
-              interactive={false}
-            />
-          );
-        })
-      )}
+      ) : null}
 
-      {/* ── Distance labels at midpoints ── */}
-      {segments.map((seg, i) => {
-        const midLng = (seg.from.lng + seg.to.lng) / 2;
-        const midLat = (seg.from.lat + seg.to.lat) / 2;
-        const segDist = isRoadRoute && roadSegmentData?.distances[i]
-          ? roadSegmentData.distances[i]
-          : seg.dist;
-        return (
-          <MapMarker key={`label-${i}`} longitude={midLng} latitude={midLat}>
-            <MarkerContent>
-              <div
-                style={{
-                  background: "rgba(0,0,0,0.75)", color: "white",
-                  padding: "2px 8px", borderRadius: "99px",
-                  fontSize: "10px", fontWeight: 700,
-                  whiteSpace: "nowrap",
-                  backdropFilter: "blur(4px)",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                }}
-              >
-                {seg.from.label || ""} → {segDist.toFixed(1)} km
-                {isRoadRoute && <span className="text-[8px] text-orange-300 ml-1">🚗</span>}
-              </div>
-            </MarkerContent>
-          </MapMarker>
-        );
-      })}
 
-      {/* ── Straight line reference (dashed gray) ── */}
-      {hasOrigin && hasDest && (
+
+      {/* ── Straight line reference (dashed gray) — only when ORS is available ── */}
+      {isRoadRoute && hasOrigin && hasDest && (
         <MapRoute
           coordinates={[[shipment.originLng!, shipment.originLat!], [shipment.destinationLng!, shipment.destinationLat!]]}
           color="#94a3b8"
@@ -386,6 +345,35 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
           dashArray={[4, 6]}
           interactive={false}
         />
+      )}
+
+      {/* ── Speed legend ── */}
+      {isRoadRoute && roadRoute && (
+        <div
+          style={{
+            position: "absolute", bottom: 24, right: 48,
+            background: "rgba(0,0,0,0.8)",
+            borderRadius: 10,
+            padding: "8px 12px",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            zIndex: 20,
+            fontSize: 10,
+            lineHeight: 1.8,
+          }}
+        >
+          <div style={{ color: "#94a3b8", fontWeight: 700, fontSize: 9, marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+            Tuyến đường
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 14, height: 4, borderRadius: 2, background: "#f97316" }} />
+            <span style={{ color: "white" }}>ORS đường bộ</span>
+          </div>
+          <div style={{ marginTop: 2, color: "#6b7280", fontSize: 9 }}>
+            {roadRoute.distance.toFixed(1)} km
+          </div>
+        </div>
       )}
 
       {/* ── Route info card ── */}
