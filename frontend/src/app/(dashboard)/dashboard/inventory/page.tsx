@@ -48,7 +48,7 @@ function InventoryContent() {
     fetchInventoryData();
   }, [page, search, warehouseId, lowStock]);
 
-  if (loading) {
+  if (loading && inventory.length === 0) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="skeleton h-10 w-48 rounded-xl" />
@@ -58,7 +58,7 @@ function InventoryContent() {
     );
   }
 
-  return <InventoryClient inventory={inventory} total={total} alerts={alerts} />;
+  return <InventoryClient inventory={inventory} total={total} alerts={alerts} initialPage={parseInt(page)} initialSearch={search || ""} initialWarehouseId={warehouseId || ""} lowStock={lowStock || ""} />;
 }
 
 export default function InventoryPage() {

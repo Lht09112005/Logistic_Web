@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Package, ArrowLeft, Save, MapPin, Clipboard, AlertTriangle, CheckCircle, Info, RefreshCw
+  Package, ArrowLeft, Save, MapPin, AlertTriangle, CheckCircle, Info, Activity
 } from "lucide-react";
 import { updateInventoryAction } from "@/app/actions/inventory";
 import { getStockPercent, getCategoryLabel, formatDate } from "@/lib/utils";
+import { inventoryApi } from "@/lib/api";
 
 interface Product {
   id: string; name: string; sku: string; category: string; unit: string; minStockLevel: number;
@@ -39,23 +40,81 @@ interface Props {
   zones: Zone[];
 }
 
-export default function InventoryDetailClient({ item, zones }: Props) {
+const POLL_INTERVAL = 15_000;
+
+function useRealtimeInventoryDetail(initial: InventoryItem) {
+  const [liveItem, setLiveItem] = useState(initial);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [socketConnected, setSocketConnected] = useState(false);
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const res = await inventoryApi.getById(initial.id);
+      const data = res.data.data ?? initial;
+      setLiveItem(data);
+    } catch {
+      // keep existing data
+    }
+    setLastUpdated(new Date());
+  }, [initial.id]);
+
+  // Initial fetch + polling
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
+  // Socket.io
+  useEffect(() => {
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+      socket.on("connect", () => setSocketConnected(true));
+      socket.on("disconnect", () => setSocketConnected(false));
+      socket.on("alert:new", () => fetchAll());
+      return socket;
+    };
+    const cleanup = initSocket();
+    return () => {
+      cleanup.then((s) => {
+        s?.off("alert:new");
+        s?.disconnect();
+      });
+    };
+  }, [fetchAll]);
+
+  // Manual refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
+
+  return { liveItem, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
+}
+
+export default function InventoryDetailClient({ item: initialItem, zones }: Props) {
   const router = useRouter();
+  const { liveItem, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeInventoryDetail(initialItem);
+  // Use live item for display but keep form state stable
+  const item = liveItem;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Form states
-  const [quantity, setQuantity] = useState(item.quantity);
-  const [rack, setRack] = useState(item.rack || "");
-  const [shelf, setShelf] = useState(item.shelf || "");
-  const [zoneId, setZoneId] = useState(item.zoneId || "");
-  const [notes, setNotes] = useState(item.notes || "");
+  // Form states (initialized once from initialItem, not overwritten by polling)
+  const [quantity, setQuantity] = useState(initialItem.quantity);
+  const [rack, setRack] = useState(initialItem.rack || "");
+  const [shelf, setShelf] = useState(initialItem.shelf || "");
+  const [zoneId, setZoneId] = useState(initialItem.zoneId || "");
+  const [notes, setNotes] = useState(initialItem.notes || "");
 
-  // Derived stock status
-  const pct = getStockPercent(quantity, item.product.minStockLevel);
-  const isLow = quantity < item.product.minStockLevel;
-  const isOut = quantity === 0;
+  // Derived stock status uses live item for display
+  const pct = getStockPercent(item.quantity, item.product.minStockLevel);
+  const isLow = item.quantity < item.product.minStockLevel;
+  const isOut = item.quantity === 0;
 
   // Submit edit form
   const handleUpdate = async (e: React.FormEvent) => {
@@ -92,15 +151,27 @@ export default function InventoryDetailClient({ item, zones }: Props) {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-              Chi tiết tồn kho
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+                Chi tiết tồn kho
+              </h1>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+                <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+                {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+              </div>
+              <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+            </div>
             <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
               Quản lý vị trí, kiểm toán số lượng và điều chỉnh kệ kho hàng
             </p>
           </div>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+          </button>
           <span className={`badge text-sm py-1.5 px-4 ${
             isOut ? "badge-danger" : isLow ? "badge-warning" : "badge-success"
           }`}>
@@ -150,7 +221,7 @@ export default function InventoryDetailClient({ item, zones }: Props) {
               <div className="flex justify-between text-sm">
                 <span className="font-semibold" style={{ color: "var(--text-secondary)" }}>Trạng thái số lượng</span>
                 <span className="font-extrabold" style={{ color: isOut ? "#ef4444" : isLow ? "#f97316" : "#10b981" }}>
-                  {quantity} / {item.product.minStockLevel * 2} {item.product.unit}
+                  {item.quantity} / {item.product.minStockLevel * 2} {item.product.unit}
                 </span>
               </div>
               

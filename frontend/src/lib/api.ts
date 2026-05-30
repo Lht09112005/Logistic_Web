@@ -141,6 +141,7 @@ export const productsApi = {
 export const inventoryApi = {
   getAll: (params?: Record<string, string | number | boolean>) =>
     api.get("/inventory", { params }),
+  getById: (id: string) => api.get(`/inventory/${id}`),
   getAlerts: (params?: Record<string, string>) =>
     api.get("/inventory/alerts", { params }),
   create: (data: Record<string, unknown>) => api.post("/inventory", data),

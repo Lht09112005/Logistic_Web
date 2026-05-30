@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, Search, Filter, AlertTriangle, QrCode, Plus, Eye } from "lucide-react";
+import { Package, Search, Filter, AlertTriangle, QrCode, Plus, Eye, Activity } from "lucide-react";
 import { formatDate, getCategoryLabel, getAlertSeverityBadge, getStockPercent } from "@/lib/utils";
+import { inventoryApi } from "@/lib/api";
 
 interface InventoryItem {
   id: string; quantity: number; reservedQty: number;
@@ -23,11 +24,99 @@ interface Props {
   inventory: unknown[];
   total: number;
   alerts: unknown[];
+  initialPage?: number;
+  initialSearch?: string;
+  initialWarehouseId?: string;
+  lowStock?: string;
 }
 
-export default function InventoryClient({ inventory, total, alerts }: Props) {
+const POLL_INTERVAL = 15_000;
+
+function useRealtimeInventory(initial: Props) {
+  const fallbackRef = useRef(initial);
+  const [items, setItems] = useState<unknown[]>(initial.inventory);
+  const [total, setTotal] = useState(initial.total);
+  const [alerts, setAlerts] = useState<unknown[]>(initial.alerts);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [socketConnected, setSocketConnected] = useState(false);
+
+  const fetchAll = useCallback(async () => {
+    const fallback = fallbackRef.current;
+    const [invRes, alertRes] = await Promise.allSettled([
+      inventoryApi.getAll({
+        page: String(fallback.initialPage || 1),
+        limit: "20",
+        ...(fallback.initialSearch && { search: fallback.initialSearch }),
+        ...(fallback.initialWarehouseId && { warehouseId: fallback.initialWarehouseId }),
+        ...(fallback.lowStock && { lowStock: fallback.lowStock }),
+      }),
+      inventoryApi.getAlerts({ isResolved: "false" }),
+    ]);
+
+    const updated: Record<string, unknown> = {};
+
+    if (invRes.status === "fulfilled") {
+      const data = invRes.value.data.data || [];
+      const metaTotal = invRes.value.data.meta?.total || 0;
+      updated.inventory = data;
+      updated.total = metaTotal;
+      setItems(data);
+      setTotal(metaTotal);
+    }
+    if (alertRes.status === "fulfilled") {
+      const data = alertRes.value.data.data || [];
+      updated.alerts = data;
+      setAlerts(data);
+    }
+    // Update fallback with latest successful data
+    fallbackRef.current = { ...fallbackRef.current, ...updated };
+    setLastUpdated(new Date());
+  }, [
+    initial.initialPage, initial.initialSearch,
+    initial.initialWarehouseId, initial.lowStock,
+  ]);
+
+  // Initial fetch + polling
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
+  // Socket.io
+  useEffect(() => {
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+      socket.on("connect", () => setSocketConnected(true));
+      socket.on("disconnect", () => setSocketConnected(false));
+      socket.on("alert:new", () => fetchAll());
+      return socket;
+    };
+    const cleanup = initSocket();
+    return () => {
+      cleanup.then((s) => {
+        s?.off("alert:new");
+        s?.disconnect();
+      });
+    };
+  }, [fetchAll]);
+
+  // Manual refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
+
+  return { items, total, alerts, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
+}
+
+export default function InventoryClient(props: Props) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
+  const { items: inventory, total, alerts, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeInventory(props);
+  const [search, setSearch] = useState(props.initialSearch || "");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
 
   const items = inventory as InventoryItem[];
@@ -55,14 +144,26 @@ export default function InventoryClient({ inventory, total, alerts }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-            Tồn kho
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+              Tồn kho
+            </h1>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+            </div>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
+          </div>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             {total} mục tồn kho • {lowCount} sắp hết • {outCount} hết hàng
           </p>
         </div>
         <div className="flex gap-2">
+          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+          </button>
           <Link href="/dashboard/qr-scan" className="btn btn-secondary btn-sm">
             <QrCode size={14} /> Kiểm kho QR
           </Link>
