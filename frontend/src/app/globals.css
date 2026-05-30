@@ -25,6 +25,19 @@
   --border-color: #e2e8f0;
   --border-light: #f1f5f9;
 
+  --color-success: #10b981;
+  --color-success-bg: #ecfdf5;
+  --color-success-border: #86efac;
+  --color-warning: #f97316;
+  --color-warning-bg: #fff7ed;
+  --color-warning-border: #fed7aa;
+  --color-error: #ef4444;
+  --color-error-bg: #fee2e2;
+  --color-error-border: #fca5a5;
+  --color-info: #6366f1;
+  --color-info-bg: #eef2ff;
+  --color-info-border: #a5b4fc;
+
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.05);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
@@ -84,6 +97,19 @@
 
   --border-color: #30363d;
   --border-light: #21262d;
+
+  --color-success: #86efac;
+  --color-success-bg: rgba(16,185,129,0.12);
+  --color-success-border: rgba(16,185,129,0.25);
+  --color-warning: #fb923c;
+  --color-warning-bg: rgba(249,115,22,0.12);
+  --color-warning-border: rgba(249,115,22,0.25);
+  --color-error: #fca5a5;
+  --color-error-bg: rgba(239,68,68,0.12);
+  --color-error-border: rgba(239,68,68,0.25);
+  --color-info: #93c5fd;
+  --color-info-bg: rgba(99,102,241,0.12);
+  --color-info-border: rgba(99,102,241,0.25);
 
   --shadow-card: 0 1px 3px 0 rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
 
@@ -353,6 +379,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Status badges */
+/* Status utility classes */
+.bg-success { background: var(--color-success-bg); }
+.bg-warning { background: var(--color-warning-bg); }
+.bg-error   { background: var(--color-error-bg); }
+.bg-info    { background: var(--color-info-bg); }
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-error   { color: var(--color-error); }
+.text-info    { color: var(--color-info); }
+.border-success { border-color: var(--color-success-border); }
+.border-warning { border-color: var(--color-warning-border); }
+.border-error   { border-color: var(--color-error-border); }
+.border-info    { border-color: var(--color-info-border); }
+
+.gradient-success {
+  background: linear-gradient(135deg, var(--color-success-bg), var(--color-success-bg));
+}
+.gradient-warning {
+  background: linear-gradient(135deg, var(--color-warning-bg), var(--color-warning-bg));
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -447,22 +494,51 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px #f9731650;
 }
+.dark .btn-primary {
+  box-shadow: 0 2px 12px rgba(249,115,22,0.35);
+}
+.dark .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 18px rgba(249,115,22,0.45);
+}
 .btn-secondary {
   background: var(--bg-input);
   color: var(--text-primary);
   border: 1.5px solid var(--border-color);
 }
 .btn-secondary:hover:not(:disabled) { background: var(--border-light); }
+.dark .btn-secondary {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+  color: var(--text-primary);
+}
+.dark .btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.18);
+}
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
 }
 .btn-ghost:hover { background: var(--border-light); color: var(--text-primary); }
+.dark .btn-ghost {
+  color: var(--text-secondary);
+}
+.dark .btn-ghost:hover {
+  background: rgba(255,255,255,0.07);
+  color: var(--text-primary);
+}
 .btn-danger {
   background: #ef4444;
   color: white;
 }
 .btn-danger:hover:not(:disabled) { background: #dc2626; }
+.dark .btn-danger {
+  background: rgba(239,68,68,0.15);
+  color: #fca5a5;
+}
+.dark .btn-danger:hover:not(:disabled) {
+  background: rgba(239,68,68,0.25);
+}
 .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
 .btn-lg { padding: 14px 28px; font-size: 1rem; }
 .btn-icon {
@@ -475,6 +551,13 @@ h1, h2, h3, h4, h5, h6 {
   transition: all 0.15s;
 }
 .btn-icon:hover { background: var(--bg-input); color: var(--text-primary); }
+.dark .btn-icon {
+  color: var(--text-secondary);
+}
+.dark .btn-icon:hover {
+  background: rgba(255,255,255,0.07);
+  color: var(--text-primary);
+}
 
 /* Stat card */
 .stat-card {
