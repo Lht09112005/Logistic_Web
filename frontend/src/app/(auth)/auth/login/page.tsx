@@ -78,6 +78,7 @@ export default function LoginPage() {
           🔑 Tài khoản demo:
         </p>
         <p style={{ color: "#9a3412" }}>Admin: admin@logistiq.vn / admin123</p>
+        <p style={{ color: "#9a3412" }}>Quản lý: manager@logistiq.vn / staff123</p>
         <p style={{ color: "#9a3412" }}>Staff: nam@logistiq.vn / staff123</p>
       </div>
 

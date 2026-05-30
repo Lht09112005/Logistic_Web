@@ -229,9 +229,9 @@ export default function AdminSettingsPage() {
                 Vai trò
               </label>
               <div className="input-base flex items-center gap-2 cursor-not-allowed" style={{ opacity: 0.7 }}>
-                <div className="w-2 h-2 rounded-full" style={{ background: user?.role === "ADMIN" ? "#ef4444" : user?.role === "STAFF" ? "#6366f1" : "#f97316" }} />
+                <div className="w-2 h-2 rounded-full" style={{ background: user?.role === "ADMIN" ? "#ef4444" : user?.role === "MANAGER" ? "#8b5cf6" : user?.role === "STAFF" ? "#6366f1" : "#f97316" }} />
                 <span style={{ color: "var(--text-secondary)" }}>
-                  {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "DRIVER" ? "Tài xế" : "Nhân viên"}
+                  {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "MANAGER" ? "Quản lý kho" : user?.role === "DRIVER" ? "Tài xế" : "Nhân viên"}
                 </span>
               </div>
             </div>

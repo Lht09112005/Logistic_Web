@@ -7,7 +7,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: "ADMIN" | "STAFF" | "DRIVER";
+  role: "ADMIN" | "MANAGER" | "STAFF" | "DRIVER";
   phone?: string;
   avatar?: string;
 }
@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isManager: boolean;
   isStaff: boolean;
   logout: () => Promise<void>;
 }
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
   isAdmin: false,
+  isManager: false,
   isStaff: false,
   logout: async () => {},
 });
@@ -57,7 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading: status === "loading",
         isAdmin: user?.role === "ADMIN",
-        isStaff: user?.role === "STAFF" || user?.role === "ADMIN",
+        isManager: user?.role === "MANAGER" || user?.role === "ADMIN",
+        isStaff: user?.role === "STAFF" || user?.role === "MANAGER" || user?.role === "ADMIN",
         logout,
       }}
     >

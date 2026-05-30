@@ -25,6 +25,18 @@ async function main() {
     },
   })
 
+  const manager = await prisma.user.upsert({
+    where: { email: 'manager@logistiq.vn' },
+    update: {},
+    create: {
+      name: 'Hoàng Văn Quản Lý',
+      email: 'manager@logistiq.vn',
+      password: staffPassword,
+      role: 'MANAGER',
+      phone: '0909876543',
+    },
+  })
+
   const staff1 = await prisma.user.upsert({
     where: { email: 'nam@logistiq.vn' },
     update: {},
@@ -128,7 +140,7 @@ async function main() {
       longitude: 108.2022,
       totalArea: 2000,
       capacity: 4000,
-      managerId: staff1.id,
+      managerId: manager.id,
       status: 'ACTIVE',
       description: 'Kho phân phối miền Trung',
       zones: {
@@ -435,6 +447,7 @@ async function main() {
   console.log('✅ Shipments seeded')
   console.log('\n🎉 Database seeded successfully!')
   console.log('📧 Admin: admin@logistiq.vn / admin123')
+  console.log('📧 Manager: manager@logistiq.vn / staff123')
   console.log('📧 Staff: nam@logistiq.vn / staff123')
   console.log('📧 Driver: driver1@logistiq.vn / staff123')
 }

@@ -12,8 +12,8 @@ router.use(authenticate)
 router.get('/', getProducts)
 router.get('/by-qr/:qrCode', getProductByQR)
 router.get('/:id', getProductById)
-router.post('/', authorize('ADMIN', 'STAFF'), createProduct)
-router.put('/:id', authorize('ADMIN', 'STAFF'), updateProduct)
+router.post('/', authorize('ADMIN', 'MANAGER'), createProduct)
+router.put('/:id', authorize('ADMIN', 'MANAGER'), updateProduct)
 router.delete('/:id', authorize('ADMIN'), deleteProduct)
 
 export default router

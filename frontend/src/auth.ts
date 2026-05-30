@@ -47,6 +47,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               refreshToken: "mock-refresh-token",
             };
           }
+          if (email === "manager@logistiq.vn" && password === "staff123") {
+            return {
+              id: "mock-manager-id",
+              name: "Hoàng Văn Quản Lý (Offline)",
+              email: "manager@logistiq.vn",
+              role: "MANAGER",
+              phone: "0909876543",
+              accessToken: "mock-access-token",
+              refreshToken: "mock-refresh-token",
+            };
+          }
           return null;
         }
       },
