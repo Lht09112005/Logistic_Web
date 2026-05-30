@@ -197,6 +197,7 @@ h1, h2, h3, h4, h5, h6 {
   transition: border-color 0.2s, box-shadow 0.2s;
   outline: none;
 }
+.input-base.pl-9 { padding-left: 2.25rem; }
 .input-base:focus {
   border-color: #f97316;
   box-shadow: 0 0 0 3px #f9731620;
