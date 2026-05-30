@@ -58,16 +58,16 @@ export default function StaffReceivingPanel({
   // Success state
   if (success || status === "DELIVERED") {
     return (
-      <div className="card border-2 overflow-hidden" style={{ borderColor: "#10b981" }}>
-        <div className="px-5 py-4 flex items-center gap-3" style={{ background: "linear-gradient(135deg,#ecfdf5,#d1fae5)" }}>
-          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-            <CheckCircle2 size={22} style={{ color: "#10b981" }} />
+      <div className="card border-success overflow-hidden">
+        <div className="px-5 py-4 flex items-center gap-3 gradient-success">
+          <div className="w-10 h-10 rounded-full bg-success/50 flex items-center justify-center">
+            <CheckCircle2 size={22} className="text-success" />
           </div>
           <div>
-            <h3 className="font-bold text-sm" style={{ color: "#065f46" }}>
+            <h3 className="font-bold text-sm text-success">
               {success ? "Đã nhập hàng vào kho" : "Đã tiếp nhận hàng"}
             </h3>
-            <p className="text-xs" style={{ color: "#047857" }}>
+            <p className="text-xs" style={{ color: "var(--color-success)" }}>
               {totalQty} sản phẩm đã được thêm vào {destinationWarehouse?.name || "kho đích"}
             </p>
           </div>
@@ -78,8 +78,7 @@ export default function StaffReceivingPanel({
             Kiểm tra tồn kho tại{" "}
             <Link
               href={`/dashboard/warehouse/${destinationWarehouse?.id || ""}`}
-              className="font-medium underline"
-              style={{ color: "#10b981" }}
+              className="font-medium underline text-success"
             >
               {destinationWarehouse?.name || "kho đích"}
             </Link>
@@ -90,23 +89,23 @@ export default function StaffReceivingPanel({
   }
 
   return (
-    <div className="card border-2 overflow-hidden" style={{ borderColor: "#10b981" }}>
+    <div className="card border-success overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4" style={{ background: "linear-gradient(135deg,#ecfdf5,#d1fae5)" }}>
+      <div className="px-5 py-4 gradient-success">
         <div className="flex items-center gap-2">
-          <ClipboardList size={20} style={{ color: "#10b981" }} />
-          <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: "#065f46" }}>
+          <ClipboardList size={20} className="text-success" />
+          <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: "var(--color-success)" }}>
             Nhân viên kho nhập
           </h3>
         </div>
-        <p className="text-xs mt-1" style={{ color: "#047857" }}>
+        <p className="text-xs mt-1" style={{ color: "var(--color-success)" }}>
           {shipmentCode} • Tiếp nhận hàng tại {destinationWarehouse?.name || "kho đích"}
         </p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="mx-5 mt-3 p-2.5 text-xs rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+        <div className="mx-5 mt-3 p-2.5 text-xs rounded-lg bg-error text-error">
           {error}
         </div>
       )}
@@ -138,7 +137,7 @@ export default function StaffReceivingPanel({
             className="flex items-center gap-3 p-2.5 rounded-lg animate-fade-in"
             style={{ background: "var(--bg-input)", animationDelay: `${idx * 50}ms` }}
           >
-            <CheckCircle2 size={16} style={{ color: "#10b981", flexShrink: 0 }} />
+            <CheckCircle2 size={16} className="text-success flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
                 {item.product.name}
@@ -148,7 +147,7 @@ export default function StaffReceivingPanel({
               </div>
             </div>
             <div className="text-right flex-shrink-0">
-              <div className="text-sm font-bold" style={{ color: "#10b981" }}>
+              <div className="text-sm font-bold text-success">
                 +{item.quantity} {item.product.unit}
               </div>
               {item.weight && (
@@ -168,7 +167,7 @@ export default function StaffReceivingPanel({
           onClick={handleReceive}
           className="btn w-full"
           style={{
-            background: "linear-gradient(135deg,#10b981,#059669)",
+            background: "linear-gradient(135deg,var(--color-success),#059669)",
             color: "white",
             border: "none",
           }}

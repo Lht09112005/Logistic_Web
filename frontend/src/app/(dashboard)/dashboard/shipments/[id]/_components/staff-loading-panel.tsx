@@ -46,14 +46,14 @@ export default function StaffLoadingPanel({
   if (status !== "PENDING") {
     if (confirmed || status === "CONFIRMED") {
       return (
-        <div className="card border-2 overflow-hidden" style={{ borderColor: "#10b981" }}>
-          <div className="px-5 py-4 flex items-center gap-3" style={{ background: "linear-gradient(135deg,#ecfdf5,#d1fae5)" }}>
-            <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-              <CheckCircle2 size={22} style={{ color: "#10b981" }} />
+        <div className="card border-success overflow-hidden">
+          <div className="px-5 py-4 flex items-center gap-3 gradient-success">
+            <div className="w-10 h-10 rounded-full bg-success/50 flex items-center justify-center">
+              <CheckCircle2 size={22} className="text-success" />
             </div>
             <div>
-              <h3 className="font-bold text-sm" style={{ color: "#065f46" }}>Đã chuẩn bị hàng xong</h3>
-              <p className="text-xs" style={{ color: "#047857" }}>Hàng đã sẵn sàng để tài xế lấy</p>
+              <h3 className="font-bold text-sm text-success">Đã chuẩn bị hàng xong</h3>
+              <p className="text-xs" style={{ color: "var(--color-success)" }}>Hàng đã sẵn sàng để tài xế lấy</p>
             </div>
           </div>
         </div>
@@ -63,21 +63,21 @@ export default function StaffLoadingPanel({
   }
 
   return (
-    <div className="card border-2 overflow-hidden" style={{ borderColor: "#6366f1" }}>
-      <div className="px-5 py-4" style={{ background: "linear-gradient(135deg,#eef2ff,#e0e7ff)" }}>
+    <div className="card border-info overflow-hidden">
+      <div className="px-5 py-4 bg-info">
         <div className="flex items-center gap-2">
-          <ClipboardList size={20} style={{ color: "#6366f1" }} />
-          <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: "#3730a3" }}>
+          <ClipboardList size={20} className="text-info" />
+          <h3 className="font-bold text-sm uppercase tracking-wide text-info">
             Nhân viên kho xuất
           </h3>
         </div>
-        <p className="text-xs mt-1" style={{ color: "#4338ca" }}>
+        <p className="text-xs mt-1" style={{ color: "var(--color-info)" }}>
           {shipmentCode} • Chuẩn bị hàng hóa tại {originWarehouse?.name || "kho xuất"}
         </p>
       </div>
 
       {error && (
-        <div className="mx-5 mt-3 p-2.5 text-xs rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+        <div className="mx-5 mt-3 p-2.5 text-xs rounded-lg bg-error text-error">
           {error}
         </div>
       )}
@@ -89,7 +89,7 @@ export default function StaffLoadingPanel({
         <div className="space-y-2 max-h-40 overflow-y-auto">
           {items.map((item) => (
             <div key={item.id} className="flex items-center gap-3 p-2.5 rounded-lg" style={{ background: "var(--bg-input)" }}>
-              <CheckCircle size={16} style={{ color: "#10b981", flexShrink: 0 }} />
+              <CheckCircle size={16} className="text-success flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{item.product.name}</div>
                 <div className="text-xs" style={{ color: "var(--text-muted)" }}>SKU: {item.product.sku}</div>

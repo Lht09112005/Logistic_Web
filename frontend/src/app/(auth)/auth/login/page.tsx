@@ -244,7 +244,7 @@ export default function LoginPage() {
 
         {serverError && (
           <div
-            className="p-3 rounded-lg text-sm text-center"
+            className="p-3 rounded-lg text-sm text-center dark:bg-red-900/30 dark:text-red-400"
             style={{ background: "#fee2e2", color: "#b91c1c" }}
           >
             {serverError}

@@ -306,7 +306,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
             <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
               {shipment.shipmentCode}
             </h1>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${socketConnected ? "bg-success text-success" : ""}`} style={{ background: socketConnected ? undefined : "var(--bg-input)", color: socketConnected ? undefined : "var(--text-muted)" }}>
               <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
             </div>
@@ -448,7 +448,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                 <div className="font-bold text-sm text-indigo-500">{completedCount}/{shipment.checkpoints.length}</div>
               </div>
             </div>
-            {simError && <div className="p-2 text-center text-xs rounded bg-red-100 text-red-700">{simError}</div>}
+            {simError && <div className="p-2 text-center text-xs rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{simError}</div>}
             <div className="grid grid-cols-3 gap-2">
               {!isSimulating ? (
                 <button onClick={startSimulation} disabled={shipment.status === "DELIVERED"} className="btn btn-primary btn-sm flex items-center justify-center gap-1 col-span-2">

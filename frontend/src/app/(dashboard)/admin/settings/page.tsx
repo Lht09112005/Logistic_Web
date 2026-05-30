@@ -179,12 +179,12 @@ export default function AdminSettingsPage() {
           </p>
 
           {profileSuccess && (
-            <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
+            <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/50" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
               <CheckCircle size={16} /> {profileSuccess}
             </div>
           )}
           {profileError && (
-            <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium" style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}>
+            <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50" style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}>
               <AlertTriangle size={16} /> {profileError}
             </div>
           )}
@@ -254,12 +254,12 @@ export default function AdminSettingsPage() {
           </p>
 
           {pwSuccess && (
-            <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
+            <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/50" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
               <CheckCircle size={16} /> {pwSuccess}
             </div>
           )}
           {pwError && (
-            <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium" style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}>
+            <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50" style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}>
               <AlertTriangle size={16} /> {pwError}
             </div>
           )}

@@ -194,7 +194,7 @@ export default function QRScanClient() {
 
           <div className="p-5 space-y-4">
             {cameraError && (
-              <div className="flex items-center gap-2 text-sm p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+              <div className="flex items-center gap-2 text-sm p-3 rounded-lg dark:bg-red-900/30 dark:text-red-400" style={{ background: "#fee2e2", color: "#b91c1c" }}>
                 <AlertCircle size={16} /> {cameraError}
               </div>
             )}
@@ -388,7 +388,7 @@ export default function QRScanClient() {
               </div>
 
               {scanState === "error" && (
-                <div className="text-sm p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                <div className="text-sm p-3 rounded-lg dark:bg-red-900/30 dark:text-red-400" style={{ background: "#fee2e2", color: "#b91c1c" }}>
                   Cập nhật thất bại. Vui lòng thử lại.
                 </div>
               )}

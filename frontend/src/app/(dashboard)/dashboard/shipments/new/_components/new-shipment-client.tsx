@@ -157,7 +157,7 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
       </div>
 
       {error && (
-        <div className="card p-4 flex items-center gap-3" style={{ background: "#fee2e2", borderColor: "#fca5a5", color: "#b91c1c" }}>
+        <div className="card p-4 flex items-center gap-3" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}>
           <AlertCircle size={18} />
           <span className="text-sm font-medium">{error}</span>
         </div>
@@ -299,7 +299,7 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                     <button
                       type="button"
                       onClick={() => removeItem(idx)}
-                      className="btn btn-icon text-red-500 hover:bg-red-50 rounded-lg p-2.5 mb-0.5"
+                      className="btn btn-icon text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg p-2.5 mb-0.5"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -371,7 +371,7 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                     <button
                       type="button"
                       onClick={() => removeCheckpoint(idx)}
-                      className="btn btn-icon text-red-500 hover:bg-red-50 rounded-lg p-2.5"
+                      className="btn btn-icon text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg p-2.5"
                     >
                       <Trash2 size={16} />
                     </button>

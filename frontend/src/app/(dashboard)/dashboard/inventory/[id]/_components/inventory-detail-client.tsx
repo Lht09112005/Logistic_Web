@@ -155,7 +155,7 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
               <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
                 Chi tiết tồn kho
               </h1>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${socketConnected ? "bg-success text-success" : ""}`} style={{ background: socketConnected ? undefined : "var(--bg-input)", color: socketConnected ? undefined : "var(--text-muted)" }}>
                 <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
                 {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
               </div>
@@ -181,14 +181,14 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
       </div>
 
       {error && (
-        <div className="card p-4 flex items-center gap-3 animate-slide-left" style={{ background: "#fee2e2", borderColor: "#fca5a5", color: "#b91c1c" }}>
+        <div className="card p-4 flex items-center gap-3 animate-slide-left bg-error border-error text-error">
           <AlertTriangle size={18} />
           <span className="text-sm font-medium">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="card p-4 flex items-center gap-3 animate-slide-left" style={{ background: "#dcfce7", borderColor: "#86efac", color: "#15803d" }}>
+        <div className="card p-4 flex items-center gap-3 animate-slide-left bg-success border-success text-success">
           <CheckCircle size={18} />
           <span className="text-sm font-medium">{success}</span>
         </div>
@@ -202,7 +202,7 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
             <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
               <div
                 className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: isOut ? "#fee2e2" : isLow ? "#fff7ed" : "var(--bg-input)" }}
+                style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
               >
                 <Package size={32} style={{ color: isOut ? "#ef4444" : isLow ? "#f97316" : "var(--text-secondary)" }} />
               </div>
@@ -220,7 +220,7 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
             <div className="p-4 rounded-xl space-y-3" style={{ background: "var(--bg-input)" }}>
               <div className="flex justify-between text-sm">
                 <span className="font-semibold" style={{ color: "var(--text-secondary)" }}>Trạng thái số lượng</span>
-                <span className="font-extrabold" style={{ color: isOut ? "#ef4444" : isLow ? "#f97316" : "#10b981" }}>
+                <span className="font-extrabold" style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--color-success)" }}>
                   {item.quantity} / {item.product.minStockLevel * 2} {item.product.unit}
                 </span>
               </div>
@@ -230,7 +230,7 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
                   className="progress-fill"
                   style={{
                     width: `${pct}%`,
-                    background: isOut ? "#ef4444" : isLow ? "#f97316" : "linear-gradient(90deg,#10b981,#059669)",
+                    background: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "linear-gradient(90deg, var(--color-success), #059669)",
                   }}
                 />
               </div>

@@ -89,7 +89,7 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
       </div>
 
       {error && (
-        <div className="card p-4 flex items-center gap-3" style={{ background: "#fee2e2", borderColor: "#fca5a5", color: "#b91c1c" }}>
+        <div className="card p-4 flex items-center gap-3 bg-error border-error text-error">
           <AlertCircle size={18} />
           <span className="text-sm font-medium">{error}</span>
         </div>

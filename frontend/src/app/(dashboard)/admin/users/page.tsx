@@ -397,7 +397,7 @@ function AdminUsersContent() {
             </div>
 
             {formError && (
-              <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium" style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}>
+              <div className="flex items-center gap-2 p-3 mb-4 rounded-lg text-sm font-medium dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50" style={{ background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" }}>
                 <AlertTriangle size={15} />
                 {formError}
               </div>

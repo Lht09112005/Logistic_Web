@@ -95,7 +95,7 @@ function ConfettiEffect({ trigger, checkpointName }: { trigger: boolean; checkpo
       <div className="absolute inset-0 flex items-center justify-center animate-confetti-badge">
         <div className="px-3 py-1.5 rounded-full shadow-2xl flex items-center gap-1.5 text-xs font-bold"
           style={{
-            background: "linear-gradient(135deg, #10b981, #059669)",
+            background: "linear-gradient(135deg, var(--color-success), #059669)",
             color: "white",
             animation: "bounceIn 0.5s ease-out",
           }}
@@ -124,10 +124,10 @@ function SuccessToast({
     <div className="fixed top-4 right-4 z-[100] animate-toast-slide-in">
       <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl shadow-2xl text-sm"
         style={{
-          background: "linear-gradient(135deg, #065f46, #047857)",
+          background: "linear-gradient(135deg, var(--color-success), #047857)",
           color: "white",
           minWidth: 240,
-          border: "1px solid rgba(16,185,129,0.3)",
+          border: "1px solid var(--color-success-border)",
         }}
       >
         <div className="w-7 h-7 rounded-full bg-emerald-400/20 flex items-center justify-center">
@@ -177,7 +177,7 @@ function RouteVisualizer({
         <h4 className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
           Lộ trình
         </h4>
-        <span className="text-[9px] font-medium" style={{ color: "#f97316" }}>
+        <span className="text-[9px] font-medium text-warning">
           {completedCount}/{checkpoints.length} chặng
         </span>
       </div>
@@ -329,19 +329,19 @@ export default function DriverCheckpointPanel({
   const justCompletedId = completedCpId;
 
   return (
-    <div className="card overflow-hidden border-2 relative" style={{ borderColor: "#f97316" }}>
+    <div className="card overflow-hidden border-warning relative">
       <ConfettiEffect trigger={showConfetti} checkpointName={confirmedCpName} />
       <SuccessToast message={toastMessage} visible={toastVisible} onClose={() => setToastVisible(false)} />
 
       {/* Compact Header */}
-      <div className="px-4 py-2" style={{ background: "linear-gradient(135deg,#fff7ed,#ffedd5)" }}>
+      <div className="px-4 py-2 bg-warning">
         <div className="flex items-center gap-2">
-          <Truck size={16} style={{ color: "#f97316" }} />
+          <Truck size={16} className="text-warning" />
           <div>
-            <h3 className="font-bold text-xs uppercase tracking-wide" style={{ color: "#9a3412" }}>
+            <h3 className="font-bold text-xs uppercase tracking-wide text-warning">
               Bảng điều khiển tài xế
             </h3>
-            <p className="text-[10px]" style={{ color: "#c2410c" }}>
+            <p className="text-[10px]" style={{ color: "var(--color-warning)" }}>
               {shipmentCode} • {getShipmentStatusLabel(status)}
             </p>
           </div>
@@ -357,7 +357,7 @@ export default function DriverCheckpointPanel({
 
       {/* Error */}
       {error && (
-        <div className="mx-4 mt-1.5 p-1.5 text-[10px] rounded-lg animate-shake" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+        <div className="mx-4 mt-1.5 p-1.5 text-[10px] rounded-lg animate-shake bg-error text-error">
           {error}
         </div>
       )}
@@ -366,12 +366,11 @@ export default function DriverCheckpointPanel({
       <div className="px-4 pt-2">
         <div className="flex justify-between text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>
           <span>Tiến độ</span>
-          <span className="font-semibold" style={{ color: "#f97316" }}>{completedCount}/{checkpoints.length} chặng</span>
+          <span className="font-semibold text-warning">{completedCount}/{checkpoints.length} chặng</span>
         </div>
         <div className="progress-bar mb-2" style={{ height: "4px" }}>
           <div className="progress-fill" style={{
             width: `${(completedCount / Math.max(checkpoints.length, 1)) * 100}%`,
-            background: "linear-gradient(90deg,#f97316,#ea580c)",
             transition: "width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
           }} />
         </div>
@@ -490,7 +489,8 @@ export default function DriverCheckpointPanel({
                             await shipmentsApi.update(shipmentId, { status: "DELIVERED" });
                             onStatusUpdate("DELIVERED");
                           })}
-                          style={{ padding: "2px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px", color: "#15803d", border: "1px solid #86efac", background: "#dcfce7", display: "inline-flex", alignItems: "center", cursor: "pointer" }}>
+                          className="inline-flex items-center"
+                          style={{ padding: "2px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px", color: "var(--color-success)", border: "1px solid var(--color-success-border)", background: "var(--color-success-bg)", cursor: "pointer" }}>
                           {actionLoading === "delivered"
                             ? <Loader2 size={10} className="animate-spin" />
                             : <><Flag size={10} /> Hoàn thành</>}
@@ -511,17 +511,16 @@ export default function DriverCheckpointPanel({
       </div>
 
       {/* Current position bar - compact */}
-      {nextCpIndex >= 0 && nextCpIndex < checkpoints.length && (
-        <div className="px-4 py-1.5 border-t transition-colors duration-500"
-          style={{ borderColor: "var(--border-color)", background: completedCpId ? "#ecfdf5" : "#fff7ed" }}>
+      {nextCpIndex >= 0 && nextCpIndex < checkpoints.length && (            <div className="px-4 py-1.5 border-t transition-colors duration-500"
+          style={{ borderColor: "var(--border-color)", background: completedCpId ? "var(--color-success-bg)" : "var(--color-warning-bg)" }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[10px]">
-              <Navigation size={11} style={{ color: completedCpId ? "#10b981" : "#f97316" }} />
-              <span style={{ color: completedCpId ? "#065f46" : "#9a3412" }}>
+              <Navigation size={11} style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }} />
+              <span style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }}>
                 <strong>Vị trí:</strong> Đang tại <strong>{checkpoints[nextCpIndex]?.name}</strong>
               </span>
             </div>
-            <span className="text-[9px] font-medium" style={{ color: completedCpId ? "#10b981" : "#c2410c" }}>
+            <span className="text-[9px] font-medium" style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }}>
               {nextCpIndex + 1}/{checkpoints.length}
             </span>
           </div>
