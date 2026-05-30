@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Truck, Package, Warehouse, Bell, TrendingUp,
@@ -8,6 +8,7 @@ import {
   XCircle, Activity, Navigation, Zap,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
+import { shipmentsApi, inventoryApi, warehousesApi } from "@/lib/api";
 
 interface ShipmentStats {
   total: number; inTransit: number; delivered: number; pending: number; failed: number;
@@ -89,39 +90,119 @@ interface LiveEvent {
   ts: number;
 }
 
-export default function DashboardClient({ shipmentStats, activeAlerts, warehouseCount, recentShipments }: Props) {
-  const cards = statCards(shipmentStats, activeAlerts.length, warehouseCount);
-  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
-  const [socketConnected, setSocketConnected] = useState(false);
+// POLLING INTERVAL (ms): 15 seconds — balances realtime feel with API load
+const POLL_INTERVAL = 15_000;
 
+// ───────────────────────────────────────────
+// Realtime Dashboard Hook
+// ───────────────────────────────────────────
+function useRealtimeDashboard(initial: Props) {
+  // Store initial fallbacks in refs so fetchAll stays stable and polling never restarts
+  const initialRef = useRef(initial);
+  initialRef.current = initial;
+
+  const [stats, setStats] = useState<ShipmentStats>(initial.shipmentStats);
+  const [alerts, setAlerts] = useState<ActiveAlert[]>(initial.activeAlerts);
+  const [whCount, setWhCount] = useState(initial.warehouseCount);
+  const [shipments, setShipments] = useState<RecentShipment[]>(initial.recentShipments);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
+
+  const fetchAll = useCallback(async () => {
+    const fallback = initialRef.current;
+    // Fetch each endpoint independently — a single failure won't block others
+    try { const r = await shipmentsApi.getStats(); setStats(r.data.data ?? fallback.shipmentStats); } catch {}
+    try { const r = await inventoryApi.getAlerts({ isResolved: "false" }); setAlerts(r.data.data ?? []); } catch {}
+    try { const r = await warehousesApi.getAll(); setWhCount(Array.isArray(r.data.data) ? r.data.data.length : fallback.warehouseCount); } catch {}
+    try { const r = await shipmentsApi.getAll({ limit: 5, status: "IN_TRANSIT" }); setShipments(r.data.data ?? []); } catch {}
+    setLastUpdated(new Date());
+  }, []); // stable — never changes
+
+  // Refreshing state for manual refresh button
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
+
+  // Initial fetch + polling
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
+  // Socket.io for realtime events
   useEffect(() => {
     const initSocket = async () => {
       const { io } = await import("socket.io-client");
       const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+
       socket.on("connect", () => setSocketConnected(true));
       socket.on("disconnect", () => setSocketConnected(false));
+
+      // GPS tracking — realtime
       socket.on("shipment:position", (data: Omit<LiveEvent, "ts">) => {
         setLiveEvents(prev => [{ ...data, ts: Date.now() }, ...prev].slice(0, 5));
       });
+
+      // New alert — immediately refresh alerts list
+      socket.on("alert:new", () => {
+        inventoryApi.getAlerts({ isResolved: "false" })
+          .then((res) => setAlerts(res.data.data ?? []))
+          .catch(() => {});
+      });
+
       return socket;
     };
     const cleanup = initSocket();
-    return () => { cleanup.then((s) => s?.disconnect()); };
+    return () => {
+      cleanup.then((s) => {
+        s?.off("shipment:position");
+        s?.off("alert:new");
+        s?.disconnect();
+      });
+    };
   }, []);
+
+  return {
+    stats, alerts: { list: alerts, count: alerts.length },
+    whCount, shipments, lastUpdated, socketConnected, liveEvents,
+    refresh: handleRefresh, refreshing,
+  };
+}
+
+export default function DashboardClient(props: Props) {
+  const { stats, alerts, whCount, shipments, lastUpdated, socketConnected, liveEvents, refresh, refreshing } = useRealtimeDashboard(props);
+  const cards = statCards(stats, alerts.count, whCount);
 
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            Tổng quan
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Tổng quan
+            </h1>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+            </div>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
+          </div>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-            Theo dõi hoạt động logistics của bạn
+            Theo dõi hoạt động logistics thời gian thực
           </p>
         </div>
         <div className="flex gap-2">
+          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+          </button>
           <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
             <Truck size={15} /> Tạo vận đơn
           </Link>
@@ -165,14 +246,14 @@ export default function DashboardClient({ shipmentStats, activeAlerts, warehouse
             </Link>
           </div>
 
-          {recentShipments.length === 0 ? (
+          {shipments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3" style={{ color: "var(--text-muted)" }}>
               <Truck size={40} style={{ opacity: 0.3 }} />
               <p className="text-sm">Không có vận đơn đang vận chuyển</p>
             </div>
           ) : (
             <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
-              {recentShipments.map((s) => (
+              {shipments.map((s) => (
                 <Link
                   key={s.id}
                   href={`/dashboard/shipments/${s.id}`}
@@ -226,14 +307,14 @@ export default function DashboardClient({ shipmentStats, activeAlerts, warehouse
             </Link>
           </div>
 
-          {activeAlerts.length === 0 ? (
+          {alerts.list.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2" style={{ color: "var(--text-muted)" }}>
               <CheckCircle size={36} style={{ color: "#10b981", opacity: 0.5 }} />
               <p className="text-sm">Không có cảnh báo nào</p>
             </div>
           ) : (
             <div className="divide-y overflow-y-auto max-h-80" style={{ borderColor: "var(--border-light)" }}>
-              {activeAlerts.slice(0, 5).map((alert) => {
+              {alerts.list.slice(0, 5).map((alert) => {
                 const severityColor: Record<string, string> = {
                   CRITICAL: "#ef4444", HIGH: "#f97316", MEDIUM: "#f59e0b", LOW: "#6366f1",
                 };
@@ -264,10 +345,10 @@ export default function DashboardClient({ shipmentStats, activeAlerts, warehouse
       {/* Quick stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Chờ xác nhận", value: shipmentStats.pending, icon: Clock, color: "#6366f1" },
-          { label: "Đang bốc xếp", value: shipmentStats.inTransit, icon: TrendingUp, color: "#f97316" },
-          { label: "Hoàn thành", value: shipmentStats.delivered, icon: CheckCircle, color: "#10b981" },
-          { label: "Thất bại / Hủy", value: shipmentStats.failed, icon: XCircle, color: "#ef4444" },
+          { label: "Chờ xác nhận", value: stats.pending, icon: Clock, color: "#6366f1" },
+          { label: "Đang bốc xếp", value: stats.inTransit, icon: TrendingUp, color: "#f97316" },
+          { label: "Hoàn thành", value: stats.delivered, icon: CheckCircle, color: "#10b981" },
+          { label: "Thất bại / Hủy", value: stats.failed, icon: XCircle, color: "#ef4444" },
         ].map((item) => (
           <div key={item.label} className="card p-4 flex items-center gap-3">
             <item.icon size={20} style={{ color: item.color }} />
