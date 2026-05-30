@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
+import { useState, useRef, useMemo, useEffect } from "react";
+import {
+  Map,
+  useMap,
+  MapMarker,
+  MarkerContent,
+  MarkerPopup,
+  MapControls,
+  MapRoute,
+} from "@/components/ui/map";
+import MapLibreGL from "maplibre-gl";
 import { haversineDistance } from "@/lib/route-optimizer";
+import { fetchRoadRoute, type RouteWaypoint, type RoadRoute } from "@/lib/routing-service";
 
 const RADAR_MARKER_HTML = `
   <style>
@@ -26,6 +36,7 @@ interface Checkpoint {
   id: string; name: string; latitude?: number; longitude?: number;
   sequence: number; isCompleted: boolean;
 }
+
 interface Shipment {
   originLat?: number; originLng?: number;
   destinationLat?: number; destinationLng?: number;
@@ -41,262 +52,387 @@ interface Props {
   currentLng?: number;
 }
 
-export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
-  const mapRef = useRef<LeafletMap | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const truckMarkerRef = useRef<LeafletMarker | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const leafletRef = useRef<any>(null);
+// ── Inner component to auto-fit bounds after map loads ──
+function MapBoundsFitter({ points }: { points: [number, number][] }) {
+  const { map, isLoaded } = useMap();
+  const hasFitted = useRef(false);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!isLoaded || !map || points.length < 2 || hasFitted.current) return;
+    hasFitted.current = true;
+    const bounds = new MapLibreGL.LngLatBounds();
+    points.forEach(([lng, lat]) => bounds.extend([lng, lat]));
+    map.fitBounds(bounds, { padding: 50, maxZoom: 12 });
+  }, [isLoaded, map, points]);
 
-    let isMounted = true;
-    let mapInstance: LeafletMap | null = null;
+  return null;
+}
 
-    const initMap = async () => {
-      const L = (await import("leaflet")).default;
-      await import("leaflet/dist/leaflet.css");
+// ── Safe pan: validates coordinates before calling panTo ──
+function safePanTo(map: MapLibreGL.Map, lng: number, lat: number, options?: MapLibreGL.AnimationOptions) {
+  // MapLibre GL expects [longitude, latitude] order.
+  // Guard against invalid latitude values to prevent crashes.
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    console.warn("[MapTruckPanner] Skipping pan — invalid coordinates:", { lng, lat });
+    return;
+  }
+  map.panTo([lng, lat], options);
+}
 
-      // Guard INSIDE async — phòng trường hợp React Strict Mode double-mount
-      // Instance thứ 2 detect instance thứ 1 đã tạo map → bỏ qua
-      if (!isMounted || !containerRef.current) return;
+function MapTruckPanner({ currentLat, currentLng }: { currentLat?: number; currentLng?: number }) {
+  const { map, isLoaded } = useMap();
+  const prevRef = useRef<{ lat: number; lng: number } | null>(null);
 
-      if (mapRef.current || (containerRef.current as any)._leaflet_id) {
-        return;
-      }
-
-      // Fix default icons
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-        iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-      });
-
-      const center = currentLat && currentLng
-        ? [currentLat, currentLng] as [number, number]
-        : shipment.originLat && shipment.originLng
-        ? [shipment.originLat, shipment.originLng] as [number, number]
-        : [10.7769, 106.7009] as [number, number];
-
-      const map = L.map(containerRef.current!, { zoom: 7, center });
-      mapInstance = map;
-      mapRef.current = map;
-
-      // CartoDB Positron - Premium Minimalist Map Theme
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        attribution: "© OpenStreetMap © CartoDB",
-      }).addTo(map);
-
-      // Origin marker
-      if (shipment.originLat && shipment.originLng) {
-        const originIcon = L.divIcon({
-          html: `<div style="background:#10b981;width:14px;height:14px;border-radius:50%;border:2.5px solid white;box-shadow:0 2px 8px rgba(16,185,129,0.5)"></div>`,
-          className: "", iconAnchor: [7, 7],
-        });
-        L.marker([shipment.originLat, shipment.originLng], { icon: originIcon })
-          .addTo(map)
-          .bindPopup(`<b>Xuất phát</b><br>${shipment.originAddress}`);
-      }
-
-      // Destination marker
-      if (shipment.destinationLat && shipment.destinationLng) {
-        const destIcon = L.divIcon({
-          html: `<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2.5px solid white;box-shadow:0 2px 8px rgba(239,68,68,0.5)"></div>`,
-          className: "", iconAnchor: [7, 7],
-        });
-        L.marker([shipment.destinationLat, shipment.destinationLng], { icon: destIcon })
-          .addTo(map)
-          .bindPopup(`<b>Điểm đến</b><br>${shipment.destinationAddress}`);
-      }
-
-      // Checkpoints
-      shipment.checkpoints.forEach((cp) => {
-        if (!cp.latitude || !cp.longitude) return;
-        const cpIcon = L.divIcon({
-          html: `<div style="background:${cp.isCompleted ? "#6366f1" : "#94a3b8"};width:10px;height:10px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.2)"></div>`,
-          className: "", iconAnchor: [5, 5],
-        });
-        L.marker([cp.latitude, cp.longitude], { icon: cpIcon })
-          .addTo(map)
-          .bindPopup(`<b>${cp.name}</b><br>${cp.isCompleted ? "✅ Đã trạm qua" : "⏳ Đang chờ"}`);
-      });
-
-      // Current position (glowing radar truck marker)
-      leafletRef.current = L;
-      if (currentLat && currentLng) {
-        const truckIcon = L.divIcon({
-          html: RADAR_MARKER_HTML,
-          className: "", iconAnchor: [14, 14],
-        });
-        const marker = L.marker([currentLat, currentLng], { icon: truckIcon })
-          .addTo(map)
-          .bindPopup("<b>🚛 Vị trí xe thời gian thực</b>");
-        truckMarkerRef.current = marker;
-      }
-
-      // Tracking history polyline (glowing path)
-      if (shipment.trackingHistory.length > 1) {
-        const coords = shipment.trackingHistory.map(
-          (p) => [p.latitude, p.longitude] as [number, number]
-        );
-        // Pathway soft glow
-        L.polyline(coords, { color: "#f97316", weight: 6, opacity: 0.15 }).addTo(map);
-        // Pathway dashed core
-        L.polyline(coords, { color: "#f97316", weight: 3, opacity: 0.9, dashArray: "6 5" }).addTo(map);
-      }
-
-      // ——— DIJKSTRA SHORTEST PATH (sequence order) ———
-      // Build waypoints in original sequence: origin → cp1 → cp2 → ... → destination
-      const allWaypoints: { lat: number; lng: number; label?: string }[] = [];
-      if (shipment.originLat && shipment.originLng) {
-        allWaypoints.push({ lat: shipment.originLat, lng: shipment.originLng, label: "Xuất phát" });
-      }
-      shipment.checkpoints
-        .filter((cp) => cp.latitude && cp.longitude)
-        .forEach((cp) => {
-          allWaypoints.push({ lat: cp.latitude!, lng: cp.longitude!, label: cp.name });
-        });
-      if (shipment.destinationLat && shipment.destinationLng) {
-        allWaypoints.push({ lat: shipment.destinationLat, lng: shipment.destinationLng, label: "Điểm đến" });
-      }
-
-      let totalOptimalDist = 0;
-      if (allWaypoints.length >= 2) {
-        for (let i = 0; i < allWaypoints.length - 1; i++) {
-          const from = allWaypoints[i];
-          const to = allWaypoints[i + 1];
-          const dist = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-          totalOptimalDist += dist;
-
-          // Segment line (Dijkstra optimal path) with gradient coloring
-          const ratio = allWaypoints.length > 2 ? i / (allWaypoints.length - 2) : 0;
-          const hue = Math.round(30 + ratio * 30); // 30° → 60° (orange → amber)
-          L.polyline(
-            [[from.lat, from.lng], [to.lat, to.lng]],
-            {
-              color: `hsl(${hue}, 90%, 55%)`,
-              weight: 3.5,
-              opacity: 0.85,
-            }
-          ).addTo(map);
-
-          // Distance label at midpoint
-          const midLat = (from.lat + to.lat) / 2;
-          const midLng = (from.lng + to.lng) / 2;
-          const segIcon = L.divIcon({
-            html: `<div style="
-              background: rgba(0,0,0,0.75); color: white;
-              padding: 2px 8px; border-radius: 99px;
-              font-size: 10px; font-weight: 700;
-              white-space: nowrap;
-              backdrop-filter: blur(4px);
-              border: 1px solid rgba(255,255,255,0.15);
-              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            ">${from.label || ''} → ${dist.toFixed(1)} km</div>`,
-            className: "", iconAnchor: [30, 10],
-          });
-          L.marker([midLat, midLng], { icon: segIcon, interactive: false }).addTo(map);
-        }
-      }
-
-      // Comparison: Dijkstra optimal path vs straight-line reference
-      if (shipment.originLat && shipment.originLng && shipment.destinationLat && shipment.destinationLng) {
-        const straightDist = haversineDistance(
-          shipment.originLat, shipment.originLng,
-          shipment.destinationLat, shipment.destinationLng
-        );
-        const diff = totalOptimalDist - straightDist;
-        const diffPercent = straightDist > 0
-          ? Math.round((diff / straightDist) * 100)
-          : 0;
-
-        // Straight line (dashed gray — reference, not the actual route)
-        L.polyline(
-          [[shipment.originLat, shipment.originLng], [shipment.destinationLat, shipment.destinationLng]],
-          { color: "#94a3b8", weight: 1.5, opacity: 0.25, dashArray: "4 6" }
-        ).addTo(map);
-
-        // Dijkstra route info card (top-right corner of map)
-        const infoIcon = L.divIcon({
-          html: `<div style="
-            background: rgba(0,0,0,0.8); color: white;
-            padding: 8px 14px; border-radius: 10px;
-            font-size: 11px; line-height: 1.7;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-            max-width: 200px;
-          ">
-            <div style="font-weight: 700; font-size: 12px; margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
-              <span style="color: #f97316;">●</span> Dijkstra Shortest Path
-            </div>
-            <div style="display: grid; grid-template-columns: auto 1fr; gap: 1px 8px;">
-              <span style="color: #94a3b8;">Tối ưu:</span>
-              <strong>${totalOptimalDist.toFixed(1)} km</strong>
-              <span style="color: #94a3b8;">Thẳng:</span>
-              <strong>${straightDist.toFixed(1)} km</strong>
-              <span style="color: #94a3b8;">Chênh:</span>
-              <strong style="color: ${diff > 0 ? '#f97316' : '#10b981'};">+${diffPercent}%</strong>
-            </div>
-            <div style="margin-top: 4px; font-size: 9px; color: #6b7280; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 3px;">
-              ${allWaypoints.length - 2} checkpoints • ${allWaypoints.length - 1} segments
-            </div>
-          </div>`,            className: "", iconAnchor: [0, -50],
-        });
-        L.marker(
-          [allWaypoints[0]?.lat || 10.7769, (allWaypoints[0]?.lng || 106.7009)],
-          { icon: infoIcon, interactive: false }
-        ).addTo(map);
-      }
-
-      // Fit bounds — include all waypoints + current position
-      const allPoints: [number, number][] = allWaypoints.map((p) => [p.lat, p.lng]);
-      if (currentLat && currentLng) allPoints.push([currentLat, currentLng]);
-      if (allPoints.length > 1) {
-        map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 12 });
-      }
-    };
-
-    initMap();
-    return () => {
-      isMounted = false;
-      if (mapInstance) {
-        mapInstance.remove();
-      }
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, []);
-
-  // Update truck marker position when simulation moves the vehicle
   useEffect(() => {
-    if (!mapRef.current || !leafletRef.current || !currentLat || !currentLng) return;
-    const L = leafletRef.current;
-    const map = mapRef.current;
-
-    // Remove old truck marker
-    if (truckMarkerRef.current) {
-      truckMarkerRef.current.remove();
-      truckMarkerRef.current = null;
-    }
-
-    // Add new truck marker at updated position
-    const truckIcon = L.divIcon({
-      html: RADAR_MARKER_HTML,
-      className: "", iconAnchor: [14, 14],
-    });
-    const marker = L.marker([currentLat, currentLng], { icon: truckIcon })
-      .addTo(map)
-      .bindPopup("<b>🚛 Vị trí xe thời gian thực</b>");
-    truckMarkerRef.current = marker;
-
+    if (!isLoaded || !map || !currentLat || !currentLng) return;
+    const prev = prevRef.current;
+    if (prev && prev.lat === currentLat && prev.lng === currentLng) return;
+    prevRef.current = { lat: currentLat, lng: currentLng };
     // Smoothly pan to follow the vehicle
-    map.panTo([currentLat, currentLng], { animate: true, duration: 1.2 });
-  }, [currentLat, currentLng]);
+    // MapLibre GL panTo expects [longitude, latitude]
+    safePanTo(map, currentLng, currentLat, { animate: true, duration: 1200 });
+  }, [isLoaded, map, currentLat, currentLng]);
 
-  return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
+  return null;
+}
+
+export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
+  const hasOrigin = !!(shipment.originLat && shipment.originLng);
+  const hasDest = !!(shipment.destinationLat && shipment.destinationLng);
+
+  // Build waypoints: origin → checkpoints → destination
+  const waypoints = useMemo(() => {
+    const pts: { lng: number; lat: number; label?: string }[] = [];
+    if (hasOrigin) pts.push({ lng: shipment.originLng!, lat: shipment.originLat!, label: "Xuất phát" });
+    shipment.checkpoints
+      .filter((cp) => cp.latitude && cp.longitude)
+      .forEach((cp) => pts.push({ lng: cp.longitude!, lat: cp.latitude!, label: cp.name }));
+    if (hasDest) pts.push({ lng: shipment.destinationLng!, lat: shipment.destinationLat!, label: "Điểm đến" });
+    return pts;
+  }, [shipment, hasOrigin, hasDest]);
+
+  // Build segment metadata
+  const segments = useMemo(() => {
+    const segs: {
+      from: { lng: number; lat: number; label?: string };
+      to: { lng: number; lat: number; label?: string };
+      dist: number; ratio: number;
+    }[] = [];
+    if (waypoints.length >= 2) {
+      for (let i = 0; i < waypoints.length - 1; i++) {
+        const from = waypoints[i];
+        const to = waypoints[i + 1];
+        const dist = haversineDistance(from.lat, from.lng, to.lat, to.lng);
+        const ratio = waypoints.length > 2 ? i / (waypoints.length - 2) : 0;
+        segs.push({ from, to, dist, ratio });
+      }
+    }
+    return segs;
+  }, [waypoints]);
+
+
+
+  // ── OpenRouteService road route ──
+  const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
+  const [roadLoading, setRoadLoading] = useState(false);
+
+  useEffect(() => {
+    if (waypoints.length < 2) return;
+    let cancelled = false;
+    setRoadLoading(true);
+
+    const wps: RouteWaypoint[] = waypoints.map((w) => ({
+      lng: w.lng,
+      lat: w.lat,
+      label: w.label,
+    }));
+
+    fetchRoadRoute(wps)
+      .then((route) => {
+        if (!cancelled) {
+          setRoadRoute(route);
+          setRoadLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.warn("[ShipmentMap] ORS routing failed, using fallback:", err);
+          setRoadRoute(null);
+          setRoadLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [waypoints]);
+
+
+
+
+
+  // All points for fitting map bounds
+  const allPoints = useMemo(() => {
+    const pts: [number, number][] = waypoints.map((w) => [w.lng, w.lat]);
+    if (currentLat && currentLng) pts.push([currentLng, currentLat]);
+    return pts;
+  }, [waypoints, currentLat, currentLng]);
+
+  // Map initial center
+  const center = useMemo(() => {
+    if (currentLat && currentLng) return [currentLng, currentLat] as [number, number];
+    if (hasOrigin) return [shipment.originLng!, shipment.originLat!] as [number, number];
+    return [106.7009, 10.7769] as [number, number];
+  }, [currentLat, currentLng, hasOrigin, shipment]);
+
+  // Dijkstra metrics
+  const straightDist = useMemo(() => {
+    if (!hasOrigin || !hasDest) return 0;
+    return haversineDistance(
+      shipment.originLat!, shipment.originLng!,
+      shipment.destinationLat!, shipment.destinationLng!
+    );
+  }, [hasOrigin, hasDest, shipment]);
+
+  // Use road distance if available, else straight-line total
+  const totalDist = useMemo(
+    () => roadRoute?.distance ?? segments.reduce((s, seg) => s + seg.dist, 0),
+    [roadRoute, segments]
+  );
+  const diffPercent = straightDist > 0 ? Math.round(((totalDist - straightDist) / straightDist) * 100) : 0;
+  const isRoadRoute = !!roadRoute;
+
+  return (
+    <Map center={center} zoom={7} className="h-full w-full">
+      <MapControls showZoom />
+
+      {/* ── Origin marker ── */}
+      {hasOrigin && (
+        <MapMarker longitude={shipment.originLng!} latitude={shipment.originLat!}>
+          <MarkerContent>
+            <div
+              style={{
+                width: 14, height: 14, borderRadius: "50%",
+                background: "#10b981",
+                border: "2.5px solid white",
+                boxShadow: "0 2px 8px rgba(16,185,129,0.5)",
+              }}
+            />
+          </MarkerContent>
+          <MarkerPopup>
+            <div className="font-semibold text-xs">Xuất phát</div>
+            <div className="text-[10px] text-muted-foreground">{shipment.originAddress}</div>
+          </MarkerPopup>
+        </MapMarker>
+      )}
+
+      {/* ── Destination marker ── */}
+      {hasDest && (
+        <MapMarker longitude={shipment.destinationLng!} latitude={shipment.destinationLat!}>
+          <MarkerContent>
+            <div
+              style={{
+                width: 14, height: 14, borderRadius: "50%",
+                background: "#ef4444",
+                border: "2.5px solid white",
+                boxShadow: "0 2px 8px rgba(239,68,68,0.5)",
+              }}
+            />
+          </MarkerContent>
+          <MarkerPopup>
+            <div className="font-semibold text-xs">Điểm đến</div>
+            <div className="text-[10px] text-muted-foreground">{shipment.destinationAddress}</div>
+          </MarkerPopup>
+        </MapMarker>
+      )}
+
+      {/* ── Checkpoints ── */}
+      {shipment.checkpoints.map((cp) => {
+        if (!cp.latitude || !cp.longitude) return null;
+        return (
+          <MapMarker key={cp.id} longitude={cp.longitude} latitude={cp.latitude}>
+            <MarkerContent>
+              <div
+                style={{
+                  width: 10, height: 10, borderRadius: "50%",
+                  background: cp.isCompleted ? "#6366f1" : "#94a3b8",
+                  border: "2px solid white",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                }}
+              />
+            </MarkerContent>
+            <MarkerPopup>
+              <div className="text-xs">{cp.name}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {cp.isCompleted ? "✅ Đã trạm qua" : "⏳ Đang chờ"}
+              </div>
+            </MarkerPopup>
+          </MapMarker>
+        );
+      })}
+
+      {/* ── Truck position (animated radar marker) ── */}
+      {currentLat && currentLng && (
+        <MapMarker longitude={currentLng} latitude={currentLat}>
+          <MarkerContent>
+            <div dangerouslySetInnerHTML={{ __html: RADAR_MARKER_HTML }} />
+          </MarkerContent>
+          <MarkerPopup>
+            <div className="text-xs font-semibold">🚛 Vị trí xe thời gian thực</div>
+          </MarkerPopup>
+        </MapMarker>
+      )}
+
+      {/* ── Loading indicator for road route ── */}
+      {roadLoading && (
+        <div className="absolute top-2 left-2 z-20 bg-black/60 text-white text-[10px] px-2.5 py-1 rounded-full backdrop-blur-sm flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+          Đang tải lộ trình đường bộ...
+        </div>
+      )}
+
+      {/* ── Road route (ORS) — one continuous line ── */}
+      {isRoadRoute && roadRoute ? (
+        <>
+          {/* Glow underneath */}
+          <MapRoute
+            coordinates={roadRoute.coordinates}
+            color="#f97316"
+            width={7}
+            opacity={0.12}
+            interactive={false}
+          />
+          {/* Main route line */}
+          <MapRoute
+            coordinates={roadRoute.coordinates}
+            color="#f97316"
+            width={4}
+            opacity={0.9}
+            interactive={false}
+          />
+        </>
+      ) : hasOrigin && hasDest ? (
+        /* ── Fallback: single straight line (chim bay) when ORS unavailable ── */
+        <>
+          <MapRoute
+            coordinates={[[shipment.originLng!, shipment.originLat!], [shipment.destinationLng!, shipment.destinationLat!]]}
+            color="#94a3b8"
+            width={2.5}
+            opacity={0.7}
+            dashArray={[8, 6]}
+            interactive={false}
+          />
+          {/* Glow */}
+          <MapRoute
+            coordinates={[[shipment.originLng!, shipment.originLat!], [shipment.destinationLng!, shipment.destinationLat!]]}
+            color="#94a3b8"
+            width={6}
+            opacity={0.1}
+            interactive={false}
+          />
+        </>
+      ) : null}
+
+
+
+      {/* ── Straight line reference (dashed gray) — only when ORS is available ── */}
+      {isRoadRoute && hasOrigin && hasDest && (
+        <MapRoute
+          coordinates={[[shipment.originLng!, shipment.originLat!], [shipment.destinationLng!, shipment.destinationLat!]]}
+          color="#94a3b8"
+          width={1.5}
+          opacity={0.2}
+          dashArray={[4, 6]}
+          interactive={false}
+        />
+      )}
+
+      {/* ── Speed legend ── */}
+      {isRoadRoute && roadRoute && (
+        <div
+          style={{
+            position: "absolute", bottom: 24, right: 48,
+            background: "rgba(0,0,0,0.8)",
+            borderRadius: 10,
+            padding: "8px 12px",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            zIndex: 20,
+            fontSize: 10,
+            lineHeight: 1.8,
+          }}
+        >
+          <div style={{ color: "#94a3b8", fontWeight: 700, fontSize: 9, marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+            Tuyến đường
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 14, height: 4, borderRadius: 2, background: "#f97316" }} />
+            <span style={{ color: "white" }}>ORS đường bộ</span>
+          </div>
+          <div style={{ marginTop: 2, color: "#6b7280", fontSize: 9 }}>
+            {roadRoute.distance.toFixed(1)} km
+          </div>
+        </div>
+      )}
+
+      {/* ── Route info card ── */}
+      {hasOrigin && hasDest && waypoints.length > 0 && (
+        <MapMarker
+          longitude={waypoints[0].lng}
+          latitude={waypoints[0].lat}
+          offset={[0, -50]}
+        >
+          <MarkerContent>
+            <div
+              style={{
+                background: "rgba(0,0,0,0.8)", color: "white",
+                padding: "8px 14px", borderRadius: "10px",
+                fontSize: "11px", lineHeight: 1.7,
+                backdropFilter: "blur(8px)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                maxWidth: 200,
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 700, fontSize: 12, marginBottom: 3,
+                  display: "flex", alignItems: "center", gap: 4,
+                }}
+              >
+                <span style={{ color: "#f97316" }}>●</span>
+                {isRoadRoute ? "Đường bộ (ORS)" : "Đường chim bay"}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "1px 8px" }}>
+                <span style={{ color: "#94a3b8" }}>{isRoadRoute ? "Đường bộ:" : "Tối ưu:"}</span>
+                <strong>{totalDist.toFixed(1)} km</strong>
+                <span style={{ color: "#94a3b8" }}>Thẳng:</span>
+                <strong>{straightDist.toFixed(1)} km</strong>
+                <span style={{ color: "#94a3b8" }}>Chênh:</span>
+                <strong style={{ color: diffPercent > 0 ? "#f97316" : "#10b981" }}>
+                  +{diffPercent}%
+                </strong>
+              </div>
+              <div
+                style={{
+                  marginTop: 4, fontSize: 9, color: "#6b7280",
+                  borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 3,
+                }}
+              >
+                {waypoints.length - 2} checkpoints • {waypoints.length - 1} segments
+                {roadLoading && <span className="ml-1 text-orange-400">⟳</span>}
+              </div>
+            </div>
+          </MarkerContent>
+        </MapMarker>
+      )}
+
+      {/* ── Auto-fit bounds ── */}
+      <MapBoundsFitter points={allPoints} />
+
+      {/* ── Smooth pan to truck ── */}
+      <MapTruckPanner currentLat={currentLat} currentLng={currentLng} />
+    </Map>
+  );
 }
