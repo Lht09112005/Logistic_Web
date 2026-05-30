@@ -6,6 +6,7 @@ import {
   Truck, ArrowLeft, Plus, Trash2, MapPin, Calendar, Clipboard, User, Package, AlertCircle
 } from "lucide-react";
 import { createShipmentAction } from "@/app/actions/shipments";
+import { RoleGuard } from "@/components/auth/role-guard";
 
 interface Warehouse {
   id: string; name: string; code: string; address: string; city: string;
@@ -138,6 +139,7 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
   };
 
   return (
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]} fallback="redirect">
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -489,5 +491,6 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
         </div>
       </form>
     </div>
+    </RoleGuard>
   );
 }
