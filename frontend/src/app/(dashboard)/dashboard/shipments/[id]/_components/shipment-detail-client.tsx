@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,6 +18,13 @@ import {
   type RouteNode,
   type OptimizedRoute,
 } from "@/lib/route-optimizer";
+import {
+  fetchRoadRoute,
+  parseSegmentsFromRoute,
+  type RouteWaypoint,
+  type RoadRoute,
+  type RouteSegment,
+} from "@/lib/routing-service";
 
 interface Checkpoint {
   id: string; name: string; address: string;
@@ -73,6 +80,14 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
   const simIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [simStepIndex, setSimStepIndex] = useState(0);
 
+  // ETA & traffic
+  const [simETA, setSimETA] = useState<string>("—");
+  const [simTraffic, setSimTraffic] = useState<"none" | "light" | "moderate" | "heavy">("none");
+
+  // ORS road route for simulation
+  const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
+  const [roadRouteLoading, setRoadRouteLoading] = useState(false);
+
   // Load map component dynamically (SSR-safe)
   useEffect(() => {
     import("./shipment-map").then((mod) => {
@@ -82,6 +97,125 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
     // Pre-compute optimal route using Dijkstra + nearest-neighbor
     computeOptimizedRoute();
   }, []);
+
+  // ── Fetch ORS road route for simulation ──
+  useEffect(() => {
+    const waypoints: RouteWaypoint[] = [];
+    if (shipment.originLat && shipment.originLng) {
+      waypoints.push({ lng: shipment.originLng, lat: shipment.originLat, label: "Xuất phát" });
+    }
+    shipment.checkpoints
+      .filter((cp) => cp.latitude && cp.longitude)
+      .forEach((cp) => waypoints.push({ lng: cp.longitude!, lat: cp.latitude!, label: cp.name }));
+    if (shipment.destinationLat && shipment.destinationLng) {
+      waypoints.push({ lng: shipment.destinationLng, lat: shipment.destinationLat, label: "Điểm đến" });
+    }
+
+    if (waypoints.length < 2) return;
+
+    let cancelled = false;
+    setRoadRouteLoading(true);
+
+    fetchRoadRoute(waypoints)
+      .then((route) => {
+        if (!cancelled) {
+          setRoadRoute(route);
+          setRoadRouteLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRoadRoute(null);
+          setRoadRouteLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    shipment.originLat, shipment.originLng,
+    shipment.destinationLat, shipment.destinationLng,
+    shipment.checkpoints,
+  ]);
+
+  // ── Sampled ORS coordinates for simulation ──
+  const orsSimCoords = useMemo((): { latitude: number; longitude: number; checkpointId?: string; speed?: number; roadName?: string }[] | null => {
+    if (!roadRoute || roadRoute.coordinates.length < 2) return null;
+
+    const coords = roadRoute.coordinates;
+    const segments = roadRoute.segments;
+
+    // Build waypoints for segment parsing to map checkpoint IDs
+    const wps: RouteWaypoint[] = [];
+    const cpIndexToId = new Map<number, string>();
+    if (shipment.originLat && shipment.originLng) {
+      wps.push({ lng: shipment.originLng, lat: shipment.originLat, label: "Xuất phát" });
+    }
+    shipment.checkpoints
+      .filter((cp) => cp.latitude && cp.longitude)
+      .forEach((cp) => {
+        wps.push({ lng: cp.longitude!, lat: cp.latitude!, label: cp.name });
+        cpIndexToId.set(wps.length - 1, cp.id);
+      });
+    if (shipment.destinationLat && shipment.destinationLng) {
+      wps.push({ lng: shipment.destinationLng, lat: shipment.destinationLat, label: "Điểm đến" });
+    }
+
+    // Get waypoint indices in ORS road coordinates
+    const segData = parseSegmentsFromRoute(coords, wps);
+
+    // Sample to ~200 points for a reasonable simulation duration
+    const targetPoints = 200;
+    const skip = Math.max(1, Math.floor(coords.length / targetPoints));
+    const sampled: { latitude: number; longitude: number; checkpointId?: string; speed?: number; roadName?: string }[] = [];
+
+    for (let i = 0; i < coords.length; i += skip) {
+      const [lng, lat] = coords[i];
+
+      // Find which ORS segment this coordinate belongs to
+      let stepSpeed: number | undefined;
+      let stepRoadName: string | undefined;
+      if (segments && segments.length > 0) {
+        for (const seg of segments) {
+          const [start, end] = seg.waypointIndices;
+          if (i >= start && i <= end) {
+            stepSpeed = seg.speed;
+            stepRoadName = seg.roadName;
+            break;
+          }
+        }
+      }
+
+      // Check if this index is near a checkpoint waypoint index
+      let checkpointId: string | undefined;
+      for (let j = 1; j < segData.waypointIndices.length - 1; j++) {
+        const wpIdx = segData.waypointIndices[j];
+        if (Math.abs(wpIdx - i) <= skip) {
+          const cpId = cpIndexToId.get(j);
+          if (cpId) checkpointId = cpId;
+          break;
+        }
+      }
+
+      sampled.push({
+        latitude: lat,
+        longitude: lng,
+        checkpointId,
+        speed: stepSpeed,
+        roadName: stepRoadName,
+      });
+    }
+
+    // Ensure last coordinate is included
+    const last = coords[coords.length - 1];
+    const lastSampled = sampled[sampled.length - 1];
+    if (!lastSampled || lastSampled.longitude !== last[0] || lastSampled.latitude !== last[1]) {
+      sampled.push({ latitude: last[1], longitude: last[0] });
+    }
+
+    return sampled;
+  }, [roadRoute, shipment.originLat, shipment.originLng, shipment.destinationLat, shipment.destinationLng, shipment.checkpoints]);
 
   // Socket.io — live location updates (lazy loaded)
   useEffect(() => {
@@ -133,7 +267,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
   // Route optimizer — cached computation ref
   const routeCacheRef = useRef<{
     route: OptimizedRoute;
-    coords: { latitude: number; longitude: number; checkpointId?: string }[];
+    coords: { latitude: number; longitude: number; checkpointId?: string; speed?: number; roadName?: string }[];
   } | null>(null);
 
   // Compute optimal route using Dijkstra + Nearest-Neighbor TSP
@@ -162,13 +296,52 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
     return { route, coords };
   };
 
+  type SimCoord = { latitude: number; longitude: number; checkpointId?: string; speed?: number; roadName?: string };
+
   // Get cached route coordinates for simulation
-  const getRouteCoordinates = () => {
+  const getRouteCoordinates = (): SimCoord[] => {
+    // Use ORS road route coordinates when available
+    if (orsSimCoords && orsSimCoords.length > 0) {
+      return orsSimCoords;
+    }
+
+    // Fallback: use interpolated haversine path
     if (!routeCacheRef.current) {
       const result = computeOptimizedRoute();
       return result?.coords || [];
     }
     return routeCacheRef.current.coords;
+  };
+
+  const formatETA = (seconds: number): string => {
+    if (seconds <= 0) return "Đã đến nơi";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}h ${m}p`;
+    if (m > 0) return `${m}p ${s}s`;
+    return `${s}s`;
+  };
+
+  const calculateETA = (currentStepIndex: number, routeCoords: SimCoord[], speed: number): number => {
+    const remaining = routeCoords.length - 1 - currentStepIndex;
+    if (remaining <= 0 || speed <= 0) return 0;
+
+    // If we have ORS segments, use their remaining duration proportionally
+    if (roadRoute?.segments && roadRoute.segments.length > 0 && orsSimCoords) {
+      const totalSteps = routeCoords.length;
+      const fractionRemaining = remaining / totalSteps;
+      const remainingSeconds = Math.round(roadRoute.duration * fractionRemaining);
+      return Math.max(remainingSeconds, 1);
+    }
+
+    // Fallback: estimate based on distance & speed
+    const avgStepDistKm = roadRoute
+      ? roadRoute.distance / routeCoords.length
+      : 0.5; // rough estimate for fallback
+    const remainingKm = remaining * avgStepDistKm;
+    const remainingSeconds = (remainingKm / speed) * 3600;
+    return Math.round(Math.max(remainingSeconds, 1));
   };
 
   const startSimulation = () => {
@@ -192,11 +365,22 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
       setSimStepIndex(0);
     }
 
+    // ORS coordinates are denser → faster interval; fallback → slower
+    const intervalMs = orsSimCoords && orsSimCoords.length > 0 ? 800 : 1500;
+
+    // Initial ETA & speed
+    const initialSpeed = routeCoords[currentIndex]?.speed || roadRoute?.averageSpeed || 72;
+    setSimSpeed(Math.round(initialSpeed));
+    const initialETA = calculateETA(currentIndex, routeCoords, initialSpeed);
+    setSimETA(formatETA(initialETA));
+    setSimTraffic(initialSpeed < (roadRoute?.averageSpeed || 72) * 0.8 ? "moderate" : "none");
+
     simIntervalRef.current = setInterval(async () => {
       if (currentIndex >= routeCoords.length - 1) {
         clearInterval(simIntervalRef.current!);
         setIsSimulating(false);
         setSimStatusMsg("🎉 Giả lập hoàn thành: Hàng đã được giao thành công!");
+        setSimETA("Đã đến nơi");
         handleStatusUpdate("DELIVERED");
         return;
       }
@@ -205,15 +389,30 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
       setSimStepIndex(currentIndex);
       const nextCoord = routeCoords[currentIndex];
 
-      const newSpeed = Math.floor(65 + Math.random() * 18);
-      setSimSpeed(newSpeed);
+      // Use segment-specific speed if available
+      const currentSpeed = nextCoord.speed
+        ? nextCoord.speed
+        : Math.floor(65 + Math.random() * 18);
+      setSimSpeed(Math.round(currentSpeed));
+
+      // Update ETA
+      const eta = calculateETA(currentIndex, routeCoords, currentSpeed);
+      setSimETA(formatETA(eta));
+
+      // Traffic estimate based on speed vs route average
+      const avgRouteSpeed = roadRoute?.averageSpeed || 72;
+      const ratio = currentSpeed / avgRouteSpeed;
+      if (ratio < 0.7) setSimTraffic("heavy");
+      else if (ratio < 0.85) setSimTraffic("moderate");
+      else if (ratio < 0.95) setSimTraffic("light");
+      else setSimTraffic("none");
 
       if (socketRef.current) {
         socketRef.current.emit("location:update", {
           shipmentId: shipment.id,
           latitude: nextCoord.latitude,
           longitude: nextCoord.longitude,
-          speed: newSpeed,
+          speed: currentSpeed,
         });
       }
 
@@ -236,7 +435,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           } catch { /* ignore */ }
         }
       }
-    }, 1500);
+    }, intervalMs);
   };
 
   const pauseSimulation = () => {
@@ -376,18 +575,34 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
             </p>
 
             {/* Telemetry data */}
-            <div className="grid grid-cols-3 gap-2 py-2 text-center border-t border-b text-xs" style={{ borderColor: "var(--border-light)" }}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-2 text-center border-t border-b text-xs" style={{ borderColor: "var(--border-light)" }}>
               <div className="space-y-0.5">
                 <span className="text-[10px] text-gray-400 font-medium">Tốc độ</span>
                 <div className="font-bold text-sm text-orange-500 flex items-center justify-center gap-0.5">
                   <Gauge size={12} />
                   {isSimulating ? simSpeed : 0} km/h
                 </div>
+                {isSimulating && roadRoute?.averageSpeed && (
+                  <div className="text-[9px] text-gray-400">
+                    TB: {roadRoute.averageSpeed} km/h
+                  </div>
+                )}
               </div>
               <div className="space-y-0.5">
-                <span className="text-[10px] text-gray-400 font-medium">Tọa độ xe</span>
-                <div className="font-semibold text-[10px] truncate" style={{ color: "var(--text-primary)" }}>
-                  {shipment.currentLat ? `${shipment.currentLat.toFixed(4)}, ${shipment.currentLng?.toFixed(4)}` : "Chưa có"}
+                <span className="text-[10px] text-gray-400 font-medium">Ước tính đến nơi</span>
+                <div className="font-bold text-sm" style={{ color: isSimulating ? "#22c55e" : "var(--text-muted)" }}>
+                  <Clock size={12} className="inline mr-0.5" />
+                  {isSimulating ? simETA : "—"}
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-gray-400 font-medium">Giao thông</span>
+                <div className="font-bold text-sm flex items-center justify-center gap-1">
+                  {simTraffic === "none" && <span><span className="w-2 h-2 rounded-full inline-block bg-emerald-500" /> Bình thường</span>}
+                  {simTraffic === "light" && <span><span className="w-2 h-2 rounded-full inline-block bg-yellow-400" /> Nhẹ</span>}
+                  {simTraffic === "moderate" && <span><span className="w-2 h-2 rounded-full inline-block bg-orange-500" /> Trung bình</span>}
+                  {simTraffic === "heavy" && <span><span className="w-2 h-2 rounded-full inline-block bg-red-500 animate-pulse" /> Nặng</span>}
+                  {!isSimulating && <span style={{ color: "var(--text-muted)" }}>—</span>}
                 </div>
               </div>
               <div className="space-y-0.5">
@@ -474,7 +689,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
             </h3>
             <div className="space-y-3">
               <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: "#10b981" }}>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#10b981" }}>
                   <div className="w-2 h-2 rounded-full bg-white" />
                 </div>
                 <div>
@@ -485,7 +700,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
               </div>
               <div className="w-px h-6 ml-2.5" style={{ background: "var(--border-color)" }} />
               <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: "#f97316" }}>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#f97316" }}>
                   <div className="w-2 h-2 rounded-full bg-white" />
                 </div>
                 <div>
@@ -530,7 +745,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                       {cp.sequence}. {cp.name}
                     </div>
                   </div>
-                  {cp.arrivedAt && <div className="text-xs flex-shrink-0" style={{ color: "#10b981" }}>✓</div>}
+                  {cp.arrivedAt && <div className="text-xs shrink-0" style={{ color: "#10b981" }}>✓</div>}
                 </div>
               ))}
             </div>

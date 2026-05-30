@@ -25,6 +25,26 @@ export interface RoadRoute {
   distance: number;
   /** Tổng thời gian ước tính (giây) */
   duration: number;
+  /** Tốc độ trung bình toàn tuyến (km/h) */
+  averageSpeed: number;
+  /** Các segment chi tiết với speed từng đoạn (từ ORS steps) */
+  segments?: RouteSegment[];
+}
+
+/** Một đoạn route chi tiết (tương ứng 1 step từ ORS) */
+export interface RouteSegment {
+  /** Khoảng cách (km) */
+  distance: number;
+  /** Thời gian (giây) */
+  duration: number;
+  /** Tốc độ trung bình đoạn này (km/h) */
+  speed: number;
+  /** Tên đường */
+  roadName: string;
+  /** Chỉ dẫn lái xe */
+  instruction: string;
+  /** Chỉ mục [start, end] trong coordinates array */
+  waypointIndices: [number, number];
 }
 
 export interface SegmentRoadData {
@@ -146,6 +166,7 @@ export async function fetchRoadRoute(
           coordinates,
           "preference": "recommended",
           units: "km",
+          "instructions": true,
         }),
       });
 
@@ -174,8 +195,42 @@ export async function fetchRoadRoute(
       // ORS returns distance in km (units: "km") and duration in seconds
       const distance = routeData.summary?.distance ?? 0;
       const duration = routeData.summary?.duration ?? 0;
+      const averageSpeed = duration > 0 ? Math.round((distance / duration) * 3600 * 10) / 10 : 0;
 
-      const route: RoadRoute = { coordinates: coords, distance, duration };
+      // Parse segment-level steps
+      const segments: RouteSegment[] = [];
+      const rawSegments = routeData.segments;
+      if (Array.isArray(rawSegments) && rawSegments.length > 0) {
+        const allSteps = rawSegments[0]?.steps;
+        if (Array.isArray(allSteps)) {
+          for (const step of allSteps) {
+            const stepDistKm = (step.distance ?? 0) / 1000; // ORS returns meters
+            const stepDurS = step.duration ?? 0;
+            const stepSpeed = stepDurS > 0
+              ? Math.round((stepDistKm / stepDurS) * 3600 * 10) / 10
+              : 0;
+            const wpIndices = step.way_points;
+            segments.push({
+              distance: Math.round(stepDistKm * 100) / 100,
+              duration: stepDurS,
+              speed: stepSpeed,
+              roadName: step.name || "",
+              instruction: step.instruction || "",
+              waypointIndices: Array.isArray(wpIndices) && wpIndices.length >= 2
+                ? [wpIndices[0], wpIndices[1]]
+                : [0, 0],
+            });
+          }
+        }
+      }
+
+      const route: RoadRoute = {
+        coordinates: coords,
+        distance,
+        duration,
+        averageSpeed,
+        segments: segments.length > 0 ? segments : undefined,
+      };
 
       // Lưu cache
       routeCache.set(key, { route, timestamp: Date.now() });
