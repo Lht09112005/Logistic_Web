@@ -29,6 +29,20 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
+function Field({
+  label, id, error, children,
+}: { label: string; id: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
+        {label}
+      </label>
+      {children}
+      {error && <p className="mt-1 text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+    </div>
+  );
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const [showPwd, setShowPwd] = useState(false);
@@ -66,18 +80,6 @@ export default function RegisterPage() {
       setIsLoading(false);
     }
   };
-
-  const Field = ({
-    label, id, error, children,
-  }: { label: string; id: string; error?: string; children: React.ReactNode }) => (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
-        {label}
-      </label>
-      {children}
-      {error && <p className="mt-1 text-xs" style={{ color: "#ef4444" }}>{error}</p>}
-    </div>
-  );
 
   return (
     <div className="animate-fade-in">
