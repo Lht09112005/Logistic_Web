@@ -158,6 +158,7 @@ export const shipmentsApi = {
   create: (data: Record<string, unknown>) => api.post("/shipments", data),
   update: (id: string, data: Record<string, unknown>) =>
     api.put(`/shipments/${id}`, data),
+  receive: (id: string) => api.post(`/shipments/${id}/receive`),
 };
 
 export const warehousesApi = {
