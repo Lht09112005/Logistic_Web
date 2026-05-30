@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, MapPin, Clock, Truck, User, Phone,
   CheckCircle, Circle, Package, Navigation,
-  Play, Pause, Flame, Zap, AlertTriangle, TrendingUp, Gauge, RefreshCw
+  Play, Pause, Flame, Zap, AlertTriangle, TrendingUp, Gauge, Activity
 } from "lucide-react";
 import {
   formatDate, formatRelative, getShipmentStatusLabel, getShipmentStatusBadge,
@@ -49,14 +49,18 @@ interface Shipment {
 
 interface Props {
   shipment: Shipment;
+  lastUpdated: Date;
+  refresh: () => void;
+  refreshing: boolean;
 }
 
 // Lazy-load map only on client
 let MapComponent: React.ComponentType<{ shipment: Shipment; currentLat?: number; currentLng?: number }> | null = null;
 
-export default function ShipmentDetailClient({ shipment: initial }: Props) {
+export default function ShipmentDetailClient({ shipment: initial, lastUpdated, refresh, refreshing }: Props) {
   const router = useRouter();
   const [shipment, setShipment] = useState(initial);
+  const [socketConnected, setSocketConnected] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const MapRef = useRef<typeof MapComponent>(null);
   const socketRef = useRef<any>(null);
@@ -87,6 +91,9 @@ export default function ShipmentDetailClient({ shipment: initial }: Props) {
       socketRef.current = socket;
       socket.emit("join:shipment", shipment.id);
 
+      socket.on("connect", () => setSocketConnected(true));
+      socket.on("disconnect", () => setSocketConnected(false));
+
       socket.on("location:updated", (data: { shipmentId: string; latitude: number; longitude: number; speed?: number; status?: string }) => {
         if (data.shipmentId === shipment.id) {
           setShipment((prev) => {
@@ -106,7 +113,14 @@ export default function ShipmentDetailClient({ shipment: initial }: Props) {
       return socket;
     };
     const cleanup = initSocket();
-    return () => { cleanup.then((s) => s?.disconnect()); };
+    return () => {
+      cleanup.then((s) => {
+        s?.off("connect");
+        s?.off("disconnect");
+        s?.off("location:updated");
+        s?.disconnect();
+      });
+    };
   }, [shipment.id]);
 
   const handleStatusUpdate = async (newStatus: string) => {
@@ -278,14 +292,16 @@ export default function ShipmentDetailClient({ shipment: initial }: Props) {
             <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
               {shipment.shipmentCode}
             </h1>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+            </div>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
             <span className={`badge ${getShipmentStatusBadge(shipment.status)}`}>
               {getShipmentStatusLabel(shipment.status)}
             </span>
-            {shipment.status === "IN_TRANSIT" && (
-              <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "#22c55e" }}>
-                <div className="live-dot" /> LIVE
-              </div>
-            )}
           </div>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             Tạo lúc {formatDate(shipment.createdAt)}
@@ -293,7 +309,10 @@ export default function ShipmentDetailClient({ shipment: initial }: Props) {
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+          </button>
           {shipment.status === "PENDING" && (
             <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("IN_TRANSIT")}>
               <Navigation size={14} /> Bắt đầu vận chuyển

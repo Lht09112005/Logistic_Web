@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, notFound } from "next/navigation";
 import { shipmentsApi } from "@/lib/api";
 import ShipmentDetailClient from "./_components/shipment-detail-client";
+
+const POLL_INTERVAL = 15_000;
 
 export default function ShipmentDetailPage() {
   const params = useParams();
@@ -12,22 +14,33 @@ export default function ShipmentDetailPage() {
   const [shipment, setShipment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<boolean>(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const fetchShipment = useCallback(async () => {
     if (!id) return;
-    const fetchShipment = async () => {
-      try {
-        const res = await shipmentsApi.getById(id);
-        setShipment(res.data.data);
-      } catch (err: any) {
-        console.warn("Lỗi lấy chi tiết vận đơn:", err.message || err);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchShipment();
+    try {
+      const res = await shipmentsApi.getById(id);
+      setShipment(res.data.data);
+      setError(false);
+    } catch {
+      setError(true);
+    }
+    setLastUpdated(new Date());
   }, [id]);
+
+  // Initial fetch + polling
+  useEffect(() => {
+    fetchShipment().finally(() => setLoading(false));
+    const interval = setInterval(fetchShipment, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchShipment]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchShipment();
+    setRefreshing(false);
+  };
 
   if (loading) {
     return (
@@ -43,5 +56,12 @@ export default function ShipmentDetailPage() {
     return notFound();
   }
 
-  return <ShipmentDetailClient shipment={shipment} />;
+  return (
+    <ShipmentDetailClient
+      shipment={shipment}
+      lastUpdated={lastUpdated}
+      refresh={handleRefresh}
+      refreshing={refreshing}
+    />
+  );
 }
