@@ -25,6 +25,7 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
@@ -69,17 +70,128 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Demo credentials hint */}
-      <div
-        className="mb-6 p-4 rounded-xl text-sm"
-        style={{ background: "var(--brand-50)", border: "1px solid #fed7aa" }}
-      >
-        <p className="font-semibold mb-1" style={{ color: "#c2410c" }}>
-          🔑 Tài khoản demo:
+      {/* Role guide */}
+      <div className="mb-6 space-y-3">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-5 w-1 rounded-full" style={{ background: "linear-gradient(180deg, #f97316, #ea580c)" }} />
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+            Chọn vai trò để đăng nhập nhanh
+          </span>
+        </div>
+
+        {[
+          {
+            role: "ADMIN",
+            label: "Quản trị viên",
+            email: "admin@logistiq.vn",
+            password: "admin123",
+            desc: "Toàn quyền quản lý hệ thống, người dùng, kho hàng & vận chuyển",
+            color: "#ef4444",
+            bg: "#fef2f2",
+            darkBg: "#7f1d1d40",
+            icon: "🛡️",
+          },
+          {
+            role: "MANAGER",
+            label: "Quản lý kho",
+            email: "manager@logistiq.vn",
+            password: "staff123",
+            desc: "Quản lý kho hàng, tồn kho, xác nhận & tạo lô hàng",
+            color: "#8b5cf6",
+            bg: "#f5f3ff",
+            darkBg: "#4c1d9540",
+            icon: "📋",
+          },
+          {
+            role: "STAFF",
+            label: "Nhân viên",
+            email: "nam@logistiq.vn",
+            password: "staff123",
+            desc: "Theo dõi kho, quét QR, cập nhật tồn kho & vận đơn",
+            color: "#4f46e5",
+            bg: "#eef2ff",
+            darkBg: "#312e8140",
+            icon: "👤",
+          },
+          {
+            role: "DRIVER",
+            label: "Tài xế",
+            email: "driver1@logistiq.vn",
+            password: "staff123",
+            desc: "Xem lộ trình giao hàng & cập nhật trạng thái",
+            color: "#f97316",
+            bg: "#fff7ed",
+            darkBg: "#7c2d1240",
+            icon: "🚚",
+          },
+        ].map((item) => (
+          <button
+            key={item.role}
+            type="button"
+            onClick={() => {
+              setValue("email", item.email, { shouldValidate: true, shouldDirty: true });
+              setValue("password", item.password, { shouldValidate: true, shouldDirty: true });
+            }}
+            className="w-full text-left p-3.5 rounded-xl transition-all duration-200 group"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = item.color;
+              e.currentTarget.style.boxShadow = `0 0 0 2px ${item.color}15`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border-color)";
+              e.currentTarget.style.boxShadow = "var(--shadow-card)";
+            }}
+          >
+            <div className="flex items-center gap-3">
+              {/* Icon */}
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0 transition-transform duration-200 group-hover:scale-110"
+                style={{ background: `${item.color}15` }}
+              >
+                {item.icon}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                    {item.label}
+                  </span>
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider"
+                    style={{ background: `${item.color}15`, color: item.color }}
+                  >
+                    {item.role}
+                  </span>
+                </div>
+                <p className="text-xs mt-0.5 line-clamp-1" style={{ color: "var(--text-muted)" }}>
+                  {item.desc}
+                </p>
+                <p className="text-[11px] mt-1 font-mono" style={{ color: "var(--text-secondary)" }}>
+                  {item.email} <span className="opacity-50">/</span> {item.password}
+                </p>
+              </div>
+
+              {/* Arrow */}
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0"
+                style={{ background: `${item.color}15` }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={item.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </button>
+        ))}
+
+        <p className="text-[11px] text-center pt-1" style={{ color: "var(--text-muted)" }}>
+          Nhấp vào vai trò để tự động điền thông tin đăng nhập
         </p>
-        <p style={{ color: "#9a3412" }}>Admin: admin@logistiq.vn / admin123</p>
-        <p style={{ color: "#9a3412" }}>Quản lý: manager@logistiq.vn / staff123</p>
-        <p style={{ color: "#9a3412" }}>Staff: nam@logistiq.vn / staff123</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
