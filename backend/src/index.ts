@@ -7,6 +7,7 @@ import { Server } from 'socket.io'
 import dotenv from 'dotenv'
 
 import authRoutes from './routes/auth.routes'
+import userRoutes from './routes/user.routes'
 import productRoutes from './routes/product.routes'
 import inventoryRoutes from './routes/inventory.routes'
 import shipmentRoutes from './routes/shipment.routes'
@@ -37,6 +38,7 @@ app.use(express.urlencoded({ extended: true }))
 
 // Routes
 app.use('/api/auth', authRoutes)
+app.use('/api/users', userRoutes)
 app.use('/api/products', productRoutes)
 app.use('/api/inventory', inventoryRoutes)
 app.use('/api/shipments', shipmentRoutes)
