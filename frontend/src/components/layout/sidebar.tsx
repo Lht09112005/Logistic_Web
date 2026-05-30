@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/app-store";
+import { useSharedDataStore } from "@/store/shared-data-store";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
-import { shipmentsApi, inventoryApi, warehousesApi } from "@/lib/api";
+import { shipmentsApi } from "@/lib/api";
 import {
   LayoutDashboard, Package, Warehouse, Truck, QrCode,
   Bell, Settings, LogOut, ChevronLeft, Users, BarChart3,
@@ -164,70 +165,193 @@ interface SnapshotData {
 }
 
 function RoleSnapshot({ collapsed, role }: { collapsed: boolean; role: string }) {
-  const [data, setData] = useState<SnapshotData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const shared = useSharedDataStore();
 
-  useEffect(() => {
-    const fetchSnapshot = async () => {
-      try {
-        const [statsRes, alertsRes, whRes] = await Promise.allSettled([
-          shipmentsApi.getStats(),
-          inventoryApi.getAlerts({ isResolved: "false" }),
-          warehousesApi.getAll(),
-        ]);
-
-        const stats = statsRes.status === "fulfilled" ? statsRes.value.data.data : null;
-        const alerts = alertsRes.status === "fulfilled" ? alertsRes.value.data.data : [];
-        const wh = whRes.status === "fulfilled" ? whRes.value.data.data : [];
-
-        setData({
-          activeShipments: stats?.inTransit ?? 0,
-          alerts: Array.isArray(alerts) ? alerts.length : 0,
-          warehouses: Array.isArray(wh) ? wh.length : 0,
-          pendingTasks: (stats?.pending ?? 0) + (stats?.loading ?? 0),
-        });
-      } catch {
-        setData(null);
+  // Compute snapshot from shared store data (eliminates duplicate polling)
+  const data: SnapshotData | null = shared.shipmentStats
+    ? {
+        activeShipments: shared.shipmentStats.inTransit ?? 0,
+        alerts: Array.isArray(shared.alerts) ? shared.alerts.length : 0,
+        warehouses: Array.isArray(shared.warehouses) ? shared.warehouses.length : 0,
+        pendingTasks:
+          (shared.shipmentStats.pending ?? 0) +
+          (shared.shipmentStats.inTransit ?? 0),
       }
-      setLoading(false);
-    };
+    : null;
 
-    fetchSnapshot();
-
-    const handleVisibility = () => {
-      if (document.hidden) {
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-      } else {
-        fetchSnapshot();
-        if (!pollingRef.current) {
-          pollingRef.current = setInterval(fetchSnapshot, 45_000);
-        }
-      }
-    };
-
-    if (!document.hidden) {
-      pollingRef.current = setInterval(fetchSnapshot, 45_000);
-    }
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [role]);
-
-  if (loading || !data) return null;
+  if (!data) return null;
 
   const accent = ROLE_ACCENT[role] || ROLE_ACCENT.STAFF;
 
-  if (collapsed) return null;
+  if (collapsed) {
+    const hasAlerts = data.alerts > 0;
+    const hasActive = data.activeShipments > 0;
+    const hasPending = data.pendingTasks > 0;
+    const accentColor = accent.primary;
+
+    // ── MANAGER collapsed: Trend-focused, purple dot for pending tasks ──
+    if (role === "MANAGER") {
+      return (
+        <div className="px-2 pt-1.5 pb-1.5">
+          <div
+            className="rounded-xl border overflow-hidden transition-all duration-200 hover:scale-[1.03] group cursor-default"
+            style={{
+              borderColor: hasAlerts ? `${accentColor}40` : "var(--border-color)",
+              background: "var(--bg-card)",
+              boxShadow: hasAlerts ? `0 0 8px ${accentColor}15` : undefined,
+            }}
+            title={`${data.activeShipments} đang giao · ${data.alerts} cảnh báo · ${data.warehouses} kho`}
+          >
+            <div className="flex items-center justify-center p-2 relative">
+              {/* Pending tasks indicator */}
+              {hasPending && (
+                <span className="absolute -top-0.5 -left-0.5 w-2 h-2 rounded-full bg-purple-400 ring-2 ring-white dark:ring-gray-950" />
+              )}
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
+                style={{ background: accent.gradient }}
+              >
+                <TrendingUp size={12} color="white" />
+              </div>
+              {/* Alert badge */}
+              {hasAlerts && (
+                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[7px] font-bold leading-none ring-2 ring-white dark:ring-gray-950">
+                  {data.alerts > 9 ? '9+' : data.alerts}
+                </span>
+              )}
+            </div>
+            {/* Bottom activity bar */}
+            {(hasAlerts || hasPending) && (
+              <div className="h-0.5" style={{ background: hasAlerts ? accentColor : "#a78bfa" }} />
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ── STAFF collapsed: Task-focused, orange dot for active shipments ──
+    if (role === "STAFF") {
+      return (
+        <div className="px-2 pt-1.5 pb-1.5">
+          <div
+            className="rounded-xl border overflow-hidden transition-all duration-200 hover:scale-[1.03] group cursor-default"
+            style={{
+              borderColor: hasAlerts ? `${accentColor}40` : "var(--border-color)",
+              background: "var(--bg-card)",
+              boxShadow: hasAlerts ? `0 0 8px ${accentColor}15` : undefined,
+            }}
+            title={`${data.activeShipments} đang giao · ${data.alerts} cảnh báo · ${data.warehouses} kho`}
+          >
+            <div className="flex items-center justify-center p-2 relative">
+              {/* Active shipments indicator */}
+              {hasActive && (
+                <span className="absolute -top-0.5 -left-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-gray-950 animate-pulse" />
+              )}
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
+                style={{ background: accent.gradient }}
+              >
+                <ClipboardList size={12} color="white" />
+              </div>
+              {/* Alert badge */}
+              {hasAlerts && (
+                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[7px] font-bold leading-none ring-2 ring-white dark:ring-gray-950">
+                  {data.alerts > 9 ? '9+' : data.alerts}
+                </span>
+              )}
+            </div>
+            {/* Bottom activity bar */}
+            {(hasAlerts || hasActive) && (
+              <div className="h-0.5" style={{ background: hasAlerts ? accentColor : "#fbbf24" }} />
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ── ADMIN collapsed: Overview-focused, green dot for active shipments ──
+    return (
+      <div className="px-2 pt-1.5 pb-1.5">
+        <div
+          className="rounded-xl border overflow-hidden transition-all duration-200 hover:scale-[1.03] group cursor-default"
+          style={{
+            borderColor: hasAlerts ? `${accentColor}40` : "var(--border-color)",
+            background: "var(--bg-card)",
+            boxShadow: hasAlerts ? `0 0 8px ${accentColor}15` : undefined,
+          }}
+          title={`${data.activeShipments} đang giao · ${data.alerts} cảnh báo · ${data.warehouses} kho`}
+        >
+          <div className="flex items-center justify-center p-2 relative">
+            {/* Active shipments indicator */}
+            {hasActive && (
+              <span className="absolute -top-0.5 -left-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-950 animate-pulse" />
+            )}
+            <div
+              className="w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg"
+              style={{ background: accent.gradient }}
+            >
+              <BarChart3 size={12} color="white" />
+            </div>
+            {/* Alert badge */}
+            {hasAlerts && (
+              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[7px] font-bold leading-none ring-2 ring-white dark:ring-gray-950">
+                {data.alerts > 9 ? '9+' : data.alerts}
+              </span>
+            )}
+          </div>
+          {/* Bottom activity bar */}
+          {(hasAlerts || hasActive) && (
+            <div className="h-0.5" style={{ background: hasAlerts ? accentColor : "#10b981" }} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (role === "MANAGER") {
+    const managerStats = [
+      { label: "Đang giao", value: data.activeShipments, icon: Truck },
+      { label: "Cảnh báo", value: data.alerts, icon: AlertTriangle },
+      { label: "Kho hàng", value: data.warehouses, icon: Warehouse },
+    ];
+
+    return (
+      <div className="px-3 pt-2 pb-2">
+        <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--border-color)" }}>
+          {/* Header */}
+          <div className="px-3 py-2 flex items-center gap-2" style={{ background: accent.bg }}>
+            <BarChart3 size={12} style={{ color: accent.primary }} />
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: accent.primary }}>
+              Tổng quan quản lý
+            </span>
+          </div>
+          {/* Stats list */}
+          <div className="divide-y" style={{ borderColor: "var(--border-color)" }}>
+            {managerStats.map((s) => (
+              <div key={s.label} className="px-3 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <s.icon size={12} style={{ color: accent.primary }} />
+                  <span className="text-[11px] font-medium" style={{ color: "var(--text-secondary)" }}>
+                    {s.label}
+                  </span>
+                </div>
+                <span className="text-xs font-extrabold" style={{ color: accent.primary }}>{s.value}</span>
+              </div>
+            ))}
+          </div>
+          {/* Pending tasks */}
+          {data.pendingTasks > 0 && (
+            <div className="px-3 py-1.5 border-t flex items-center gap-1.5" style={{ borderColor: "var(--border-color)", background: accent.bg }}>
+              <ClipboardList size={10} style={{ color: accent.primary }} />
+              <span className="text-[9px] font-semibold" style={{ color: accent.primary }}>
+                {data.pendingTasks} việc chờ xử lý
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const stats = [
     { label: "Đang giao", value: data.activeShipments, icon: Truck, color: accent.primary },
@@ -236,7 +360,7 @@ function RoleSnapshot({ collapsed, role }: { collapsed: boolean; role: string })
   ];
 
   return (
-    <div className="px-3 pb-2">
+    <div className="px-3 pt-2 pb-2">
       <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--border-color)" }}>
         {/* Header */}
         <div className="px-3 py-2 flex items-center gap-2" style={{ background: accent.bg }}>
@@ -355,7 +479,7 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
   if (!trip) {
     if (collapsed) return null;
     return (
-      <div className="px-3 pb-2 animate-idle-in">
+      <div className="px-3 pt-2 pb-2 animate-idle-in">
         <div
           className="rounded-xl border border-dashed p-3 flex flex-col items-center gap-1.5 text-center"
           style={{ borderColor: "var(--border-color)", background: "var(--bg-input)" }}
@@ -377,44 +501,50 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
   const isActive = pathname === `/dashboard/shipments/${trip.id}`;
 
   return (
-    <div className={cn("px-3 pb-2", animating && "animate-trip-arrive")}>
+    <div className={cn(collapsed ? "px-2 pt-1.5 pb-1.5" : "px-3 pt-2 pb-2", animating && "animate-trip-arrive")}>
       <Link
         href={`/dashboard/shipments/${trip.id}`}
         className={cn(
-          "block rounded-xl border-2 overflow-hidden transition-all duration-300 hover:scale-[1.02]",
-          isActive ? "border-emerald-500" : "border-transparent"
+          "block rounded-xl overflow-hidden transition-all duration-300",            collapsed
+            ? `border ${isActive ? "border-2 border-emerald-400 dark:border-emerald-500" : "border-emerald-200/40 dark:border-emerald-900/30"} bg-white/70 dark:bg-emerald-950/20`
+            : `border-2 hover:scale-[1.02] ${isActive ? "border-emerald-500" : "border-transparent"}`
         )}
-        style={{
+        style={!collapsed ? {
           background: "linear-gradient(135deg, #ecfdf5, #d1fae5)",
           boxShadow: "0 2px 8px rgba(16,185,129,0.12)",
-        }}
+        } : undefined}
       >
         {/* Header */}
-        <div className="px-3 py-2 flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+        <div className="flex items-center justify-center px-2 py-1.5 gap-2">
+          <div className={cn(
+            "rounded-lg flex items-center justify-center shrink-0",
+            collapsed ? "w-6 h-6" : "w-7 h-7"
+          )}
             style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}>
-            <Truck size={14} color="white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold truncate" style={{ color: "#065f46" }}>
-              {trip.shipmentCode}
-            </p>
-            <p className="text-[8px] flex items-center gap-1" style={{ color: "#047857" }}>
-              <Activity size={8} />
-              {isOnTrip ? "Đang giao" : "Chờ lấy"}
-            </p>
+            <Truck size={collapsed ? 12 : 14} color="white" />
           </div>
           {!collapsed && (
-            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: "rgba(16,185,129,0.15)" }}>
-              <Navigation size={12} style={{ color: "#059669" }} />
-            </div>
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold truncate" style={{ color: "#065f46" }}>
+                  {trip.shipmentCode}
+                </p>
+                <p className="text-[8px] flex items-center gap-1" style={{ color: "#047857" }}>
+                  <Activity size={8} />
+                  {isOnTrip ? "Đang giao" : "Chờ lấy"}
+                </p>
+              </div>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: "rgba(16,185,129,0.15)" }}>
+                <Navigation size={12} style={{ color: "#059669" }} />
+              </div>
+            </>
           )}
         </div>
 
-        {/* Progress - collapsed mode */}
+        {/* Progress - collapsed mode: only bar, no text */}
         {collapsed && totalCp > 0 && (
-          <div className="px-3 pb-2">
+          <div className="px-2 pb-1.5">
             <div className="progress-bar" style={{ height: "3px" }}>
               <div className="progress-fill" style={{
                 width: `${progressPct}%`,
@@ -424,7 +554,7 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
           </div>
         )}
 
-        {/* Expanded progress */}
+        {/* Expanded details */}
         {!collapsed && (
           <>
             <div className="px-3 pb-1">
@@ -443,7 +573,6 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
               <MapPin size={8} />
               <span className="truncate">{trip.originAddress} → {trip.destinationAddress}</span>
             </div>
-            {/* Checkpoint dots */}
             {trip.checkpoints && trip.checkpoints.length > 0 && (
               <div className="px-3 pb-2 flex gap-1 flex-wrap">
                 {trip.checkpoints.slice(0, 5).map((cp) => (
