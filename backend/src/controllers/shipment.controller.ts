@@ -12,7 +12,14 @@ export const getShipments = async (req: Request, res: Response): Promise<void> =
     const limitNum = parseInt(limit as string)
 
     const where: Record<string, unknown> = {}
-    if (status) where.status = status
+    if (status) {
+      const statusValues = (status as string).split(',').filter(Boolean)
+      if (statusValues.length === 1) {
+        where.status = statusValues[0]
+      } else {
+        where.status = { in: statusValues }
+      }
+    }
     if (driverId) where.driverId = driverId
     if (search) {
       where.OR = [
@@ -146,7 +153,7 @@ export const createShipment = async (req: AuthRequest, res: Response): Promise<v
 // PUT /api/shipments/:id
 export const updateShipment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { status, currentLat, currentLng, vehicleNumber, estimatedArrival, notes } = req.body
+    const { status, currentLat, currentLng, vehicleNumber, estimatedArrival, notes, checkpoints } = req.body
 
     const updateData: Record<string, unknown> = {}
     if (status) updateData.status = status
@@ -173,6 +180,27 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
     if (status === 'IN_TRANSIT') updateData.startedAt = new Date()
     if (status === 'DELIVERED') updateData.actualArrival = new Date()
 
+    // Handle checkpoint updates (driver confirms arrival at a checkpoint)
+    if (checkpoints && Array.isArray(checkpoints)) {
+      for (const cp of checkpoints) {
+        if (cp.id) {
+          const updateCpData: Record<string, unknown> = {}
+          if (cp.isCompleted !== undefined) updateCpData.isCompleted = cp.isCompleted
+          if (cp.isCompleted && cp.arrivedAt) {
+            updateCpData.arrivedAt = new Date(cp.arrivedAt)
+          } else if (cp.isCompleted) {
+            updateCpData.arrivedAt = new Date()
+          }
+          if (Object.keys(updateCpData).length > 0) {
+            await prisma.shipmentCheckpoint.update({
+              where: { id: cp.id },
+              data: updateCpData,
+            })
+          }
+        }
+      }
+    }
+
     const shipment = await prisma.shipment.update({
       where: { id: req.params.id },
       data: updateData,
@@ -189,6 +217,82 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
       return
     }
     sendError(res, 'Lỗi cập nhật vận đơn', 500, error)
+  }
+}
+
+// POST /api/shipments/:id/receive
+export const receiveShipment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: { include: { product: true } },
+        destinationWarehouse: true,
+      },
+    })
+
+    if (!shipment) {
+      sendError(res, 'Không tìm thấy vận đơn', 404)
+      return
+    }
+
+    // If already delivered, return success without changes
+    if (shipment.status === 'DELIVERED') {
+      sendSuccess(res, { shipment, inventoryItems: [] }, 'Vận đơn đã được tiếp nhận trước đó')
+      return
+    }
+
+    if (shipment.status !== 'DELIVERING' && shipment.status !== 'IN_TRANSIT') {
+      sendError(res, 'Vận đơn chưa đến kho đích', 400)
+      return
+    }
+
+    if (!shipment.destinationWarehouseId) {
+      sendError(res, 'Vận đơn không có kho đích', 400)
+      return
+    }
+
+    // For each item in the shipment, create or update inventory
+    const inventoryResults = []
+    for (const item of shipment.items) {
+      const existingInventory = await prisma.inventoryItem.findFirst({
+        where: {
+          productId: item.productId,
+          warehouseId: shipment.destinationWarehouseId!,
+        },
+      })
+
+      if (existingInventory) {
+        const updated = await prisma.inventoryItem.update({
+          where: { id: existingInventory.id },
+          data: { quantity: existingInventory.quantity + item.quantity },
+        })
+        inventoryResults.push(updated)
+      } else {
+        const created = await prisma.inventoryItem.create({
+          data: {
+            productId: item.productId,
+            warehouseId: shipment.destinationWarehouseId!,
+            quantity: item.quantity,
+          },
+        })
+        inventoryResults.push(created)
+      }
+    }
+
+    // Update shipment status to DELIVERED
+    const updated = await prisma.shipment.update({
+      where: { id: req.params.id },
+      data: { status: 'DELIVERED', actualArrival: new Date() },
+      include: {
+        driver: { select: { id: true, name: true, phone: true } },
+        checkpoints: { orderBy: { sequence: 'asc' } },
+      },
+    })
+
+    sendSuccess(res, { shipment: updated, inventoryItems: inventoryResults }, 'Tiếp nhận hàng vào kho thành công')
+  } catch (error) {
+    sendError(res, 'Lỗi tiếp nhận hàng', 500, error)
   }
 }
 
