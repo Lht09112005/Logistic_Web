@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Warehouse, Plus, Search, MapPin, Layers, Users, BarChart } from "lucide-react";
+import { Warehouse, Plus, Search, MapPin, Layers, Activity } from "lucide-react";
 import { getStockPercent } from "@/lib/utils";
+import { warehousesApi } from "@/lib/api";
 
 interface WarehouseItem {
   id: string;
@@ -30,11 +31,69 @@ interface Props {
   warehouses: unknown[];
 }
 
-export default function WarehouseClient({ warehouses }: Props) {
-  const [search, setSearch] = useState("");
-  const items = warehouses as WarehouseItem[];
+const POLL_INTERVAL = 15_000;
 
-  const filtered = items.filter(
+function useRealtimeWarehouses(initial: unknown[]) {
+  const fallbackRef = useRef<unknown[]>(initial);
+  const [items, setItems] = useState<unknown[]>(initial);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [socketConnected, setSocketConnected] = useState(false);
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const res = await warehousesApi.getAll();
+      const data = Array.isArray(res.data.data) ? res.data.data : fallbackRef.current;
+      setItems(data);
+      fallbackRef.current = data;
+    } catch {
+      // keep existing data on failure
+    }
+    setLastUpdated(new Date());
+  }, []);
+
+  // Initial fetch + polling
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
+  // Socket.io
+  useEffect(() => {
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+      socket.on("connect", () => setSocketConnected(true));
+      socket.on("disconnect", () => setSocketConnected(false));
+      socket.on("alert:new", () => fetchAll()); // inventory alert could relate to warehouse
+      return socket;
+    };
+    const cleanup = initSocket();
+    return () => {
+      cleanup.then((s) => {
+        s?.off("alert:new");
+        s?.disconnect();
+      });
+    };
+  }, [fetchAll]);
+
+  // Manual refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
+
+  return { items, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
+}
+
+export default function WarehouseClient({ warehouses: initial }: Props) {
+  const { items, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeWarehouses(initial);
+  const [search, setSearch] = useState("");
+  const list = items as WarehouseItem[];
+
+  const filtered = list.filter(
     (w) =>
       w.name.toLowerCase().includes(search.toLowerCase()) ||
       w.code.toLowerCase().includes(search.toLowerCase()) ||
@@ -46,16 +105,30 @@ export default function WarehouseClient({ warehouses }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-            Kho hàng
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+              Kho hàng
+            </h1>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+            </div>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
+          </div>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             Quản lý mạng lưới kho phân phối toàn quốc
           </p>
         </div>
-        <Link href="/dashboard/warehouse/new" className="btn btn-primary btn-sm">
-          <Plus size={14} /> Thêm kho mới
-        </Link>
+        <div className="flex gap-2">
+          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+          </button>
+          <Link href="/dashboard/warehouse/new" className="btn btn-primary btn-sm">
+            <Plus size={14} /> Thêm kho mới
+          </Link>
+        </div>
       </div>
 
       {/* Filter bar */}

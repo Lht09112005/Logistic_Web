@@ -1,12 +1,14 @@
 "use client";
 
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Warehouse, MapPin, Layers, Package,
-  User, Mail, Phone, Maximize, AlertCircle
+  User, Mail, Phone, Maximize, AlertCircle, Activity
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { warehousesApi } from "@/lib/api";
 
 interface Zone {
   id: string;
@@ -57,8 +59,67 @@ interface Props {
   warehouse: WarehouseDetail;
 }
 
-export default function WarehouseDetailClient({ warehouse }: Props) {
+const POLL_INTERVAL = 15_000;
+
+function useRealtimeWarehouseDetail(initial: WarehouseDetail) {
+  const fallbackRef = useRef(initial);
+  const [warehouse, setWarehouse] = useState<WarehouseDetail>(initial);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [socketConnected, setSocketConnected] = useState(false);
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const res = await warehousesApi.getById(initial.id);
+      const data = res.data.data ?? fallbackRef.current;
+      setWarehouse(data);
+      fallbackRef.current = data;
+    } catch {
+      // keep existing data on failure
+    }
+    setLastUpdated(new Date());
+  }, [initial.id]);
+
+  // Initial fetch + polling
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
+  // Socket.io
+  useEffect(() => {
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+      socket.on("connect", () => setSocketConnected(true));
+      socket.on("disconnect", () => setSocketConnected(false));
+      // Refresh when inventory alert comes (could affect this warehouse)
+      socket.on("alert:new", () => fetchAll());
+      return socket;
+    };
+    const cleanup = initSocket();
+    return () => {
+      cleanup.then((s) => {
+        s?.off("alert:new");
+        s?.disconnect();
+      });
+    };
+  }, [fetchAll]);
+
+  // Manual refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  }, [fetchAll]);
+
+  return { warehouse, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
+}
+
+export default function WarehouseDetailClient({ warehouse: initial }: Props) {
   const router = useRouter();
+  const { warehouse, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeWarehouseDetail(initial);
 
   const statusBadgeMap = {
     ACTIVE: "badge-success",
@@ -86,11 +147,21 @@ export default function WarehouseDetailClient({ warehouse }: Props) {
             <span className={`badge ${statusBadgeMap[warehouse.status]}`}>
               {statusLabelMap[warehouse.status]}
             </span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+            </div>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
           </div>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             Mã kho: {warehouse.code} • Hoạt động từ {formatDate(warehouse.createdAt, "dd/MM/yyyy")}
           </p>
         </div>
+        <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+          <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+        </button>
       </div>
 
       {/* Grid Overview */}
