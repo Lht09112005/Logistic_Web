@@ -1,0 +1,200 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAppStore } from "@/store/app-store";
+import { inventoryApi } from "@/lib/api";
+import {
+  Bell, AlertTriangle, CheckCircle, RefreshCw,
+  Clock, XCircle, Package, ArrowRight
+} from "lucide-react";
+import { formatDate, getAlertSeverityBadge } from "@/lib/utils";
+import Link from "next/link";
+
+interface Alert {
+  id: string;
+  productId: string;
+  alertType: string;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  message: string;
+  currentQty: number;
+  threshold: number;
+  isResolved: boolean;
+  createdAt: string;
+  product?: {
+    name: string;
+    sku: string;
+    category: string;
+    imageUrl?: string;
+  };
+}
+
+export default function AlertsPage() {
+  const { setAlerts } = useAppStore();
+  const [alerts, setLocalAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("unresolved");
+
+  const fetchAlerts = async () => {
+    setLoading(true);
+    try {
+      const res = await inventoryApi.getAlerts({
+        isResolved: filter === "resolved" ? "true" : filter === "unresolved" ? "false" : ""
+      });
+      const data = res.data.data || [];
+      setLocalAlerts(data);
+      // Synchronize with global store if showing unresolved
+      if (filter === "unresolved") {
+        setAlerts(data);
+      }
+    } catch (err) {
+      console.error("Lỗi lấy cảnh báo:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlerts();
+  }, [filter]);
+
+  const handleResolve = async (id: string) => {
+    try {
+      await inventoryApi.resolveAlert(id);
+      // Remove or mark resolved in local state
+      setLocalAlerts((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, isResolved: true } : a))
+      );
+      // Update global unread alert count
+      fetchAlerts();
+    } catch (err) {
+      console.error("Lỗi xử lý cảnh báo:", err);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+            Cảnh báo tồn kho
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+            Theo dõi và giải quyết các cảnh báo tồn kho thấp hoặc hết hàng
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={fetchAlerts} className="btn btn-secondary btn-sm">
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="card p-4 flex flex-wrap gap-2 items-center">
+        {[
+          { v: "unresolved" as const, label: "Chưa xử lý" },
+          { v: "resolved" as const, label: "Đã xử lý" },
+          { v: "all" as const, label: "Tất cả" },
+        ].map((tab) => (
+          <button
+            key={tab.v}
+            onClick={() => setFilter(tab.v)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === tab.v ? "text-white" : "hover:bg-[var(--bg-input)]"}`}
+            style={filter === tab.v ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Main List */}
+      <div className="card overflow-hidden">
+        {loading ? (
+          <div className="p-20 space-y-4">
+            <div className="skeleton h-8 w-2/3 mx-auto" />
+            <div className="skeleton h-8 w-1/2 mx-auto" />
+            <div className="skeleton h-8 w-1/3 mx-auto" />
+          </div>
+        ) : alerts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-center" style={{ color: "var(--text-muted)" }}>
+            <CheckCircle size={48} className="text-emerald-500 opacity-80" />
+            <h3 className="font-bold text-lg text-[var(--text-primary)]">Tuyệt vời!</h3>
+            <p className="text-sm max-w-sm">
+              Không có cảnh báo tồn kho nào cần xử lý. Hệ thống kho của bạn đang vận hành ổn định.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
+            {alerts.map((alert, i) => {
+              const isLow = alert.alertType === "LOW_STOCK";
+              const severityColor: Record<string, string> = {
+                CRITICAL: "#ef4444", HIGH: "#f97316", MEDIUM: "#f59e0b", LOW: "#6366f1",
+              };
+              const AlertIcon = alert.severity === "CRITICAL" ? XCircle : AlertTriangle;
+
+              return (
+                <div
+                  key={alert.id}
+                  className="p-6 flex items-start gap-4 hover:bg-[var(--bg-input)] transition-colors animate-fade-in"
+                  style={{ animationDelay: `${i * 30}ms` }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${severityColor[alert.severity]}15` }}
+                  >
+                    <AlertIcon size={20} style={{ color: severityColor[alert.severity] }} />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                        {alert.product?.name}
+                      </span>
+                      <code className="text-xs" style={{ color: "var(--text-muted)" }}>{alert.product?.sku}</code>
+                      <span className={`badge ${getAlertSeverityBadge(alert.severity)}`}>
+                        {alert.severity}
+                      </span>
+                    </div>
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                      {alert.message}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs" style={{ color: "var(--text-muted)" }}>
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} />
+                        {formatDate(alert.createdAt)}
+                      </span>
+                      <span>•</span>
+                      <span>Mức tối thiểu: {alert.threshold}</span>
+                      <span>•</span>
+                      <span>Hiện tại: <b style={{ color: alert.currentQty === 0 ? "#ef4444" : "#f97316" }}>{alert.currentQty}</b></span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {!alert.isResolved ? (
+                      <>
+                        <button
+                          onClick={() => handleResolve(alert.id)}
+                          className="btn btn-secondary btn-sm text-emerald-600 hover:text-emerald-700"
+                        >
+                          Giải quyết
+                        </button>
+                        <Link
+                          href={`/dashboard/qr-scan?productId=${alert.productId}`}
+                          className="btn btn-primary btn-sm justify-center"
+                        >
+                          Nhập kho
+                        </Link>
+                      </>
+                    ) : (
+                      <span className="badge badge-success text-xs font-semibold py-1">Đã giải quyết</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
