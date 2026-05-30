@@ -1,20 +1,21 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAppStore } from "@/store/app-store";
+import { useSharedDataStore } from "@/store/shared-data-store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { inventoryApi } from "@/lib/api";
+import { useAppStore } from "@/store/app-store";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const sidebarOpen = useAppStore((state) => state.sidebarOpen);
 
-  // Load alerts on mount — get actions directly from store to avoid stale closures
+  // Centralized polling for shared data (stats, alerts, warehouses)
+  // This single polling loop replaces 5+ independent polling intervals in child components
   useEffect(() => {
-    const { setAlerts } = useAppStore.getState();
-    inventoryApi.getAlerts({ isResolved: "false" })
-      .then((res) => setAlerts(res.data.data || []))
-      .catch(() => {});
+    useSharedDataStore.getState().startPolling(15_000);
+    return () => {
+      useSharedDataStore.getState().stopPolling();
+    };
   }, []);
 
   // Socket.io for realtime — lazy loaded so it doesn't block initial render

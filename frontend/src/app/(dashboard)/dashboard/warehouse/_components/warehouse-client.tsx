@@ -6,6 +6,7 @@ import { Warehouse, Plus, Search, MapPin, Layers, Activity } from "lucide-react"
 import { getStockPercent } from "@/lib/utils";
 import { warehousesApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
+import { useSharedDataStore } from "@/store/shared-data-store";
 
 interface WarehouseItem {
   id: string;
@@ -35,29 +36,19 @@ interface Props {
 const POLL_INTERVAL = 15_000;
 
 function useRealtimeWarehouses(initial: unknown[]) {
-  const fallbackRef = useRef<unknown[]>(initial);
+  // Read warehouse data from centralized shared store
+  const shared = useSharedDataStore();
+  const sharedItems = shared.warehouses.length > 0 ? shared.warehouses : initial;
   const [items, setItems] = useState<unknown[]>(initial);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
-  const fetchAll = useCallback(async () => {
-    try {
-      const res = await warehousesApi.getAll();
-      const data = Array.isArray(res.data.data) ? res.data.data : fallbackRef.current;
-      setItems(data);
-      fallbackRef.current = data;
-    } catch {
-      // keep existing data on failure
-    }
-    setLastUpdated(new Date());
-  }, []);
-
-  // Initial fetch + polling
+  // Sync shared store data to local state when it updates
   useEffect(() => {
-    fetchAll();
-    const interval = setInterval(fetchAll, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [fetchAll]);
+    if (shared.warehouses.length > 0) {
+      setItems(shared.warehouses);
+    }
+  }, [shared.warehouses]);
 
   // Socket.io
   useEffect(() => {
@@ -66,7 +57,7 @@ function useRealtimeWarehouses(initial: unknown[]) {
       const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
       socket.on("connect", () => setSocketConnected(true));
       socket.on("disconnect", () => setSocketConnected(false));
-      socket.on("alert:new", () => fetchAll()); // inventory alert could relate to warehouse
+      socket.on("alert:new", () => shared.refresh());
       return socket;
     };
     const cleanup = initSocket();
@@ -76,15 +67,15 @@ function useRealtimeWarehouses(initial: unknown[]) {
         s?.disconnect();
       });
     };
-  }, [fetchAll]);
+  }, [shared]);
 
   // Manual refresh
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchAll();
+    await shared.refresh();
     setRefreshing(false);
-  }, [fetchAll]);
+  }, [shared]);
 
   return { items, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
 }

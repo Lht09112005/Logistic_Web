@@ -5,7 +5,8 @@ import {
   BarChart3, TrendingUp, Download, CheckCircle, Package,
   AlertTriangle, Truck, Layers, Activity
 } from "lucide-react";
-import { shipmentsApi, inventoryApi, warehousesApi } from "@/lib/api";
+import { shipmentsApi, inventoryApi } from "@/lib/api";
+import { useSharedDataStore } from "@/store/shared-data-store";
 import { RoleGuard } from "@/components/auth/role-guard";
 
 // ─── SVG Donut Chart ────────────────────────────────────────────────
@@ -105,124 +106,62 @@ function AnimatedBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-// ─── POLLING ────────────────────────────────────────────────────────
-const POLL_INTERVAL = 15_000;
-
-interface AnalyticsState {
-  stats: { total: number; inTransit: number; delivered: number; pending: number; failed: number };
-  inventoryCount: number;
-  alertsCount: number;
-  warehouseCount: number;
-}
-
-const defaultState: AnalyticsState = {
-  stats: { total: 0, inTransit: 0, delivered: 0, pending: 0, failed: 0 },
-  inventoryCount: 0,
-  alertsCount: 0,
-  warehouseCount: 0,
-};
-
 // ─── Realtime Analytics Hook ────────────────────────────────────────
 function useRealtimeAnalytics() {
-  const fallbackRef = useRef<AnalyticsState>(defaultState);
+  // Read shared data (stats, alerts, warehouses) from centralized store
+  const shared = useSharedDataStore();
 
-  const [data, setData] = useState<AnalyticsState>(defaultState);
+  const [inventoryCount, setInventoryCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
-  const fetchAll = useCallback(async () => {
-    const [statsRes, invRes, alertsRes, whRes] = await Promise.allSettled([
-      shipmentsApi.getStats(),
-      inventoryApi.getAll({ limit: 1 }),
-      inventoryApi.getAlerts({ isResolved: "false" }),
-      warehousesApi.getAll(),
-    ]);
-
-    const updated: Partial<AnalyticsState> = {};
-    let anyFailed = false;
-
-    if (statsRes.status === "fulfilled") updated.stats = statsRes.value.data.data ?? fallbackRef.current.stats;
-    else anyFailed = true;
-    if (invRes.status === "fulfilled") updated.inventoryCount = invRes.value.data.meta?.total ?? fallbackRef.current.inventoryCount;
-    else anyFailed = true;
-    if (alertsRes.status === "fulfilled") updated.alertsCount = (alertsRes.value.data.data || []).length;
-    else anyFailed = true;
-    if (whRes.status === "fulfilled") updated.warehouseCount = (whRes.value.data.data || []).length;
-    else anyFailed = true;
-
-    setData(prev => {
-      const next = { ...prev, ...updated };
-      fallbackRef.current = next;
-      return next;
-    });
-    setLastUpdated(new Date());
-    if (anyFailed) setIsOffline(true);
+  // Only fetch inventory count — stats/alerts/warehouses come from shared store
+  useEffect(() => {
+    inventoryApi.getAll({ limit: 1 })
+      .then((res) => setInventoryCount(res.data.meta?.total ?? 0))
+      .catch(() => setIsOffline(true))
+      .finally(() => setLoading(false));
   }, []);
 
-  // Initial fetch
-  useEffect(() => {
-    fetchAll().finally(() => setLoading(false));
-  }, [fetchAll]);
-
-  // Polling
-  useEffect(() => {
-    const interval = setInterval(fetchAll, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [fetchAll]);
-
-  // Socket.io for realtime
+  // Socket.io for realtime events — only updates shared store
   useEffect(() => {
     const initSocket = async () => {
       const { io } = await import("socket.io-client");
       const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
       socket.on("connect", () => setSocketConnected(true));
       socket.on("disconnect", () => setSocketConnected(false));
-      socket.on("alert:new", () => {
-        inventoryApi.getAlerts({ isResolved: "false" })
-          .then((res) => setData(prev => {
-            const next = { ...prev, alertsCount: (res.data.data || []).length };
-            fallbackRef.current = next;
-            return next;
-          }))
-          .catch(() => {});
-      });
-      // Debounced stats refresh on GPS update (at most once per 10s)
-      let lastStatsRefresh = 0;
-      socket.on("shipment:position", () => {
-        const now = Date.now();
-        if (now - lastStatsRefresh < 10_000) return;
-        lastStatsRefresh = now;
-        shipmentsApi.getStats()
-          .then((res) => setData(prev => {
-            const next = { ...prev, stats: res.data.data ?? prev.stats };
-            fallbackRef.current = next;
-            return next;
-          }))
-          .catch(() => {});
-      });
+      socket.on("alert:new", () => shared.refresh());
       return socket;
     };
     const cleanup = initSocket();
     return () => {
       cleanup.then((s) => {
         s?.off("alert:new");
-        s?.off("shipment:position");
         s?.disconnect();
       });
     };
-  }, []);
+  }, [shared]);
 
   // Manual refresh
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchAll();
+    await Promise.all([
+      shared.refresh(),
+      inventoryApi.getAll({ limit: 1 })
+        .then((res) => setInventoryCount(res.data.meta?.total ?? 0))
+        .catch(() => {}),
+    ]);
     setRefreshing(false);
-  }, [fetchAll]);
+  }, [shared]);
 
-  return { ...data, loading, isOffline, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
+  const stats = shared.shipmentStats ?? { total: 0, inTransit: 0, delivered: 0, pending: 0, failed: 0 };
+  const alertsCount = Array.isArray(shared.alerts) ? shared.alerts.length : 0;
+  const warehouseCount = Array.isArray(shared.warehouses) ? shared.warehouses.length : 0;
+  const lastUpdated = shared.lastUpdated ?? new Date();
+
+  return { stats, inventoryCount, alertsCount, warehouseCount, loading, isOffline, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
 }
 
 // ─── Content ────────────────────────────────────────────────────────

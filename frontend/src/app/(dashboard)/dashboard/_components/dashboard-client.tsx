@@ -8,8 +8,9 @@ import {
   XCircle, Activity, Navigation, Zap,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
-import { shipmentsApi, inventoryApi, warehousesApi } from "@/lib/api";
+import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
+import { useSharedDataStore } from "@/store/shared-data-store";
 import DashboardDriver from "./dashboard-driver";
 
 interface ShipmentStats {
@@ -50,7 +51,7 @@ const statCards = (stats: ShipmentStats, alerts: number, warehouses: number) => 
     value: stats.inTransit,
     icon: Truck,
     color: "#f97316",
-    bg: "#fff7ed",
+    bg: "var(--color-warning-bg)",
     link: "/dashboard/shipments?status=IN_TRANSIT",
     sub: `${stats.total} tổng vận đơn`,
   },
@@ -59,7 +60,7 @@ const statCards = (stats: ShipmentStats, alerts: number, warehouses: number) => 
     value: stats.delivered,
     icon: CheckCircle,
     color: "#10b981",
-    bg: "#ecfdf5",
+    bg: "var(--color-success-bg)",
     link: "/dashboard/shipments?status=DELIVERED",
     sub: `${stats.pending} chờ xác nhận`,
   },
@@ -68,7 +69,7 @@ const statCards = (stats: ShipmentStats, alerts: number, warehouses: number) => 
     value: alerts,
     icon: Bell,
     color: "#ef4444",
-    bg: "#fef2f2",
+    bg: "var(--color-error-bg)",
     link: "/dashboard/alerts",
     sub: "Cần xử lý ngay",
   },
@@ -77,7 +78,7 @@ const statCards = (stats: ShipmentStats, alerts: number, warehouses: number) => 
     value: warehouses,
     icon: Warehouse,
     color: "#6366f1",
-    bg: "#eef2ff",
+    bg: "var(--color-info-bg)",
     link: "/dashboard/warehouse",
     sub: "Xem chi tiết",
   },
@@ -99,42 +100,51 @@ const POLL_INTERVAL = 15_000;
 // Realtime Dashboard Hook
 // ───────────────────────────────────────────
 function useRealtimeDashboard(initial: Props) {
-  // Store initial fallbacks in refs so fetchAll stays stable and polling never restarts
-  const initialRef = useRef(initial);
-  initialRef.current = initial;
+  // Read shared data from centralized store (stats, alerts, warehouses)
+  const shared = useSharedDataStore();
 
-  const [stats, setStats] = useState<ShipmentStats>(initial.shipmentStats);
-  const [alerts, setAlerts] = useState<ActiveAlert[]>(initial.activeAlerts);
-  const [whCount, setWhCount] = useState(initial.warehouseCount);
+  // Use shared data when available, fall back to server-provided initial data
+  const stats = shared.shipmentStats ?? initial.shipmentStats;
+  const alerts: ActiveAlert[] = (shared.alerts.length > 0 ? shared.alerts : initial.activeAlerts) as ActiveAlert[];
+  const whCount = shared.warehouses.length > 0 ? shared.warehouses.length : initial.warehouseCount;
+
+  // Keep local state for data unique to this page
   const [shipments, setShipments] = useState<RecentShipment[]>(initial.recentShipments);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
 
-  const fetchAll = useCallback(async () => {
-    const fallback = initialRef.current;
-    // Fetch each endpoint independently — a single failure won't block others
-    try { const r = await shipmentsApi.getStats(); setStats(r.data.data ?? fallback.shipmentStats); } catch {}
-    try { const r = await inventoryApi.getAlerts({ isResolved: "false" }); setAlerts(r.data.data ?? []); } catch {}
-    try { const r = await warehousesApi.getAll(); setWhCount(Array.isArray(r.data.data) ? r.data.data.length : fallback.warehouseCount); } catch {}
-    try { const r = await shipmentsApi.getAll({ limit: 5, status: "IN_TRANSIT" }); setShipments(r.data.data ?? []); } catch {}
+  // Only poll for shipments list — stats/alerts/warehouses handled by shared store
+  const fetchShipments = useCallback(async () => {
+    try {
+      const r = await shipmentsApi.getAll({ limit: 5, status: "IN_TRANSIT" });
+      setShipments(r.data.data ?? []);
+    } catch {}
     setLastUpdated(new Date());
-  }, []); // stable — never changes
+  }, []);
+
+  // Initial fetch + polling for shipments list
+  useEffect(() => {
+    fetchShipments();
+    const interval = setInterval(fetchShipments, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchShipments]);
+
+  // Update lastUpdated when shared store refreshes
+  useEffect(() => {
+    if (shared.lastUpdated) setLastUpdated(shared.lastUpdated);
+  }, [shared.lastUpdated]);
 
   // Refreshing state for manual refresh button
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchAll();
+    await Promise.all([
+      shared.refresh(),      // stats, alerts, warehouses
+      fetchShipments(),       // shipments list
+    ]);
     setRefreshing(false);
-  }, [fetchAll]);
-
-  // Initial fetch + polling
-  useEffect(() => {
-    fetchAll();
-    const interval = setInterval(fetchAll, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [fetchAll]);
+  }, [shared, fetchShipments]);
 
   // Socket.io for realtime events
   useEffect(() => {
@@ -150,11 +160,9 @@ function useRealtimeDashboard(initial: Props) {
         setLiveEvents(prev => [{ ...data, ts: Date.now() }, ...prev].slice(0, 5));
       });
 
-      // New alert — immediately refresh alerts list
+      // New alert — refresh shared store (syncs to badge + all consumers)
       socket.on("alert:new", () => {
-        inventoryApi.getAlerts({ isResolved: "false" })
-          .then((res) => setAlerts(res.data.data ?? []))
-          .catch(() => {});
+        shared.refresh();
       });
 
       return socket;
@@ -167,7 +175,7 @@ function useRealtimeDashboard(initial: Props) {
         s?.disconnect();
       });
     };
-  }, []);
+  }, [shared]);
 
   return {
     stats, alerts: { list: alerts, count: alerts.length },
@@ -207,7 +215,7 @@ export default function DashboardClient(props: Props) {
             <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               Tổng quan
             </h1>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${socketConnected ? "bg-success text-success" : ""}`} style={{ background: socketConnected ? undefined : "var(--bg-input)", color: socketConnected ? undefined : "var(--text-muted)" }}>
               <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
             </div>
@@ -283,7 +291,7 @@ export default function DashboardClient(props: Props) {
                 >
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: "#fff7ed" }}
+                    style={{ background: "var(--color-warning-bg)" }}
                   >
                     <Truck size={18} style={{ color: "#f97316" }} />
                   </div>
@@ -385,7 +393,7 @@ export default function DashboardClient(props: Props) {
                     href={`/dashboard/shipments/${s.id}`}
                     className="flex items-center gap-3 px-6 py-3 hover:bg-[var(--bg-input)] transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#eef2ff" }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"                    style={{ background: "var(--color-info-bg)" }}>
                       <Package size={15} style={{ color: "#6366f1" }} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -417,7 +425,7 @@ export default function DashboardClient(props: Props) {
                     href={`/dashboard/shipments/${s.id}`}
                     className="flex items-center gap-3 px-6 py-3 hover:bg-[var(--bg-input)] transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#ecfdf5" }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"                    style={{ background: "var(--color-success-bg)" }}>
                       <Warehouse size={15} style={{ color: "#10b981" }} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -477,7 +485,7 @@ export default function DashboardClient(props: Props) {
           <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
             {liveEvents.map((evt, i) => (
               <div key={evt.ts} className="flex items-center gap-4 px-5 py-3 transition-colors" style={{ background: i === 0 ? "rgba(249,115,22,0.04)" : undefined }}>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: evt.status === "DELAYED" ? "#fef2f2" : "#fff7ed" }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"                    style={{ background: evt.status === "DELAYED" ? "var(--color-error-bg)" : "var(--color-warning-bg)" }}>
                   {evt.status === "DELAYED"
                     ? <Zap size={15} style={{ color: "#ef4444" }} />
                     : <Navigation size={15} style={{ color: "#f97316" }} />

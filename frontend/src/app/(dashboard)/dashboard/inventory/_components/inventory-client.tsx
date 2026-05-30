@@ -7,6 +7,7 @@ import { Package, Search, Filter, AlertTriangle, QrCode, Plus, Eye, Activity } f
 import { formatDate, getCategoryLabel, getAlertSeverityBadge, getStockPercent } from "@/lib/utils";
 import { inventoryApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
+import { useSharedDataStore } from "@/store/shared-data-store";
 
 interface InventoryItem {
   id: string; quantity: number; reservedQty: number;
@@ -37,13 +38,16 @@ function useRealtimeInventory(initial: Props) {
   const fallbackRef = useRef(initial);
   const [items, setItems] = useState<unknown[]>(initial.inventory);
   const [total, setTotal] = useState(initial.total);
-  const [alerts, setAlerts] = useState<unknown[]>(initial.alerts);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
+  // Read alerts from centralized shared store instead of polling them separately
+  const shared = useSharedDataStore();
+  const alerts = shared.alerts.length > 0 ? shared.alerts : initial.alerts;
+
   const fetchAll = useCallback(async () => {
     const fallback = fallbackRef.current;
-    const [invRes, alertRes] = await Promise.allSettled([
+    const [invRes] = await Promise.allSettled([
       inventoryApi.getAll({
         page: String(fallback.initialPage || 1),
         limit: "20",
@@ -51,7 +55,6 @@ function useRealtimeInventory(initial: Props) {
         ...(fallback.initialWarehouseId && { warehouseId: fallback.initialWarehouseId }),
         ...(fallback.lowStock && { lowStock: fallback.lowStock }),
       }),
-      inventoryApi.getAlerts({ isResolved: "false" }),
     ]);
 
     const updated: Record<string, unknown> = {};
@@ -64,11 +67,6 @@ function useRealtimeInventory(initial: Props) {
       setItems(data);
       setTotal(metaTotal);
     }
-    if (alertRes.status === "fulfilled") {
-      const data = alertRes.value.data.data || [];
-      updated.alerts = data;
-      setAlerts(data);
-    }
     // Update fallback with latest successful data
     fallbackRef.current = { ...fallbackRef.current, ...updated };
     setLastUpdated(new Date());
@@ -77,7 +75,7 @@ function useRealtimeInventory(initial: Props) {
     initial.initialWarehouseId, initial.lowStock,
   ]);
 
-  // Initial fetch + polling
+  // Initial fetch + polling (only for inventory list — alerts handled by shared store)
   useEffect(() => {
     fetchAll();
     const interval = setInterval(fetchAll, POLL_INTERVAL);
@@ -91,7 +89,10 @@ function useRealtimeInventory(initial: Props) {
       const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
       socket.on("connect", () => setSocketConnected(true));
       socket.on("disconnect", () => setSocketConnected(false));
-      socket.on("alert:new", () => fetchAll());
+      socket.on("alert:new", () => {
+        fetchAll();
+        shared.refresh();
+      });
       return socket;
     };
     const cleanup = initSocket();
@@ -101,15 +102,15 @@ function useRealtimeInventory(initial: Props) {
         s?.disconnect();
       });
     };
-  }, [fetchAll]);
+  }, [fetchAll, shared]);
 
   // Manual refresh
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchAll();
+    await Promise.all([fetchAll(), shared.refresh()]);
     setRefreshing(false);
-  }, [fetchAll]);
+  }, [fetchAll, shared]);
 
   return { items, total, alerts, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
 }
@@ -150,7 +151,7 @@ export default function InventoryClient(props: Props) {
             <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
               Tồn kho
             </h1>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${socketConnected ? "bg-success text-success" : ""}`} style={{ background: socketConnected ? undefined : "var(--bg-input)", color: socketConnected ? undefined : "var(--text-muted)" }}>
               <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
             </div>
@@ -179,10 +180,10 @@ export default function InventoryClient(props: Props) {
 
       {/* Alert summary */}
       {alertItems.length > 0 && (
-        <div className="card p-4" style={{ border: "1px solid #fed7aa", background: "linear-gradient(135deg,#fff7ed,#ffedd5)" }}>
+        <div className="card p-4 border-warning bg-warning">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={16} style={{ color: "#ea580c" }} />
-            <span className="font-semibold text-sm" style={{ color: "#c2410c" }}>
+            <AlertTriangle size={16} className="text-warning" />
+            <span className="font-semibold text-sm text-warning">
               {alertItems.length} cảnh báo tồn kho cần xử lý
             </span>
           </div>
@@ -244,14 +245,14 @@ export default function InventoryClient(props: Props) {
           return (
             <div
               key={item.id}
-              className="card card-hover p-5 animate-fade-in"
-              style={{ animationDelay: `${i * 40}ms`, border: isOut ? "1px solid #fca5a5" : isLow ? "1px solid #fed7aa" : "1px solid var(--border-color)" }}
+              className={`card card-hover p-5 animate-fade-in ${isOut ? "border-error" : isLow ? "border-warning" : ""}`}
+              style={{ animationDelay: `${i * 40}ms` }}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: isOut ? "#fee2e2" : isLow ? "#fff7ed" : "var(--bg-input)" }}
+                    style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
                   >
                     <Package size={18} style={{ color: isOut ? "#ef4444" : isLow ? "#f97316" : "var(--text-secondary)" }} />
                   </div>
@@ -280,7 +281,7 @@ export default function InventoryClient(props: Props) {
               <div className="mb-3">
                 <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
                   <span>Tồn kho</span>
-                  <span className="font-bold" style={{ color: isOut ? "#ef4444" : isLow ? "#f97316" : "var(--text-primary)" }}>
+                  <span className="font-bold" style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-primary)" }}>
                     {item.quantity} / {item.product.minStockLevel * 2} {item.product.unit}
                   </span>
                 </div>
@@ -289,7 +290,7 @@ export default function InventoryClient(props: Props) {
                     className="progress-fill"
                     style={{
                       width: `${pct}%`,
-                      background: isOut ? "#ef4444" : isLow ? "#f97316" : "linear-gradient(90deg,#10b981,#059669)",
+                      background: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "linear-gradient(90deg, var(--color-success), #059669)",
                     }}
                   />
                 </div>
