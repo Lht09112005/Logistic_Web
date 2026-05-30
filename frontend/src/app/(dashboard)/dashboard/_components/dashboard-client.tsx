@@ -8,7 +8,6 @@ import {
   XCircle, Activity, Navigation, Zap,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
-import { io } from "socket.io-client";
 
 interface ShipmentStats {
   total: number; inTransit: number; delivered: number; pending: number; failed: number;
@@ -96,13 +95,18 @@ export default function DashboardClient({ shipmentStats, activeAlerts, warehouse
   const [socketConnected, setSocketConnected] = useState(false);
 
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
-    socket.on("connect", () => setSocketConnected(true));
-    socket.on("disconnect", () => setSocketConnected(false));
-    socket.on("shipment:position", (data: Omit<LiveEvent, "ts">) => {
-      setLiveEvents(prev => [{ ...data, ts: Date.now() }, ...prev].slice(0, 5));
-    });
-    return () => { socket.disconnect(); };
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+      socket.on("connect", () => setSocketConnected(true));
+      socket.on("disconnect", () => setSocketConnected(false));
+      socket.on("shipment:position", (data: Omit<LiveEvent, "ts">) => {
+        setLiveEvents(prev => [{ ...data, ts: Date.now() }, ...prev].slice(0, 5));
+      });
+      return socket;
+    };
+    const cleanup = initSocket();
+    return () => { cleanup.then((s) => s?.disconnect()); };
   }, []);
 
   return (

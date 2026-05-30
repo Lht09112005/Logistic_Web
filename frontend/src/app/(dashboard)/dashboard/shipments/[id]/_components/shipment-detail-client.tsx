@@ -12,7 +12,6 @@ import {
   formatDate, formatRelative, getShipmentStatusLabel, getShipmentStatusBadge,
 } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
-import { io } from "socket.io-client";
 import {
   findShortestRoute,
   interpolateOptimizedPath,
@@ -80,30 +79,34 @@ export default function ShipmentDetailClient({ shipment: initial }: Props) {
     computeOptimizedRoute();
   }, []);
 
-  // Socket.io — live location updates
+  // Socket.io — live location updates (lazy loaded)
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
-    socketRef.current = socket;
-    socket.emit("join:shipment", shipment.id);
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+      socketRef.current = socket;
+      socket.emit("join:shipment", shipment.id);
 
-    socket.on("location:updated", (data: { shipmentId: string; latitude: number; longitude: number; speed?: number; status?: string }) => {
-      if (data.shipmentId === shipment.id) {
-        setShipment((prev) => {
-          const updatedStatus = data.status || prev.status;
-          return {
-            ...prev,
-            currentLat: data.latitude,
-            currentLng: data.longitude,
-            status: updatedStatus
-          };
-        });
-        if (data.speed !== undefined) {
-          setSimSpeed(data.speed);
+      socket.on("location:updated", (data: { shipmentId: string; latitude: number; longitude: number; speed?: number; status?: string }) => {
+        if (data.shipmentId === shipment.id) {
+          setShipment((prev) => {
+            const updatedStatus = data.status || prev.status;
+            return {
+              ...prev,
+              currentLat: data.latitude,
+              currentLng: data.longitude,
+              status: updatedStatus
+            };
+          });
+          if (data.speed !== undefined) {
+            setSimSpeed(data.speed);
+          }
         }
-      }
-    });
-
-    return () => { socket.disconnect(); };
+      });
+      return socket;
+    };
+    const cleanup = initSocket();
+    return () => { cleanup.then((s) => s?.disconnect()); };
   }, [shipment.id]);
 
   const handleStatusUpdate = async (newStatus: string) => {

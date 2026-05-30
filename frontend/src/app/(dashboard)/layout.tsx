@@ -5,7 +5,6 @@ import { useAppStore } from "@/store/app-store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { inventoryApi } from "@/lib/api";
-import { io } from "socket.io-client";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const sidebarOpen = useAppStore((state) => state.sidebarOpen);
@@ -18,24 +17,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .catch(() => {});
   }, []);
 
-  // Socket.io for realtime — stable ref so effect doesn't re-run on every render
+  // Socket.io for realtime — lazy loaded so it doesn't block initial render
   const socketInitialized = useRef(false);
   useEffect(() => {
     if (socketInitialized.current) return;
     socketInitialized.current = true;
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000";
-    const socket = io(socketUrl, { transports: ["websocket"] });
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000";
+      const socket = io(socketUrl, { transports: ["websocket"] });
 
-    socket.on("alert:new", (alert) => {
-      useAppStore.getState().addAlert(alert);
-    });
+      socket.on("alert:new", (alert) => {
+        useAppStore.getState().addAlert(alert);
+      });
 
-    socket.on("shipment:position", (data) => {
-      useAppStore.getState().updatePosition(data);
-    });
+      socket.on("shipment:position", (data) => {
+        useAppStore.getState().updatePosition(data);
+      });
 
-    return () => { socket.disconnect(); };
+      return socket;
+    };
+
+    const cleanup = initSocket();
+    return () => { cleanup.then((s) => s?.disconnect()); };
   }, []);
 
   return (
