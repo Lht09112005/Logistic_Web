@@ -53,7 +53,7 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
   const [sourceInventories, setSourceInventories] = useState<InventoryItem[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
 
-  const { managedWarehouse } = useAuth();
+  const { managedWarehouse, isAdmin } = useAuth();
 
   // Form fields
   const [destinationWarehouseId, setDestinationWarehouseId] = useState("");
@@ -99,11 +99,6 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
         setDrivers(driverList);
         setQuantity(1);
 
-        // Auto-select destination warehouse if user manages one
-        if (managedWarehouse) {
-          setDestinationWarehouseId(managedWarehouse.id);
-        }
-
         setStep("form");
       } catch (err) {
         setError("Không thể tải dữ liệu. Vui lòng thử lại.");
@@ -111,6 +106,14 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
       }
     })();
   }, [alert.productId]);
+
+  // Auto-select destination warehouse when managedWarehouse becomes available
+  // (separate effect so it re-runs when auth context refreshes)
+  useEffect(() => {
+    if (managedWarehouse) {
+      setDestinationWarehouseId(managedWarehouse.id);
+    }
+  }, [managedWarehouse]);
 
   // Find max available quantity from selected source
   const selectedSourceInv = sourceInventories.find(
@@ -276,19 +279,8 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
                     <MapPin size={12} className="inline mr-1" style={{ color: "#ef4444" }} />
                     Kho cần nhập hàng (Kho đích) *
                   </label>
-                  {managedWarehouse ? (
-                    <div
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
-                      style={{ background: "#f5f3ff", color: "#6d28d9", border: "1px solid #ddd6fe" }}
-                    >
-                      <MapPin size={16} />
-                      <div>
-                        <span className="font-semibold">{managedWarehouse.name}</span>
-                        <span className="ml-2 text-xs opacity-70">({managedWarehouse.code})</span>
-                        <div className="text-xs opacity-70 mt-0.5">{managedWarehouse.address}, {managedWarehouse.city}</div>
-                      </div>
-                    </div>
-                  ) : (
+                  {isAdmin ? (
+                    /* Admin: select dropdown with full freedom */
                     <select
                       value={destinationWarehouseId}
                       onChange={(e) => {
@@ -299,19 +291,47 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
                       }}
                       className="input-base text-sm"
                     >
-                      <option value="">-- Chọn kho cần nhập hàng --</option>
+                      <option value="">-- Chọn kho điểm đến --</option>
                       {allWarehouses
-                        .filter((wh) => wh.id !== sourceWarehouseId)
-                        .map((wh) => (
-                          <option key={wh.id} value={wh.id}>
-                            {wh.name} ({wh.code}) — {wh.city}
-                          </option>
-                        ))}
+                        .filter((w) => w.id !== sourceWarehouseId)
+                        .map(w => (
+                        <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
+                      ))}
                     </select>
+                  ) : managedWarehouse ? (
+                    <>
+                      <div
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+                        style={{ background: "#f5f3ff", color: "#6d28d9", border: "1px solid #ddd6fe" }}
+                      >
+                        <MapPin size={16} />
+                        <div>
+                          <span className="font-semibold">{managedWarehouse.name}</span>
+                          <span className="ml-2 text-xs opacity-70">({managedWarehouse.code})</span>
+                          <div className="text-xs opacity-70 mt-0.5">{managedWarehouse.address}, {managedWarehouse.city}</div>
+                        </div>
+                      </div>
+                      <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#8b5cf6" }}>
+                        <span>📍</span> Hàng sẽ được nhập vào kho bạn đang quản lý
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+                        style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}
+                      >
+                        <AlertTriangle size={16} />
+                        <div>
+                          <span className="font-semibold">Chưa có kho quản lý</span>
+                          <div className="text-xs opacity-80 mt-0.5">
+                            Liên hệ Admin để được phân quyền kho trước khi giải quyết cảnh báo
+                          </div>
+                        </div>
+                      </div>
+                      <input type="hidden" value="" />
+                    </>
                   )}
-                  <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#8b5cf6" }}>
-                    <span>📍</span> Hàng sẽ được nhập vào kho bạn đang quản lý
-                  </p>
                 </div>
 
                 {/* Source Warehouse */}
