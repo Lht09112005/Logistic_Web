@@ -32,7 +32,8 @@ export function formatRelative(date: string | Date) {
 // ── Shipment status ──
 
 const shipmentStatusLabelMap: Record<string, string> = {
-  PENDING: "Chờ xác nhận",
+  PENDING: "Chờ duyệt",
+  CONFIRMED: "Đã duyệt",
   IN_TRANSIT: "Đang vận chuyển",
   DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
@@ -41,6 +42,7 @@ const shipmentStatusLabelMap: Record<string, string> = {
 
 const shipmentStatusBadgeMap: Record<string, string> = {
   PENDING: "badge-warning",
+  CONFIRMED: "badge-info",
   IN_TRANSIT: "badge-info",
   DELIVERED: "badge-success",
   CANCELLED: "badge-danger",

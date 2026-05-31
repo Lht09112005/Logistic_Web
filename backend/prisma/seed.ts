@@ -25,15 +25,39 @@ async function main() {
     },
   })
 
-  const manager = await prisma.user.upsert({
-    where: { email: 'manager@logistiq.vn' },
+  const managerHcm = await prisma.user.upsert({
+    where: { email: 'manager.hcm@logistiq.vn' },
     update: {},
     create: {
-      name: 'Hoàng Văn Quản Lý',
-      email: 'manager@logistiq.vn',
+      name: 'Lê Văn Sài Gòn',
+      email: 'manager.hcm@logistiq.vn',
       password: staffPassword,
       role: 'MANAGER',
-      phone: '0909876543',
+      phone: '0945678901',
+    },
+  })
+
+  const managerHn = await prisma.user.upsert({
+    where: { email: 'manager.hn@logistiq.vn' },
+    update: {},
+    create: {
+      name: 'Nguyễn Thị Hà Nội',
+      email: 'manager.hn@logistiq.vn',
+      password: staffPassword,
+      role: 'MANAGER',
+      phone: '0956789012',
+    },
+  })
+
+  const managerDn = await prisma.user.upsert({
+    where: { email: 'manager.dn@logistiq.vn' },
+    update: {},
+    create: {
+      name: 'Trần Văn Đà Nẵng',
+      email: 'manager.dn@logistiq.vn',
+      password: staffPassword,
+      role: 'MANAGER',
+      phone: '0967890123',
     },
   })
 
@@ -89,7 +113,7 @@ async function main() {
       longitude: 106.7218,
       totalArea: 5000,
       capacity: 10000,
-      managerId: admin.id,
+      managerId: managerHcm.id,
       status: 'ACTIVE',
       description: 'Kho trung tâm chính tại TP. Hồ Chí Minh',
       zones: {
@@ -115,7 +139,7 @@ async function main() {
       longitude: 105.8542,
       totalArea: 3000,
       capacity: 6000,
-      managerId: staff1.id,
+      managerId: managerHn.id,
       status: 'ACTIVE',
       description: 'Kho phân phối miền Bắc',
       zones: {
@@ -140,7 +164,7 @@ async function main() {
       longitude: 108.2022,
       totalArea: 2000,
       capacity: 4000,
-      managerId: manager.id,
+      managerId: managerDn.id,
       status: 'ACTIVE',
       description: 'Kho phân phối miền Trung',
       zones: {
@@ -447,7 +471,9 @@ async function main() {
   console.log('✅ Shipments seeded')
   console.log('\n🎉 Database seeded successfully!')
   console.log('📧 Admin: admin@logistiq.vn / admin123')
-  console.log('📧 Manager: manager@logistiq.vn / staff123')
+  console.log('📧 Manager HCM: manager.hcm@logistiq.vn / staff123 — quản lý Kho Trung Tâm HCM')
+  console.log('📧 Manager HN: manager.hn@logistiq.vn / staff123 — quản lý Kho Hà Nội')
+  console.log('📧 Manager DN: manager.dn@logistiq.vn / staff123 — quản lý Kho Đà Nẵng')
   console.log('📧 Staff: nam@logistiq.vn / staff123')
   console.log('📧 Driver: driver1@logistiq.vn / staff123')
 }

@@ -296,6 +296,51 @@ export const receiveShipment = async (req: AuthRequest, res: Response): Promise<
   }
 }
 
+// PUT /api/shipments/:id/approve
+export const approveShipment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: req.params.id },
+      include: {
+        originWarehouse: { select: { id: true, managerId: true } },
+      },
+    })
+
+    if (!shipment) {
+      sendError(res, 'Không tìm thấy vận đơn', 404)
+      return
+    }
+
+    if (shipment.status !== 'PENDING') {
+      sendError(res, 'Chỉ có thể duyệt vận đơn đang ở trạng thái chờ', 400)
+      return
+    }
+
+    // Only the manager of the source warehouse can approve
+    const userId = req.user!.userId
+    const userRole = req.user!.role
+    if (userRole !== 'ADMIN') {
+      if (!shipment.originWarehouse || shipment.originWarehouse.managerId !== userId) {
+        sendError(res, 'Bạn không có quyền duyệt vận đơn này. Chỉ quản lý kho nguồn mới có thể duyệt.', 403)
+        return
+      }
+    }
+
+    const updated = await prisma.shipment.update({
+      where: { id: req.params.id },
+      data: { status: 'CONFIRMED' },
+      include: {
+        driver: { select: { id: true, name: true, phone: true } },
+        checkpoints: { orderBy: { sequence: 'asc' } },
+      },
+    })
+
+    sendSuccess(res, updated, 'Đã duyệt vận đơn thành công')
+  } catch (error) {
+    sendError(res, 'Lỗi duyệt vận đơn', 500, error)
+  }
+}
+
 // GET /api/shipments/stats
 export const getShipmentStats = async (_req: Request, res: Response): Promise<void> => {
   try {

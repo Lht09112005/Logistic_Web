@@ -6,7 +6,7 @@ import { AuthRequest } from '../middleware/auth.middleware'
 // GET /api/inventory
 export const getInventory = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page = '1', limit = '20', warehouseId, lowStock, search } = req.query
+    const { page = '1', limit = '20', warehouseId, lowStock, search, productId } = req.query
 
     const pageNum = parseInt(page as string)
     const limitNum = parseInt(limit as string)
@@ -14,6 +14,7 @@ export const getInventory = async (req: Request, res: Response): Promise<void> =
 
     const where: Record<string, unknown> = {}
     if (warehouseId) where.warehouseId = warehouseId
+    if (productId) where.productId = productId
 
     if (lowStock === 'true') {
       where.product = { isActive: true }

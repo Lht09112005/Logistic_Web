@@ -5,12 +5,12 @@ import { useAppStore } from "@/store/app-store";
 import { resolveAlertAction, fetchAlertsAction } from "./actions";
 import {
   AlertTriangle, CheckCircle, RefreshCw,
-  Clock, XCircle
+  Clock, XCircle, Truck
 } from "lucide-react";
 import { formatDate, getAlertSeverityBadge } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import { RoleGuard } from "@/components/auth/role-guard";
-import Link from "next/link";
+import ResolveAlertDialog from "./_components/resolve-alert-dialog";
 
 interface Alert {
   id: string;
@@ -36,6 +36,7 @@ function AlertsPage() {
   const [alerts, setLocalAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("unresolved");
+  const [resolvingAlert, setResolvingAlert] = useState<Alert | null>(null);
 
   const fetchAlerts = async () => {
     setLoading(true);
@@ -59,29 +60,9 @@ function AlertsPage() {
     fetchAlerts();
   }, [filter]);
 
-  const handleResolve = async (id: string) => {
-    try {
-      // Optimistic update: mark as resolved immediately
-      setLocalAlerts((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, isResolved: true } : a))
-      );
-      // Update global unread alert count immediately
-      resolveAlertStore(id);
-
-      // Call Server Action to persist the change on the backend
-      const res = await resolveAlertAction(id);
-
-      if (!res.success) {
-        // Revert optimistic update on failure
-        setLocalAlerts((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, isResolved: false } : a))
-        );
-        console.warn("Lỗi xử lý cảnh báo:", res.message);
-      }
-      // On success, the server action already revalidated the path
-    } catch (err: any) {
-      console.warn("Lỗi xử lý cảnh báo:", err.message || err);
-    }
+  const handleResolved = () => {
+    setResolvingAlert(null);
+    fetchAlerts();
   };
 
   return (
@@ -186,19 +167,12 @@ function AlertsPage() {
                       <>
                         {isAdmin || isManager ? (
                           <button
-                            onClick={() => handleResolve(alert.id)}
-                            className="btn btn-secondary btn-sm text-emerald-600 hover:text-emerald-700"
+                            onClick={() => setResolvingAlert(alert)}
+                            className="btn btn-primary btn-sm justify-center gap-1.5"
                           >
+                            <Truck size={14} />
                             Giải quyết
                           </button>
-                        ) : null}
-                        {isAdmin || isManager ? (
-                          <Link
-                            href={`/dashboard/qr-scan?productId=${alert.productId}`}
-                            className="btn btn-primary btn-sm justify-center"
-                          >
-                            Nhập kho
-                          </Link>
                         ) : null}
                       </>
                     ) : (
@@ -211,6 +185,14 @@ function AlertsPage() {
           </div>
         )}
       </div>
+      {/* Resolve Alert Dialog */}
+      {resolvingAlert && (
+        <ResolveAlertDialog
+          alert={resolvingAlert}
+          onClose={() => setResolvingAlert(null)}
+          onResolved={handleResolved}
+        />
+      )}
     </div>
   );
 }

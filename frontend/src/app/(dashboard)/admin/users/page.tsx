@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { usersApi } from "@/lib/api";
+import { usersApi, warehousesApi } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import {
   Users, Search, Plus, Shield, ShieldCheck,
-  ShieldAlert, Mail, Phone, Calendar, MoreVertical,
-  Edit3, Trash2, X, CheckCircle, AlertTriangle,
-  UserCheck, UserX, RefreshCw,
+  ShieldAlert, Calendar,
+  Edit3, Trash2, X, AlertTriangle,
+  UserCheck, UserX, RefreshCw, Warehouse,
 } from "lucide-react";
 import { RoleGuard } from "@/components/auth/role-guard";
 
@@ -29,6 +29,14 @@ interface UserForm {
   password: string;
   role: string;
   phone: string;
+}
+
+interface WarehouseOption {
+  id: string;
+  name: string;
+  code: string;
+  city: string;
+  manager: { id: string; name: string } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -71,6 +79,11 @@ function AdminUsersContent() {
   const [formError, setFormError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // Warehouse assignment state
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
+  const [warehousesLoading, setWarehousesLoading] = useState(false);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
+
   const limit = 15;
 
   const fetchUsers = useCallback(async () => {
@@ -100,6 +113,8 @@ function AdminUsersContent() {
     setEditingUser(null);
     setForm(emptyForm);
     setFormError("");
+    setSelectedWarehouseId("");
+    fetchWarehouses();
     setModalOpen(true);
   };
 
@@ -113,7 +128,27 @@ function AdminUsersContent() {
       phone: user.phone || "",
     });
     setFormError("");
+
+    // Fetch warehouses and pre-select the one managed by this user
+    fetchWarehouses(user);
     setModalOpen(true);
+  };
+
+  // Fetch all warehouses with manager info
+  const fetchWarehouses = (editUser?: User | null) => {
+    setWarehousesLoading(true);
+    warehousesApi.getAll().then((res) => {
+      const list = (res.data.data || []) as WarehouseOption[];
+      setWarehouses(list);
+
+      // Pre-select the warehouse managed by the user being edited
+      if (editUser) {
+        const wh = list.find((w) => w.manager?.id === editUser.id);
+        setSelectedWarehouseId(wh?.id || "");
+      }
+    }).catch(() => {}).finally(() => {
+      setWarehousesLoading(false);
+    });
   };
 
   const handleSave = async () => {
@@ -129,6 +164,8 @@ function AdminUsersContent() {
 
     setSaving(true);
     try {
+      let userId = editingUser?.id || "";
+
       if (editingUser) {
         const payload: Record<string, unknown> = {
           name: form.name,
@@ -139,14 +176,39 @@ function AdminUsersContent() {
         if (form.password) payload.password = form.password;
         await usersApi.update(editingUser.id, payload);
       } else {
-        await usersApi.create({
+        const res = await usersApi.create({
           name: form.name,
           email: form.email,
           password: form.password,
           role: form.role,
           phone: form.phone,
         });
+        userId = res.data.data.id;
       }
+
+      // Handle warehouse assignment for MANAGER role
+      if (form.role === "MANAGER") {
+        const currentlyManagedWh = editingUser
+          ? warehouses.find((w) => w.manager?.id === editingUser.id)
+          : null;
+        const oldWarehouseId = currentlyManagedWh?.id || "";
+
+        if (selectedWarehouseId && selectedWarehouseId !== oldWarehouseId) {
+          // Unassign previous warehouse if the user had one
+          if (oldWarehouseId) {
+            await warehousesApi.update(oldWarehouseId, { managerId: null }).catch(() => {});
+          }
+          // Assign the selected warehouse to this user
+          await warehousesApi.update(selectedWarehouseId, { managerId: userId });
+        }
+      } else if (editingUser) {
+        // Unassign warehouse if role changed away from MANAGER
+        const oldWh = warehouses.find((w) => w.manager?.id === editingUser.id);
+        if (oldWh) {
+          await warehousesApi.update(oldWh.id, { managerId: null }).catch(() => {});
+        }
+      }
+
       setModalOpen(false);
       fetchUsers();
     } catch (err: any) {
@@ -478,6 +540,63 @@ function AdminUsersContent() {
                   className="input-base"
                 />
               </div>
+
+              {/* Warehouse assignment (only for MANAGER) */}
+              {form.role === "MANAGER" && (
+                <div className="p-4 rounded-xl space-y-3" style={{ background: "var(--bg-input)", border: "1px solid var(--border-color)" }}>
+                  <div className="flex items-center gap-2">
+                    <Warehouse size={16} style={{ color: "#8b5cf6" }} />
+                    <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                      Phân quyền quản lý kho
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                      Gán kho cho người quản lý
+                    </label>
+                    {warehousesLoading ? (
+                      <div className="input-base text-sm flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+                        <RefreshCw size={14} className="animate-spin" />
+                        Đang tải danh sách kho...
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedWarehouseId}
+                        onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                        className="input-base text-sm"
+                      >
+                        <option value="">-- Chưa gán kho --</option>
+                        {warehouses.map((wh) => (
+                          <option key={wh.id} value={wh.id}>
+                            {wh.name} ({wh.code}) — {wh.city}
+                            {wh.manager ? ` (${wh.manager.name})` : " (Chưa có QL)"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {selectedWarehouseId && (() => {
+                      const wh = warehouses.find((w) => w.id === selectedWarehouseId);
+                      if (!wh) return null;
+                      if (wh.manager && wh.manager.id !== editingUser?.id) {
+                        return (
+                          <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#f59e0b" }}>
+                            <AlertTriangle size={10} />
+                            Kho này đang được quản lý bởi <strong>{wh.manager.name}</strong>. Hành động này sẽ chuyển quyền quản lý.
+                          </p>
+                        );
+                      }
+                      if (!wh.manager) {
+                        return (
+                          <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#059669" }}>
+                            Kho hiện chưa có người quản lý. Sẽ gán quyền cho người dùng này.
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Actions */}

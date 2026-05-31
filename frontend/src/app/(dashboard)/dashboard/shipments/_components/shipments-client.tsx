@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Truck, Plus, Search, Filter, MapPin, Clock,
-  CheckCircle, Eye, Activity,
+  CheckCircle, Eye, Activity, ThumbsUp,
 } from "lucide-react";
 import {
   formatDate, formatRelative,
@@ -16,7 +16,8 @@ import { useAuth } from "@/context/auth-context";
 
 const STATUS_TABS = [
   { label: "Tất cả", value: "" },
-  { label: "Chờ xác nhận", value: "PENDING" },
+  { label: "Chờ duyệt", value: "PENDING" },
+  { label: "Đã duyệt", value: "CONFIRMED" },
   { label: "Đang vận chuyển", value: "IN_TRANSIT" },
   { label: "Đã giao", value: "DELIVERED" },
   { label: "Đã hủy", value: "CANCELLED" },
@@ -102,6 +103,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
   const driverId = isDriver && user?.id ? user.id : undefined;
   const { shipments, total, loading, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeShipments(status, page, search, driverId);
   const [searchText, setSearchText] = useState(search || "");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const activeStatus = status || "";
 
   const updateParams = useCallback(
@@ -119,6 +121,17 @@ export default function ShipmentsClient({ status, page, search }: Props) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     updateParams({ search: searchText });
+  };
+
+  const handleApprove = async (id: string) => {
+    setApprovingId(id);
+    try {
+      await shipmentsApi.approve(id);
+      await refresh();
+    } catch (err: any) {
+      console.warn("Lỗi duyệt vận đơn:", err?.response?.data?.message || err?.message);
+    }
+    setApprovingId(null);
   };
 
   if (loading) {
@@ -274,12 +287,29 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                       </div>
                     </td>
                     <td>
-                      <Link
-                        href={`/dashboard/shipments/${s.id}`}
-                        className="btn btn-ghost btn-sm"
-                      >
-                        <Eye size={14} /> Xem
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: any) => mw.id === s.originWarehouseId))) &&
+                          (s.status as string) === "PENDING" && (
+                          <button
+                            onClick={() => handleApprove(s.id as string)}
+                            disabled={approvingId === s.id}
+                            className="btn btn-primary btn-sm"
+                          >
+                            {approvingId === s.id ? (
+                              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <ThumbsUp size={13} />
+                            )}
+                            Duyệt
+                          </button>
+                        )}
+                        <Link
+                          href={`/dashboard/shipments/${s.id}`}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          <Eye size={14} /> Xem
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

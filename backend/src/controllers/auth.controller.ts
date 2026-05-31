@@ -59,9 +59,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     await prisma.user.update({ where: { id: user.id }, data: { refreshToken } })
 
+    // Fetch managed warehouses for the user
+    const managedWarehouses = await prisma.warehouse.findMany({
+      where: { managerId: user.id },
+      select: { id: true, name: true, code: true, address: true, city: true, province: true },
+    })
+
     const { password: _, refreshToken: __, ...safeUser } = user
 
-    sendSuccess(res, { user: safeUser, accessToken, refreshToken }, 'Đăng nhập thành công')
+    sendSuccess(res, {
+      user: { ...safeUser, managedWarehouses },
+      accessToken,
+      refreshToken,
+    }, 'Đăng nhập thành công')
   } catch (error) {
     sendError(res, 'Lỗi đăng nhập', 500, error)
   }
@@ -115,7 +125,12 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.userId },
-      select: { id: true, name: true, email: true, role: true, phone: true, avatar: true, isActive: true, createdAt: true },
+      select: {
+        id: true, name: true, email: true, role: true, phone: true, avatar: true, isActive: true, createdAt: true,
+        managedWarehouses: {
+          select: { id: true, name: true, code: true, address: true, city: true, province: true },
+        },
+      },
     })
     if (!user) {
       sendError(res, 'Không tìm thấy người dùng', 404)

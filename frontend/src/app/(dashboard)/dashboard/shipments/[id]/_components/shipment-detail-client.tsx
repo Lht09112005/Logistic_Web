@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MapPin, Clock, Truck, User, Phone,
   CheckCircle, Circle, Package, Navigation,
-  Play, Pause, Flame, Gauge, Activity
+  Play, Pause, Flame, Gauge, Activity, ThumbsUp
 } from "lucide-react";
 import {
   formatDate, formatRelative, getShipmentStatusLabel, getShipmentStatusBadge,
@@ -70,7 +70,7 @@ let MapComponent: React.ComponentType<{ shipment: Shipment; currentLat?: number;
 export default function ShipmentDetailClient({ shipment: initial, lastUpdated, refresh, refreshing }: Props) {
   const router = useRouter();
   const auth = useAuth();
-  const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
+  const { isAdmin, isManager, isDriver, isStaffOnly, user } = auth;
   const canControlShipment = isAdmin || isManager;
   const [shipment, setShipment] = useState(initial);
   const [socketConnected, setSocketConnected] = useState(false);
@@ -325,7 +325,15 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
-          {canControlShipment && shipment.status === "PENDING" && (
+          {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: any) => mw.id === shipment.originWarehouse?.id))) &&
+            shipment.status === "PENDING" && (
+            <button className="btn btn-primary btn-sm" onClick={async () => {
+              try { await shipmentsApi.approve(shipment.id); refresh(); } catch {}
+            }}>
+              <ThumbsUp size={14} /> Duyệt vận đơn
+            </button>
+          )}
+          {canControlShipment && shipment.status === "CONFIRMED" && (
             <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("IN_TRANSIT")}>
               <Navigation size={14} /> Bắt đầu vận chuyển
             </button>
