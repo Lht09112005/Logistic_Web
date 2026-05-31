@@ -87,6 +87,8 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
   const [simETA, setSimETA] = useState<string>("—");
   const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
   const [roadRouteLoading, setRoadRouteLoading] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     import("./shipment-map").then((mod) => {
@@ -327,13 +329,25 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           </button>
           {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: any) => mw.id === shipment.originWarehouse?.id))) &&
             shipment.status === "PENDING" && (
-            <button className="btn btn-primary btn-sm" onClick={async () => {
-              try { await shipmentsApi.approve(shipment.id); refresh(); } catch {}
-            }}>
-              <ThumbsUp size={14} /> Duyệt vận đơn
-            </button>
+            <>
+              <button className="btn btn-primary btn-sm" onClick={async () => {
+                try { await shipmentsApi.approve(shipment.id); refresh(); } catch {}
+              }}>
+                <ThumbsUp size={14} /> Duyệt vận đơn
+              </button>
+              <button className="btn btn-sm" style={{ color: "#ef4444", borderColor: "#ef4444" }} onClick={async () => {
+                setRejectOpen(true);
+              }}>
+                Từ chối
+              </button>
+            </>
           )}
           {canControlShipment && shipment.status === "CONFIRMED" && (
+            <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("LOADING")}>
+              <Package size={14} /> Bắt đầu xếp hàng
+            </button>
+          )}
+          {canControlShipment && shipment.status === "LOADING" && (
             <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("IN_TRANSIT")}>
               <Navigation size={14} /> Bắt đầu vận chuyển
             </button>
@@ -641,6 +655,44 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
 
         </div>
       </div>
+
+      {/* Reject modal */}
+      {rejectOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setRejectOpen(false); setRejectReason(""); }} />
+          <div className="relative w-full max-w-md rounded-2xl shadow-2xl border p-6 space-y-4" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+            <h3 className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>Từ chối vận đơn</h3>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Vui lòng nhập lý do từ chối vận đơn {shipment.shipmentCode}:</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Nhập lý do từ chối..."
+              className="input-base text-sm resize-none"
+              rows={3}
+              style={{ width: "100%" }}
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => { setRejectOpen(false); setRejectReason(""); }} className="btn btn-secondary">Hủy</button>
+              <button
+                onClick={async () => {
+                  if (!rejectReason.trim()) return;
+                  try {
+                    await shipmentsApi.reject(shipment.id, rejectReason);
+                    refresh();
+                  } catch {}
+                  setRejectOpen(false);
+                  setRejectReason("");
+                }}
+                disabled={!rejectReason.trim()}
+                className="btn"
+                style={{ background: "#ef4444", color: "white" }}
+              >
+                Xác nhận từ chối
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

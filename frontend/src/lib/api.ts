@@ -161,6 +161,8 @@ export const shipmentsApi = {
   update: (id: string, data: Record<string, unknown>) =>
     api.put(`/shipments/${id}`, data),
   approve: (id: string) => api.put(`/shipments/${id}/approve`, {}),
+  reject: (id: string, reason: string) => api.put(`/shipments/${id}/reject`, { reason }),
+  startLoading: (id: string) => api.put(`/shipments/${id}/loading`, {}),
   receive: (id: string) => api.post(`/shipments/${id}/receive`),
 };
 

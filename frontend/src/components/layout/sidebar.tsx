@@ -53,7 +53,7 @@ const adminNav = [
   {
     group: "Vận chuyển",
     items: [
-      { href: "/dashboard/shipments", icon: Truck, label: "Vận đơn" },
+      { href: "/dashboard/shipments", icon: Truck, label: "Vận đơn", badge: "pending" },
     ],
   },
   {
@@ -85,7 +85,7 @@ const managerNav = [
   {
     group: "Vận chuyển",
     items: [
-      { href: "/dashboard/shipments", icon: Truck, label: "Vận đơn" },
+      { href: "/dashboard/shipments", icon: Truck, label: "Vận đơn", badge: "pending" },
     ],
   },
   {
@@ -520,6 +520,8 @@ export function Sidebar() {
   const accent = ROLE_ACCENT[role] || ROLE_ACCENT.STAFF;
   const isAdmin = role === "ADMIN";
   const isStaff = role === "STAFF";
+  const shared = useSharedDataStore();
+  const pendingApprovalCount = shared.shipmentStats?.pendingForCurrentUser ?? 0;
 
   return (
     <>
@@ -621,6 +623,14 @@ export function Sidebar() {
                           style={{ background: "#ef4444", color: "white" }}
                         >
                           {unreadAlertCount > 99 ? "99+" : unreadAlertCount}
+                        </span>
+                      )}
+                      {sidebarOpen && (item as any).badge === "pending" && pendingApprovalCount > 0 && (
+                        <span
+                          className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0 animate-pulse"
+                          style={{ background: "#6366f1", color: "white" }}
+                        >
+                          {pendingApprovalCount > 99 ? "99+" : pendingApprovalCount}
                         </span>
                       )}
                     </Link>

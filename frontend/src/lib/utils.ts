@@ -34,19 +34,25 @@ export function formatRelative(date: string | Date) {
 const shipmentStatusLabelMap: Record<string, string> = {
   PENDING: "Chờ duyệt",
   CONFIRMED: "Đã duyệt",
+  LOADING: "Đang xếp hàng",
   IN_TRANSIT: "Đang vận chuyển",
+  AT_CHECKPOINT: "Tại trạm",
+  DELIVERING: "Đang giao",
   DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
-  DELAYED: "Đã trễ",
+  FAILED: "Thất bại",
 }
 
 const shipmentStatusBadgeMap: Record<string, string> = {
   PENDING: "badge-warning",
   CONFIRMED: "badge-info",
+  LOADING: "badge-warning",
   IN_TRANSIT: "badge-info",
+  AT_CHECKPOINT: "badge-info",
+  DELIVERING: "badge-success",
   DELIVERED: "badge-success",
   CANCELLED: "badge-danger",
-  DELAYED: "badge-danger",
+  FAILED: "badge-danger",
 }
 
 export function getShipmentStatusLabel(status: string): string {

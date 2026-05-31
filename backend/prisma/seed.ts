@@ -102,7 +102,7 @@ async function main() {
   // --- Warehouses ---
   const wh1 = await prisma.warehouse.upsert({
     where: { code: 'WH-HCM-01' },
-    update: {},
+    update: { managerId: managerHcm.id },
     create: {
       name: 'Kho Trung Tâm HCM',
       code: 'WH-HCM-01',
@@ -128,7 +128,7 @@ async function main() {
 
   const wh2 = await prisma.warehouse.upsert({
     where: { code: 'WH-HN-01' },
-    update: {},
+    update: { managerId: managerHn.id },
     create: {
       name: 'Kho Hà Nội',
       code: 'WH-HN-01',
@@ -153,7 +153,7 @@ async function main() {
 
   const wh3 = await prisma.warehouse.upsert({
     where: { code: 'WH-DN-01' },
-    update: {},
+    update: { managerId: managerDn.id },
     create: {
       name: 'Kho Đà Nẵng',
       code: 'WH-DN-01',
