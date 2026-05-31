@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X, Truck, Warehouse, Package, AlertTriangle, Loader2,
   MapPin, User, Calendar,
@@ -45,8 +46,12 @@ interface Props {
 }
 
 export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props) {
+  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<"loading" | "form" | "submitting" | "success">("loading");
   const [error, setError] = useState<string | null>(null);
+
+  // Guard: only mount on client so createPortal works (document.body not available in SSR)
+  useEffect(() => { setMounted(true); }, []);
 
   // Data
   const [allWarehouses, setAllWarehouses] = useState<Warehouse[]>([]);
@@ -70,7 +75,7 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
     (async () => {
       try {          const [invRes, whRes, driverRes] = await Promise.all([
             inventoryApi.getAll({ productId: alert.productId, limit: "100" }),
-            warehousesApi.getAll(),
+            warehousesApi.getAll({ all: "true" }),
             authApi.getDrivers().catch(() => null),
           ]);
 
@@ -179,8 +184,11 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  // Render via portal to document.body so position:fixed isn't broken by ancestor transforms
+  // (e.g. animate-fade-in on <main> uses transform which creates a new containing block)
+  if (!mounted) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -189,12 +197,12 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
 
       {/* Dialog */}
       <div
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border animate-scale-in"
+        className="relative w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl shadow-2xl border animate-scale-in"
         style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}
       >
-        {/* Header */}
+        {/* Header — always visible at top */}
         <div
-          className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b"
+          className="flex items-center justify-between px-6 py-4 border-b shrink-0"
           style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}
         >
           <div className="flex items-center gap-3">
@@ -215,8 +223,8 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
+        {/* Content — scrollable middle area */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {step === "loading" && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <Loader2 size={32} className="animate-spin" style={{ color: "#f97316" }} />
@@ -488,10 +496,10 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
           )}
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions — always visible at bottom */}
         {step === "form" && (
           <div
-            className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t"
+            className="flex items-center justify-end gap-3 px-6 py-4 border-t shrink-0"
             style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}
           >
             <button onClick={onClose} className="btn btn-secondary">
@@ -508,6 +516,7 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
