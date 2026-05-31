@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/app-store";
 import { resolveAlertAction, fetchAlertsAction } from "./actions";
 import {
-  Bell, AlertTriangle, CheckCircle, RefreshCw,
-  Clock, XCircle, Package, ArrowRight
+  AlertTriangle, CheckCircle, RefreshCw,
+  Clock, XCircle
 } from "lucide-react";
 import { formatDate, getAlertSeverityBadge } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
+import { RoleGuard } from "@/components/auth/role-guard";
 import Link from "next/link";
 
 interface Alert {
@@ -29,9 +30,9 @@ interface Alert {
   };
 }
 
-export default function AlertsPage() {
+function AlertsPage() {
   const { setAlerts, resolveAlert: resolveAlertStore } = useAppStore();
-  const { isAdmin, isManager, isStaff } = useAuth();
+  const { isAdmin, isManager } = useAuth();
   const [alerts, setLocalAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("unresolved");
@@ -139,7 +140,6 @@ export default function AlertsPage() {
         ) : (
           <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
             {alerts.map((alert, i) => {
-              const isLow = alert.alertType === "LOW_STOCK";
               const severityColor: Record<string, string> = {
                 CRITICAL: "#ef4444", HIGH: "#f97316", MEDIUM: "#f59e0b", LOW: "#6366f1",
               };
@@ -184,7 +184,7 @@ export default function AlertsPage() {
                   <div className="flex flex-col gap-2">
                     {!alert.isResolved ? (
                       <>
-                        {isAdmin || isManager || isStaff ? (
+                        {isAdmin || isManager ? (
                           <button
                             onClick={() => handleResolve(alert.id)}
                             className="btn btn-secondary btn-sm text-emerald-600 hover:text-emerald-700"
@@ -192,7 +192,7 @@ export default function AlertsPage() {
                             Giải quyết
                           </button>
                         ) : null}
-                        {isAdmin || isManager || isStaff ? (
+                        {isAdmin || isManager ? (
                           <Link
                             href={`/dashboard/qr-scan?productId=${alert.productId}`}
                             className="btn btn-primary btn-sm justify-center"
@@ -212,5 +212,14 @@ export default function AlertsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Wrap page with RoleGuard — only ADMIN & MANAGER can view alerts
+export default function AlertsPageWrapper() {
+  return (
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]} fallback="denied">
+      <AlertsPage />
+    </RoleGuard>
   );
 }

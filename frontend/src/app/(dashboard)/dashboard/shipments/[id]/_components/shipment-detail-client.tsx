@@ -342,7 +342,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
       <div className="flex flex-1 min-h-0 gap-6 p-6 overflow-hidden">
 
         {/* Map — chiếm 2/3 chiều rộng */}
-        <div className="flex-[2] min-w-0 card overflow-hidden flex flex-col">
+        <div className="flex-2 min-w-0 card overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--border-color)" }}>
             <div className="flex items-center gap-2">
               <MapPin size={16} style={{ color: "#f97316" }} />

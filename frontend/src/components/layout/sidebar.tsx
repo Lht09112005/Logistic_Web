@@ -111,7 +111,6 @@ const staffNav = [
       { href: "/dashboard/warehouse", icon: Warehouse, label: "Kho" },
       { href: "/dashboard/inventory", icon: ClipboardList, label: "Hàng tồn" },
       { href: "/dashboard/qr-scan", icon: QrCode, label: "QR Scan" },
-      { href: "/dashboard/alerts", icon: Bell, label: "Cảnh báo", badge: "alerts" },
     ],
   },
   {
