@@ -79,7 +79,6 @@ const managerNav = [
     items: [
       { href: "/dashboard/warehouse", icon: Warehouse, label: "Kho hàng" },
       { href: "/dashboard/inventory", icon: Package, label: "Hàng hóa" },
-      { href: "/dashboard/qr-scan", icon: QrCode, label: "QR Inventory" },
       { href: "/dashboard/alerts", icon: Bell, label: "Cảnh báo", badge: "alerts" },
     ],
   },
@@ -545,12 +544,12 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div
-          className="flex items-center justify-between h-16 px-4 border-b flex-shrink-0"
+          className="flex items-center justify-between h-16 px-4 border-b shrink-0"
           style={{ borderColor: "var(--border-color)" }}
         >
           <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: accent.gradient }}
             >
               <Truck size={16} color="white" />
@@ -612,13 +611,13 @@ export function Sidebar() {
                       title={!sidebarOpen ? item.label : undefined}
                       className={cn("nav-item", isActive && "active", !sidebarOpen && "justify-center")}
                     >
-                      <item.icon size={18} className="flex-shrink-0" />
+                      <item.icon size={18} className="shrink-0" />
                       {sidebarOpen && (
                         <span className="flex-1 truncate">{item.label}</span>
                       )}
                       {sidebarOpen && (item as any).badge === "alerts" && unreadAlertCount > 0 && (
                         <span
-                          className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0"
+                          className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0"
                           style={{ background: "#ef4444", color: "white" }}
                         >
                           {unreadAlertCount > 99 ? "99+" : unreadAlertCount}
@@ -634,13 +633,13 @@ export function Sidebar() {
 
         {/* ─── User Profile ─── */}
         <div
-          className="border-t p-3 flex-shrink-0"
+          className="border-t p-3 shrink-0"
           style={{ borderColor: "var(--border-color)" }}
         >
           {sidebarOpen ? (
             <div className="flex items-center gap-3">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                 style={{ background: accent.gradient }}
               >
                 {user?.name?.charAt(0) || "U"}
@@ -653,7 +652,7 @@ export function Sidebar() {
                   {roleLabels[role] || "Nhân viên"}
                 </p>
               </div>
-              <button onClick={logout} className="btn-icon flex-shrink-0" title="Đăng xuất">
+              <button onClick={logout} className="btn-icon shrink-0" title="Đăng xuất">
                 <LogOut size={16} style={{ color: "var(--text-secondary)" }} />
               </button>
             </div>
