@@ -112,6 +112,7 @@ model Warehouse {
   zones       WarehouseZone[]
   originShipments   Shipment[] @relation("OriginWarehouse")
   destinationShipments Shipment[] @relation("DestinationWarehouse")
+  alerts            StockAlert[]
 
   @@map("warehouses")
 }
@@ -281,6 +282,7 @@ model TrackingHistory {
 model StockAlert {
   id          String        @id @default(uuid())
   productId   String
+  warehouseId String?
   alertType   AlertType
   severity    AlertSeverity
   message     String
@@ -293,6 +295,7 @@ model StockAlert {
 
   // Relations
   product     Product       @relation(fields: [productId], references: [id])
+  warehouse   Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
 
   @@map("stock_alerts")
 }

@@ -326,12 +326,15 @@ async function main() {
 
   console.log('✅ Inventory seeded')
 
-  // --- Stock Alerts for low stock items ---
+  // --- Stock Alerts for low stock items (idempotent: delete stale, then create fresh) ---
+  // Clear all existing stock alerts to prevent duplicates from old runs (before warehouseId was added)
+  await prisma.stockAlert.deleteMany()
+
   const lowStockAlerts = [
-    { productId: createdProducts[1].id, alertType: 'LOW_STOCK' as const, severity: 'HIGH' as const, message: 'iPhone 15 Pro Max sắp hết hàng tại WH-HCM-01 (còn 3 chiếc)', currentQty: 3, threshold: 10 },
-    { productId: createdProducts[10].id, alertType: 'OUT_OF_STOCK' as const, severity: 'CRITICAL' as const, message: 'Màn Hình LG 27 inch 4K đã hết hàng tại WH-HCM-01', currentQty: 0, threshold: 6 },
-    { productId: createdProducts[3].id, alertType: 'LOW_STOCK' as const, severity: 'MEDIUM' as const, message: 'Quần Jeans Levi\'s sắp hết hàng tại WH-HCM-01 (còn 15 chiếc)', currentQty: 15, threshold: 20 },
-    { productId: createdProducts[9].id, alertType: 'LOW_STOCK' as const, severity: 'HIGH' as const, message: 'Lốp Xe Bridgestone sắp hết hàng tại WH-HN-01 (còn 4 cái)', currentQty: 4, threshold: 10 },
+    { productId: createdProducts[1].id, warehouseId: wh1.id, alertType: 'LOW_STOCK' as const, severity: 'HIGH' as const, message: 'iPhone 15 Pro Max sắp hết hàng tại WH-HCM-01 (còn 3 chiếc)', currentQty: 3, threshold: 10 },
+    { productId: createdProducts[10].id, warehouseId: wh1.id, alertType: 'OUT_OF_STOCK' as const, severity: 'CRITICAL' as const, message: 'Màn Hình LG 27 inch 4K đã hết hàng tại WH-HCM-01', currentQty: 0, threshold: 6 },
+    { productId: createdProducts[3].id, warehouseId: wh1.id, alertType: 'LOW_STOCK' as const, severity: 'MEDIUM' as const, message: 'Quần Jeans Levi\'s sắp hết hàng tại WH-HCM-01 (còn 15 chiếc)', currentQty: 15, threshold: 20 },
+    { productId: createdProducts[9].id, warehouseId: wh2.id, alertType: 'LOW_STOCK' as const, severity: 'HIGH' as const, message: 'Lốp Xe Bridgestone sắp hết hàng tại WH-HN-01 (còn 4 cái)', currentQty: 4, threshold: 10 },
   ]
 
   for (const alert of lowStockAlerts) {
@@ -446,7 +449,9 @@ async function main() {
     },
   })
 
-  // Tracking history for shipment 1
+  // Tracking history for shipment 1 (idempotent: delete stale first, then create fresh)
+  await prisma.trackingHistory.deleteMany({ where: { shipmentId: shipment1.id } })
+
   const trackingPoints = [
     { lat: 10.7290, lng: 106.7218, desc: 'Xuất phát từ kho HCM' },
     { lat: 11.0686, lng: 106.6528, desc: 'Qua trạm Bình Dương' },
