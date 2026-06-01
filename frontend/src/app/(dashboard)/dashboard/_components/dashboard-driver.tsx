@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
-  Truck, MapPin, CheckCircle, Circle, Clock, Navigation,
-  Package, Activity, ChevronRight,
+  Truck, MapPin, CheckCircle, Circle, Clock,
+  Package, Activity, ChevronRight, Menu,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
+import { useAppStore } from "@/store/app-store";
 
 interface DriverShipment {
   id: string;
@@ -26,6 +27,7 @@ const POLL_INTERVAL = 15_000;
 
 export default function DashboardDriver() {
   const { user } = useAuth();
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const [shipments, setShipments] = useState<DriverShipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -81,6 +83,15 @@ export default function DashboardDriver() {
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
+        {/* Floating hamburger — chỉ mobile */}
+        <button
+          onClick={toggleSidebar}
+          className="fixed top-3 left-3 z-50 lg:hidden w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-secondary)" }}
+          aria-label="Mở menu"
+        >
+          <Menu size={18} />
+        </button>
         <div className="skeleton h-10 w-48 rounded-xl" />
         <div className="skeleton h-40 rounded-2xl" />
         <div className="skeleton h-72 rounded-2xl" />
@@ -95,67 +106,51 @@ export default function DashboardDriver() {
   const inTransitCount = shipments.filter((s) => activeStatuses.includes(s.status)).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6 driver-dashboard">
+      {/* Floating hamburger — chỉ mobile */}
+      <button
+        onClick={toggleSidebar}
+        className="fixed top-3 left-3 z-50 lg:hidden w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-secondary)" }}
+        aria-label="Mở menu"
+      >
+        <Menu size={18} />
+      </button>
+
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-2 sm:gap-3">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-              Bảng điều khiển tài xế
+            <h1 className="text-xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+              Chuyến đi của tôi
             </h1>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
               <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
             </div>
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
           </div>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-            {activeShipments.length} chuyến đang hoạt động • {pendingCount} chờ lấy hàng • {inTransitCount} đang vận chuyển
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+            {activeShipments.length} chuyến đang hoạt động
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={handleRefresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button onClick={handleRefresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
           </button>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Chờ lấy hàng", value: pendingCount, icon: Package, color: "#f97316", bg: "#fff7ed" },
-          { label: "Đang vận chuyển", value: inTransitCount, icon: Navigation, color: "#6366f1", bg: "#eef2ff" },
-          { label: "Đã giao hôm nay", value: completedShipments.length, icon: CheckCircle, color: "#10b981", bg: "#ecfdf5" },
-          { label: "Tổng vận đơn", value: shipments.length, icon: Truck, color: "#6b7280", bg: "#f1f5f9" },
-        ].map((item) => (
-          <div key={item.label} className="card p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: item.bg }}>
-              <item.icon size={20} style={{ color: item.color }} />
-            </div>
-            <div>
-              <div className="font-bold text-lg" style={{ color: item.color }}>{item.value}</div>
-              <div className="text-xs" style={{ color: "var(--text-muted)" }}>{item.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Active Shipments */}
-      <div className="space-y-4">
-        <h2 className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>
-          {activeShipments.length > 0 ? "Chuyến đi của tôi" : "Không có chuyến đi nào"}
-        </h2>
-
+      <div className="space-y-3">
         {activeShipments.length === 0 ? (
-          <div className="card p-12 flex flex-col items-center justify-center gap-3" style={{ color: "var(--text-muted)" }}>
-            <Truck size={48} style={{ opacity: 0.2 }} />
+          <div className="card py-10 flex flex-col items-center justify-center gap-3" style={{ color: "var(--text-muted)" }}>
+            <Truck size={40} style={{ opacity: 0.2 }} />
             <p className="font-medium">Bạn chưa được phân công chuyến nào</p>
             <p className="text-sm">Vui lòng chờ quản lý phân công vận đơn cho bạn</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {activeShipments.map((s) => {
               const totalCp = s.checkpoints?.length || 0;
               const completedCp = s.checkpoints?.filter((c) => c.isCompleted).length || 0;
@@ -165,47 +160,47 @@ export default function DashboardDriver() {
                 <Link
                   key={s.id}
                   href={`/dashboard/shipments/${s.id}`}
-                  className="card card-hover p-5 block animate-fade-in"
+                  className="card card-hover p-4 block animate-fade-in"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-base" style={{ color: "var(--text-primary)" }}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
                           {s.shipmentCode}
                         </span>
-                        <span className={`badge ${getShipmentStatusBadge(s.status)}`}>
+                        <span className={`badge ${getShipmentStatusBadge(s.status)}`} style={{ fontSize: "10px", padding: "1px 7px" }}>
                           {getShipmentStatusLabel(s.status)}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 mt-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                        <MapPin size={12} />
-                        <span className="truncate max-w-32">{s.originAddress}</span>
-                        <ChevronRight size={12} />
-                        <span className="truncate max-w-32">{s.destinationAddress}</span>
+                      <div className="flex items-center gap-1 mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                        <MapPin size={10} />
+                        <span className="truncate max-w-28">{s.originAddress}</span>
+                        <ChevronRight size={10} />
+                        <span className="truncate max-w-28">{s.destinationAddress}</span>
                       </div>
                     </div>
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-orange-50">
-                      <Truck size={20} style={{ color: "#f97316" }} />
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ml-2" style={{ background: "var(--color-warning-bg)" }}>
+                      <Truck size={16} style={{ color: "#f97316" }} />
                     </div>
                   </div>
 
                   {/* Progress bar */}
                   {totalCp > 0 && (
-                    <div className="mb-3">
-                      <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
-                        <span>Tiến độ: {completedCp}/{totalCp} trạm</span>
-                        <span className="font-semibold" style={{ color: progressPct === 100 ? "#10b981" : "#f97316" }}>
+                    <div className="mb-2">
+                      <div className="flex justify-between text-[10px] mb-0.5" style={{ color: "var(--text-muted)" }}>
+                        <span>{completedCp}/{totalCp} trạm</span>
+                        <span className="font-semibold" style={{ color: progressPct === 100 ? "#10b981" : "var(--text-muted)" }}>
                           {progressPct}%
                         </span>
                       </div>
-                      <div className="progress-bar">
+                      <div className="progress-bar rounded-full" style={{ height: "3px" }}>
                         <div
-                          className="progress-fill"
+                          className="progress-fill rounded-full"
                           style={{
                             width: `${progressPct}%`,
                             background: progressPct === 100
                               ? "linear-gradient(90deg,#10b981,#059669)"
-                              : "linear-gradient(90deg,#f97316,#ea580c)",
+                              : "#f97316",
                           }}
                         />
                       </div>
@@ -214,32 +209,32 @@ export default function DashboardDriver() {
 
                   {/* Checkpoint summary */}
                   {s.checkpoints && s.checkpoints.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1 max-h-[52px] overflow-y-auto driver-cp-scroll">
                       {s.checkpoints.map((cp) => (
                         <div
                           key={cp.id}
-                          className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
+                          className="flex items-center gap-0.5 text-[8px] px-1.5 py-0.5 rounded-full"
                           style={{
                             background: cp.isCompleted ? "#dcfce7" : "#f1f5f9",
                             color: cp.isCompleted ? "#15803d" : "var(--text-muted)",
                           }}
                         >
-                          {cp.isCompleted ? <CheckCircle size={10} /> : <Circle size={10} />}
-                          {cp.name}
+                          {cp.isCompleted ? <CheckCircle size={7} /> : <Circle size={7} />}
+                          {cp.name.length > 8 ? cp.name.slice(0, 5) + '..' : cp.name}
                         </div>
                       ))}
                     </div>
                   )}
 
                   {/* Footer */}
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t" style={{ borderColor: "var(--border-light)" }}>
-                    <div className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                      <Package size={12} />
+                  <div className="flex items-center justify-between mt-3 pt-2.5 border-t" style={{ borderColor: "var(--border-light)" }}>
+                    <div className="flex items-center gap-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      <Package size={11} />
                       {s.items?.length || 0} mặt hàng
                     </div>
                     {s.estimatedArrival && (
-                      <div className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                        <Clock size={12} />
+                      <div className="flex items-center gap-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        <Clock size={11} />
                         {formatRelative(s.estimatedArrival)}
                       </div>
                     )}
@@ -254,20 +249,20 @@ export default function DashboardDriver() {
       {/* Completed today */}
       {completedShipments.length > 0 && (
         <div>
-          <h3 className="font-bold text-sm mb-3" style={{ color: "var(--text-muted)" }}>
+          <h3 className="font-bold text-sm mb-2" style={{ color: "var(--text-muted)" }}>
             Đã giao hôm nay ({completedShipments.length})
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {completedShipments.slice(0, 5).map((s) => (
               <Link
                 key={s.id}
                 href={`/dashboard/shipments/${s.id}`}
-                className="card p-3 flex items-center gap-3 hover:bg-[var(--bg-input)] transition-colors"
+                className="card p-2.5 flex items-center gap-2.5 hover:bg-[var(--bg-input)] transition-colors"
               >
-                <CheckCircle size={16} style={{ color: "#10b981", flexShrink: 0 }} />
+                <CheckCircle size={14} style={{ color: "#10b981", flexShrink: 0 }} />
                 <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>{s.shipmentCode}</span>
-                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{s.destinationAddress}</span>
-                <ChevronRight size={14} style={{ color: "var(--text-muted)", marginLeft: "auto" }} />
+                <span className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>{s.destinationAddress}</span>
+                <ChevronRight size={12} style={{ color: "var(--text-muted)", marginLeft: "auto", flexShrink: 0 }} />
               </Link>
             ))}
           </div>
