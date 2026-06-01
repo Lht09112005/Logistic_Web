@@ -127,7 +127,7 @@ export default function StaffReceivingPanel({
       </div>
 
       {/* Item checklist */}
-      <div className="px-5 pb-3 space-y-2 max-h-48 overflow-y-auto">
+      <div className="px-5 pb-3 space-y-2 max-h-48 overflow-y-auto driver-cp-scroll">
         <div className="flex items-center gap-2 text-sm font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
           <Package size={14} /> Danh sách hàng đến
         </div>

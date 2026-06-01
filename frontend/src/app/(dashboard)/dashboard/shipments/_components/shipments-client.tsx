@@ -151,10 +151,10 @@ export default function ShipmentsClient({ status, page, search }: Props) {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="skeleton h-10 w-48 rounded-xl" />
-        <div className="skeleton h-14 rounded-xl" />
-        <div className="skeleton h-96 rounded-2xl" />
+      <div className="space-y-4 animate-pulse">
+        <div className="skeleton h-9 w-36 rounded-xl" />
+        <div className="skeleton h-12 rounded-xl" />
+        <div className="skeleton h-80 rounded-2xl" />
       </div>
     );
   }
@@ -162,31 +162,33 @@ export default function ShipmentsClient({ status, page, search }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+      <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-2 sm:gap-3">
+        <div className="w-full sm:w-auto">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <h1 className="text-lg sm:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
               Quản lý vận đơn
             </h1>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium shrink-0" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
               <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
             </div>
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+            <span className="text-[9px] sm:text-[10px] hidden sm:inline" style={{ color: "var(--text-muted)" }}>
               {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
           </div>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             {total} vận đơn trong hệ thống
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
           </button>
           {isAdmin || isManager ? (
-            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
-              <Plus size={14} /> Tạo vận đơn
+            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm flex-1 sm:flex-none justify-center">
+              <Plus size={14} />
+              <span className="hidden sm:inline"> Tạo vận đơn</span>
             </Link>
           ) : null}
         </div>
@@ -195,7 +197,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
       {/* Filters */}
       <div className="card p-4 space-y-4">
         {/* Status tabs */}
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 flex-wrap overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -218,7 +220,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
 
         {/* Search */}
         <form onSubmit={handleSearch} className="flex gap-2">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
             <input
               value={searchText}
@@ -250,11 +252,11 @@ export default function ShipmentsClient({ status, page, search }: Props) {
               <thead>
                 <tr>
                   <th>Mã vận đơn</th>
-                  <th>Tài xế / Xe</th>
-                  <th>Điểm đến</th>
+                  <th className="hidden md:table-cell">Tài xế / Xe</th>
+                  <th className="hidden lg:table-cell">Điểm đến</th>
                   <th>Trạng thái</th>
-                  <th>Dự kiến giao</th>
-                  <th>Tạo lúc</th>
+                  <th className="hidden lg:table-cell">Dự kiến giao</th>
+                  <th className="hidden md:table-cell">Tạo lúc</th>
                   <th></th>
                 </tr>
               </thead>
@@ -269,7 +271,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                         {s.vehicleType as string} • {s.vehicleNumber as string}
                       </div>
                     </td>
-                    <td>
+                    <td className="hidden md:table-cell">
                       <div className="text-sm" style={{ color: "var(--text-primary)" }}>
                         {(s.driver as Record<string,string> | null)?.name || "—"}
                       </div>
@@ -277,7 +279,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                         {(s.driver as Record<string,string> | null)?.phone || ""}
                       </div>
                     </td>
-                    <td>
+                    <td className="hidden lg:table-cell">
                       <div className="flex items-center gap-1 text-sm" style={{ color: "var(--text-secondary)" }}>
                         <MapPin size={12} className="flex-shrink-0" />
                         <span className="truncate max-w-48">{s.destinationAddress as string}</span>
@@ -288,7 +290,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                         {getShipmentStatusLabel(s.status as string)}
                       </span>
                     </td>
-                    <td>
+                    <td className="hidden lg:table-cell">
                       {s.estimatedArrival ? (
                         <div className="flex items-center gap-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                           <Clock size={11} />
@@ -296,7 +298,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                         </div>
                       ) : "—"}
                     </td>
-                    <td>
+                    <td className="hidden md:table-cell">
                       <div className="text-xs" style={{ color: "var(--text-muted)" }}>
                         {formatDate(s.createdAt as string)}
                       </div>

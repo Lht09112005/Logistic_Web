@@ -104,7 +104,7 @@ export default function StaffLoadingPanel({
         <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           <Package size={16} /> Danh sách hàng hóa ({items.length} loại)
         </div>
-        <div className="space-y-2 max-h-40 overflow-y-auto">
+        <div className="space-y-2 max-h-40 overflow-y-auto driver-cp-scroll">
           {items.map((item) => (
             <div key={item.id} className="flex items-center gap-3 p-2.5 rounded-lg" style={{ background: "var(--bg-input)" }}>
               <CheckCircle size={16} className="text-success flex-shrink-0" />

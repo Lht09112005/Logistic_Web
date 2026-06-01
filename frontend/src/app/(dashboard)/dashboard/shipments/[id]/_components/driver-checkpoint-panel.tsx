@@ -377,7 +377,7 @@ export default function DriverCheckpointPanel({
       </div>
 
       {/* Compact Timeline */}
-      <div className="px-4 pb-2 space-y-0.5 max-h-[280px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+      <div className="px-4 pb-2 space-y-0.5 max-h-[280px] overflow-y-auto driver-cp-scroll">
         {steps.map((step, idx) => {
           const isLast = idx === steps.length - 1;
           const StepIcon = step.icon;
