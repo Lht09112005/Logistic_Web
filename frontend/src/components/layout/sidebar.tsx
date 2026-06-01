@@ -433,7 +433,7 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
             collapsed ? "w-6 h-6" : "w-7 h-7"
           )}
             style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}>
-            {collapsed ? <Navigation size={12} color="white" /> : <Truck size={14} color="white" />}
+            {collapsed ? <MapPin size={12} color="white" /> : <Truck size={14} color="white" />}
           </div>
           {!collapsed && (
             <>
@@ -653,12 +653,14 @@ export function Sidebar() {
         >
           {sidebarOpen ? (
             <div className="flex items-center gap-3">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                style={{ background: accent.gradient }}
-              >
-                {user?.name?.charAt(0) || "U"}
-              </div>
+              <Link href="/admin/settings">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 cursor-pointer"
+                  style={{ background: accent.gradient }}
+                >
+                  {user?.name?.charAt(0) || "U"}
+                </div>
+              </Link>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
                   {user?.name}
@@ -683,13 +685,15 @@ export function Sidebar() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-default"
-                style={{ background: accent.gradient }}
-                title={user?.name}
-              >
-                {user?.name?.charAt(0) || "U"}
-              </div>
+              <Link href="/admin/settings">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer"
+                  style={{ background: accent.gradient }}
+                  title={user?.name}
+                >
+                  {user?.name?.charAt(0) || "U"}
+                </div>
+              </Link>
               {/* Theme toggle — collapsed cho tài xế */}
               {isDriver && (
                 <button

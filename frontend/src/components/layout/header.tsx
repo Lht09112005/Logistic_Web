@@ -17,8 +17,41 @@ export function Header({ title }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
 
-  // Tài xế không cần header
-  if (user?.role === 'DRIVER') return null;
+  // DRIVER — mobile-only header with hamburger + avatar
+  if (user?.role === 'DRIVER') {
+    return (
+      <header className="fixed top-0 left-0 right-0 z-10 h-12 flex items-center justify-between px-4 border-b lg:hidden"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+        <button
+          onClick={toggleSidebar}
+          className="btn-icon"
+          aria-label="Mở menu"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div className="flex items-center gap-2">
+          {/* Theme toggle — mobile driver */}
+          <button
+            onClick={toggleTheme}
+            className="btn-icon"
+            title={theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
+          >
+            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+          {/* Avatar → Settings */}
+          <Link href="/admin/settings">
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold cursor-pointer"
+              style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
+              title={user?.name}
+            >
+              {user?.name?.charAt(0) || "U"}
+            </div>
+          </Link>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header
@@ -89,14 +122,16 @@ export function Header({ title }: HeaderProps) {
           )}
         </Link>
 
-        {/* Avatar */}
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ml-1 cursor-pointer"
-          style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
-          title={user?.name}
-        >
-          {user?.name?.charAt(0) || "U"}
-        </div>
+        {/* Avatar → Settings */}
+        <Link href="/admin/settings">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ml-1 cursor-pointer"
+            style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+            title={user?.name}
+          >
+            {user?.name?.charAt(0) || "U"}
+          </div>
+        </Link>
       </div>
     </header>
   );

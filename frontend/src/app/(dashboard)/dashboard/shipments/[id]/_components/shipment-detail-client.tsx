@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MapPin, Clock, Truck, User, Phone,
   CheckCircle, Circle, Package, Navigation,
-  Play, Pause, Flame, Gauge, Activity, ThumbsUp
+  Play, Pause, Flame, Gauge, Activity, ThumbsUp, Flag
 } from "lucide-react";
 import {
   formatDate, formatRelative, getShipmentStatusLabel, getShipmentStatusBadge,
@@ -288,42 +288,38 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
   useEffect(() => { return () => { if (simIntervalRef.current) clearInterval(simIntervalRef.current); }; }, []);
 
   const completedCount = shipment.checkpoints.filter((c) => c.isCompleted).length;
+  const nextCpIndex = shipment.checkpoints.findIndex(c => !c.isCompleted);
   const DynMap = MapRef.current;
 
-  // ─── Chiều cao thực tế của content area = 100vh - chiều cao sidebar top bar (64px)
-  // Component này được render bên trong main content area của layout
-  // Dùng CSS để fill toàn bộ chiều cao còn lại mà không gây page scroll
   return (
     <div
-      className="flex flex-col overflow-hidden"
-      style={{ height: "calc(100vh - 64px)" }}
+      className="flex flex-col overflow-hidden flex-1 max-h-full"
     >
       {/* ── Header ── */}
-      <div className="flex items-center gap-4 flex-wrap shrink-0 px-6 py-3 border-b" style={{ borderColor: "var(--border-color)" }}>
-        <button onClick={() => router.back()} className="btn btn-ghost btn-sm">
-          <ArrowLeft size={16} /> Quay lại
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-              {shipment.shipmentCode}
-            </h1>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${socketConnected ? "bg-success text-success" : ""}`} style={{ background: socketConnected ? undefined : "var(--bg-input)", color: socketConnected ? undefined : "var(--text-muted)" }}>
-              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
-              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 shrink-0 px-4 lg:px-6 py-3 border-b" style={{ borderColor: "var(--border-color)" }}>
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          <button onClick={() => router.back()} className="btn btn-secondary btn-sm shrink-0">
+            <ArrowLeft size={16} /> Quay lại
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base lg:text-2xl font-bold truncate" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+                {shipment.shipmentCode}
+              </h1>
+              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${socketConnected ? "bg-success text-success" : ""}`} style={{ background: socketConnected ? undefined : "var(--bg-input)", color: socketConnected ? undefined : "var(--text-muted)" }}>
+                <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+                {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+              </div>
+              <span className={`badge ${getShipmentStatusBadge(shipment.status)}`} style={{ fontSize: "10px", padding: "1px 7px" }}>
+                {getShipmentStatusLabel(shipment.status)}
+              </span>
             </div>
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
-            <span className={`badge ${getShipmentStatusBadge(shipment.status)}`}>
-              {getShipmentStatusLabel(shipment.status)}
-            </span>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+              Tạo lúc {formatDate(shipment.createdAt)}
+            </p>
           </div>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-            Tạo lúc {formatDate(shipment.createdAt)}
-          </p>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-1.5 items-center flex-wrap w-full lg:w-auto">
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
@@ -333,7 +329,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
               <button className="btn btn-primary btn-sm" onClick={async () => {
                 try { await shipmentsApi.approve(shipment.id); refresh(); } catch {}
               }}>
-                <ThumbsUp size={14} /> Duyệt vận đơn
+                <ThumbsUp size={14} /> Duyệt
               </button>
               <button className="btn btn-sm" style={{ color: "#ef4444", borderColor: "#ef4444" }} onClick={async () => {
                 setRejectOpen(true);
@@ -344,27 +340,27 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           )}
           {canControlShipment && shipment.status === "CONFIRMED" && (
             <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("LOADING")}>
-              <Package size={14} /> Bắt đầu xếp hàng
+              <Package size={14} /> <span className="hidden xs:inline">Bắt đầu </span>xếp hàng
             </button>
           )}
           {canControlShipment && shipment.status === "LOADING" && (
             <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("IN_TRANSIT")}>
-              <Navigation size={14} /> Bắt đầu vận chuyển
+              <Navigation size={14} /> <span className="hidden xs:inline">Bắt đầu </span>vận chuyển
             </button>
           )}
           {canControlShipment && shipment.status === "IN_TRANSIT" && (
             <button className="btn btn-secondary btn-sm" style={{ color: "#10b981", borderColor: "#10b981" }} onClick={() => handleStatusUpdate("DELIVERED")}>
-              <CheckCircle size={14} /> Đánh dấu đã giao
+              <CheckCircle size={14} /> <span className="hidden sm:inline">Đánh dấu </span>đã giao
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Main content: flex row, fills remaining height ── */}
-      <div className="flex flex-1 min-h-0 gap-6 p-6 overflow-hidden">
+      {/* ── Main content: flex row on desktop, column on mobile ── */}
+      <div className="flex flex-1 min-h-0 gap-4 lg:gap-6 p-4 lg:p-6 overflow-hidden flex-col lg:flex-row">
 
-        {/* Map — chiếm 2/3 chiều rộng */}
-        <div className="flex-2 min-w-0 card overflow-hidden flex flex-col">
+        {/* Map — chiếm 2/3 chiều rộng desktop, full width mobile */}
+        <div className="flex-1 lg:flex-[2] min-h-0 card overflow-hidden flex flex-col min-h-[300px] lg:min-h-0">
           <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--border-color)" }}>
             <div className="flex items-center gap-2">
               <MapPin size={16} style={{ color: "#f97316" }} />
@@ -391,10 +387,10 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           </div>
         </div>
 
-        {/* Right panel — 1/3 chiều rộng, scroll nội bộ */}
-        <div className="flex-1 min-w-0 overflow-y-auto space-y-3" style={{ minHeight: 0 }}>
+        {/* ════════ Right panel — bố cục hiện đại, gọn gàng ════════ */}
+        <div className="flex-1 min-w-0 overflow-y-auto space-y-4" style={{ minHeight: 0 }}>
 
-          {/* Driver Checkpoint Panel — chỉ hiển thị với DRIVER */}
+          {/* ── DRIVER PANELS (unchanged) ── */}
           {isDriver && (
             <DriverCheckpointPanel
               shipmentId={shipment.id}
@@ -410,7 +406,6 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
             />
           )}
 
-          {/* Staff Loading Panel — nhân viên kho xuất */}
           {isStaffOnly && (
             <StaffLoadingPanel
               shipmentId={shipment.id}
@@ -422,7 +417,6 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
             />
           )}
 
-          {/* Staff Receiving Panel — nhân viên kho nhập */}
           {isStaffOnly && (
             <StaffReceivingPanel
               shipmentId={shipment.id}
@@ -434,222 +428,328 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
             />
           )}
 
-          {canControlShipment && <div className="card p-5 space-y-4 border-2 transition-all duration-300" style={{ borderColor: isSimulating ? "#f97316" : "var(--border-color)" }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`w-2.5 h-2.5 rounded-full ${isSimulating ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
-                <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                  Bảng giả lập GPS thời gian thực
+          {/* ── TÀI XẾ & THÔNG SỐ VẬN CHUYỂN (non-DRIVER) ── */}
+          {!isDriver && (
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-sm uppercase tracking-wide flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                  <Truck size={14} style={{ color: "#f97316" }} />
+                  Tài xế & Phương tiện
                 </h3>
-              </div>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-gray-400">
-                🟢 Socket.io Live
-              </span>
-            </div>
-            <p className="text-xs font-medium" style={{ color: isSimulating ? "#f97316" : "var(--text-secondary)" }}>
-              {simStatusMsg}
-            </p>
-            <div className="grid grid-cols-3 gap-2 py-2 text-center border-t border-b text-xs" style={{ borderColor: "var(--border-light)" }}>
-              <div className="space-y-0.5">
-                <span className="text-[10px] text-gray-400 font-medium">Tốc độ</span>
-                <div className="font-bold text-sm text-orange-500 flex items-center justify-center gap-0.5">
-                  <Gauge size={12} />{isSimulating ? simSpeed : 0} km/h
-                </div>
-                {isSimulating && roadRoute?.averageSpeed && (
-                  <div className="text-[9px] text-gray-400">TB: {roadRoute.averageSpeed} km/h</div>
+                {shipment.status === "IN_TRANSIT" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Đang giao
+                  </span>
                 )}
               </div>
-              <div className="space-y-0.5">
-                <span className="text-[10px] text-gray-400 font-medium">Ước tính đến nơi</span>
-                <div className="font-bold text-sm" style={{ color: isSimulating ? "#22c55e" : "var(--text-muted)" }}>
-                  <Clock size={12} className="inline mr-0.5" />{isSimulating ? simETA : "—"}
-                </div>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-[10px] text-gray-400 font-medium">Trạm kiểm soát</span>
-                <div className="font-bold text-sm text-indigo-500">{completedCount}/{shipment.checkpoints.length}</div>
-              </div>
-            </div>
-            {simError && <div className="p-2 text-center text-xs rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{simError}</div>}
-            <div className="grid grid-cols-3 gap-2">
-              {!isSimulating ? (
-                <button onClick={startSimulation} disabled={shipment.status === "DELIVERED"} className="btn btn-primary btn-sm flex items-center justify-center gap-1 col-span-2">
-                  <Play size={12} /> Bắt đầu giả lập
-                </button>
+
+              {shipment.driver ? (
+                <>
+                  {/* Driver + Vehicle row */}
+                  <div className="flex items-center gap-4 pb-4 border-b" style={{ borderColor: "var(--border-light)" }}>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
+                      style={{ background: "linear-gradient(135deg,#f97316,#ea580c)" }}>
+                      {shipment.driver.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{shipment.driver.name}</div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>Tài xế</div>
+                      {shipment.driver.phone && (
+                        <a href={`tel:${shipment.driver.phone}`} className="inline-flex items-center gap-1 text-xs mt-1 font-medium hover:underline" style={{ color: "#f97316" }}>
+                          <Phone size={11} /> {shipment.driver.phone}
+                        </a>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>Phương tiện</div>
+                      <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{shipment.vehicleType || "—"}</div>
+                      {shipment.vehicleNumber && (
+                        <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{shipment.vehicleNumber}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Stats row — 3 cột với số liệu realtime */}
+                  {shipment.status === "IN_TRANSIT" && (
+                    <div className="grid grid-cols-3 gap-3 pt-4">
+                      <div className="text-center p-3 rounded-xl" style={{ background: "var(--bg-input)" }}>
+                        <div className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>Tốc độ</div>
+                        <div className="font-bold text-lg flex items-center justify-center gap-0.5" style={{ color: "#f97316" }}>
+                          <Gauge size={14} />{simSpeed || "—"}
+                        </div>
+                        <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>km/h</div>
+                      </div>
+                      <div className="text-center p-3 rounded-xl" style={{ background: "var(--bg-input)" }}>
+                        <div className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>Dự kiến đến</div>
+                        <div className="font-bold text-lg" style={{ color: "#10b981" }}>
+                          <Clock size={14} className="inline mr-0.5" />
+                          {shipment.estimatedArrival ? formatRelative(shipment.estimatedArrival) : "—"}
+                        </div>
+                      </div>
+                      <div className="text-center p-3 rounded-xl" style={{ background: "var(--bg-input)" }}>
+                        <div className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>Chặng</div>
+                        <div className="font-bold text-lg" style={{ color: "#6366f1" }}>
+                          {completedCount}/{shipment.checkpoints.length}
+                        </div>
+                        <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>đã qua</div>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
-                <button onClick={pauseSimulation} className="btn btn-secondary btn-sm flex items-center justify-center gap-1 col-span-2" style={{ borderColor: "#f97316", color: "#f97316" }}>
-                  <Pause size={12} /> Tạm dừng xe
-                </button>
+                <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
+                  <User size={16} /> Chưa phân công tài xế
+                </div>
               )}
-              <button onClick={simulateIncident} disabled={!isSimulating} className="btn btn-secondary btn-sm flex items-center justify-center gap-1" style={{ borderColor: "#ef4444", color: "#ef4444" }}>
-                <Flame size={12} /> Sự cố
-              </button>
             </div>
-          </div>}
+          )}
 
-          {/* Driver */}
-          <div className="card p-5">
-            <h3 className="font-bold mb-4 text-sm uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Thông tin tài xế</h3>
-            {shipment.driver ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: "linear-gradient(135deg,#f97316,#ea580c)" }}>
-                    {shipment.driver.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="font-semibold" style={{ color: "var(--text-primary)" }}>{shipment.driver.name}</div>
-                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>Tài xế</div>
-                  </div>
+          {/* ── GPS SIMULATOR (admin/manager only) ── */}
+          {canControlShipment && (
+            <div className="card p-4 border-2 transition-all duration-300" style={{ borderColor: isSimulating ? "#f97316" : "var(--border-color)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full transition-colors ${isSimulating ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+                  <h3 className="font-semibold text-xs uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                    Giả lập GPS
+                  </h3>
                 </div>
-                {shipment.driver.phone && (
-                  <a href={`tel:${shipment.driver.phone}`} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-                    <Phone size={14} /> {shipment.driver.phone}
-                  </a>
+                <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
+                  Socket.io
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed mb-3" style={{ color: isSimulating ? "#f97316" : "var(--text-secondary)" }}>
+                {simStatusMsg}
+              </p>
+              <div className="grid grid-cols-3 gap-2 pb-3 mb-3 text-center border-b text-[11px]" style={{ borderColor: "var(--border-light)" }}>
+                <div>
+                  <div className="text-[9px] font-medium" style={{ color: "var(--text-muted)" }}>Tốc độ</div>
+                  <div className="font-bold" style={{ color: "#f97316" }}>{isSimulating ? simSpeed : 0} km/h</div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-medium" style={{ color: "var(--text-muted)" }}>ETA</div>
+                  <div className="font-bold" style={{ color: isSimulating ? "#10b981" : "var(--text-muted)" }}>{isSimulating ? simETA : "—"}</div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-medium" style={{ color: "var(--text-muted)" }}>Chặng</div>
+                  <div className="font-bold" style={{ color: "#6366f1" }}>{completedCount}/{shipment.checkpoints.length}</div>
+                </div>
+              </div>
+              {simError && <div className="p-2 mb-2 text-center text-[10px] rounded-lg bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50">{simError}</div>}
+              <div className="flex gap-2">
+                {!isSimulating ? (
+                  <button onClick={startSimulation} disabled={shipment.status === "DELIVERED"} className="btn btn-primary btn-sm flex-1">
+                    <Play size={11} /> Bắt đầu
+                  </button>
+                ) : (
+                  <button onClick={pauseSimulation} className="btn btn-sm flex-1" style={{ borderColor: "#f97316", color: "#f97316" }}>
+                    <Pause size={11} /> Tạm dừng
+                  </button>
                 )}
-                <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-                  <Truck size={14} /> {shipment.vehicleType} • {shipment.vehicleNumber}
-                </div>
+                <button onClick={simulateIncident} disabled={!isSimulating} className="btn btn-sm" style={{ borderColor: "#ef4444", color: "#ef4444" }}>
+                  <Flame size={11} /> Sự cố
+                </button>
               </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
-                <User size={16} /> Chưa phân công tài xế
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Route */}
+          {/* ── LỘ TRÌNH & TRẠM KIỂM SOÁT (combined) ── */}
           <div className="card p-5">
-            <h3 className="font-bold mb-4 text-sm uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Lộ trình</h3>
-            <div className="space-y-3">
+            <h3 className="font-bold text-sm uppercase tracking-wide mb-4 flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+              <MapPin size={14} style={{ color: "#f97316" }} />
+              Lộ trình vận chuyển
+            </h3>
+
+            {/* Origin → Destination with progress */}
+            <div className="space-y-3 pb-4 border-b" style={{ borderColor: "var(--border-light)" }}>
               <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#10b981" }}>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#10b981" }}>
                   <div className="w-2 h-2 rounded-full bg-white" />
                 </div>
-                <div>
-                  <div className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>XUẤT PHÁT</div>
-                  <div className="text-sm" style={{ color: "var(--text-primary)" }}>{shipment.originAddress}</div>
-                  {shipment.startedAt && <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{formatDate(shipment.startedAt)}</div>}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#10b981" }}>Xuất phát</div>
+                  <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{shipment.originAddress}</div>
+                  {shipment.startedAt && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>{formatDate(shipment.startedAt)}</div>}
                 </div>
               </div>
-              <div className="w-px h-6 ml-2.5" style={{ background: "var(--border-color)" }} />
-              <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#f97316" }}>
-                  <div className="w-2 h-2 rounded-full bg-white" />
+
+              {/* Progress bar with percentage */}
+              <div className="ml-3 pl-6 border-l-2" style={{ borderColor: "var(--border-light)" }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>
+                    Tiến độ: {completedCount}/{shipment.checkpoints.length} chặng
+                  </span>
+                  <span className="text-[10px] font-semibold" style={{ color: completedCount === shipment.checkpoints.length ? "#10b981" : "#f97316" }}>
+                    {Math.round((completedCount / (shipment.checkpoints.length || 1)) * 100)}%
+                  </span>
                 </div>
-                <div>
-                  <div className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>ĐIỂM ĐẾN</div>
-                  <div className="text-sm" style={{ color: "var(--text-primary)" }}>{shipment.destinationAddress}</div>
+                <div className="progress-bar mb-2" style={{ height: "5px" }}>
+                  <div className="progress-fill" style={{
+                    width: `${(completedCount / (shipment.checkpoints.length || 1)) * 100}%`,
+                    background: completedCount === shipment.checkpoints.length
+                      ? "linear-gradient(90deg, #10b981, #059669)"
+                      : "linear-gradient(90deg, #f97316, #ea580c)",
+                  }} />
+                </div>
+                {shipment.totalDistance && (
+                  <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>Tổng quãng đường: <strong>{shipment.totalDistance} km</strong></div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ background: shipment.status === "DELIVERED" ? "#10b981" : "#ef4444" }}>
+                  <Flag size={11} color="white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: shipment.status === "DELIVERED" ? "#10b981" : "#ef4444" }}>Điểm đến</div>
+                  <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{shipment.destinationAddress}</div>
                   {shipment.estimatedArrival && (
-                    <div className="flex items-center gap-1 text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    <div className="flex items-center gap-1 text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
                       <Clock size={10} /> Dự kiến: {formatRelative(shipment.estimatedArrival)}
                     </div>
                   )}
                 </div>
               </div>
             </div>
-            {shipment.totalDistance && (
-              <div className="mt-4 pt-4 border-t flex items-center justify-between" style={{ borderColor: "var(--border-light)" }}>
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>Tổng quãng đường</span>
-                <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{shipment.totalDistance} km</span>
+
+            {/* Checkpoint timeline */}
+            <div className="pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Trạm kiểm soát</h4>
+                <span className={`badge ${completedCount === shipment.checkpoints.length ? "badge-success" : "badge-info"} text-[10px]`}>
+                  {completedCount}/{shipment.checkpoints.length}
+                </span>
               </div>
-            )}
+              <div className="space-y-1 max-h-[200px] overflow-y-auto driver-cp-scroll pr-1">
+                {shipment.checkpoints.map((cp, idx) => {
+                  const isCurrent = idx === nextCpIndex;
+                  return (
+                    <div key={cp.id} className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${
+                      isCurrent ? "bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50" : ""
+                    } ${cp.isCompleted ? "" : "hover:bg-[var(--bg-input)]"}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                        cp.isCompleted
+                          ? "bg-emerald-500"
+                          : isCurrent
+                            ? "bg-orange-500 shadow-lg shadow-orange-500/30"
+                            : "bg-gray-200 dark:bg-gray-700"
+                      }`}>
+                        {cp.isCompleted
+                          ? <CheckCircle size={14} color="white" />
+                          : <Circle size={11} color={isCurrent ? "white" : "var(--text-muted)"} />
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-medium truncate ${
+                          cp.isCompleted ? "text-emerald-700 dark:text-emerald-400"
+                            : isCurrent ? "text-orange-700 dark:text-orange-400 font-bold"
+                            : "text-muted"
+                        }`}>
+                          {cp.sequence}. {cp.name}
+                        </div>
+                        {cp.address && <div className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>{cp.address}</div>}
+                      </div>
+                      {cp.arrivedAt && (
+                        <div className="text-[11px] font-medium shrink-0" style={{ color: "#10b981" }}>
+                          {new Date(cp.arrivedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      )}
+                      {isCurrent && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
+                      )}
+                    </div>
+                  );
+                })}
+                {shipment.checkpoints.length === 0 && (
+                  <div className="text-sm text-center py-6" style={{ color: "var(--text-muted)" }}>
+                    <MapPin size={24} className="mx-auto mb-2 opacity-30" />
+                    <p>Chưa có trạm kiểm soát</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Checkpoints */}
+          {/* ── HÀNG HÓA VẬN CHUYỂN ── */}
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Trạm kiểm soát</h3>
-              <span className="badge badge-info">{completedCount}/{shipment.checkpoints.length}</span>
-            </div>
-            <div className="progress-bar mb-4">
-              <div className="progress-fill" style={{ width: `${(completedCount / (shipment.checkpoints.length || 1)) * 100}%` }} />
-            </div>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {shipment.checkpoints.map((cp) => (
-                <div key={cp.id} className="flex items-center gap-2.5">
-                  {cp.isCompleted
-                    ? <CheckCircle size={14} style={{ color: "#10b981", flexShrink: 0 }} />
-                    : <Circle size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-                  }
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate" style={{ color: cp.isCompleted ? "var(--text-primary)" : "var(--text-muted)" }}>
-                      {cp.sequence}. {cp.name}
-                    </div>
-                  </div>
-                  {cp.arrivedAt && <div className="text-xs shrink-0" style={{ color: "#10b981" }}>✓</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Weight distribution */}
-          <div className="card p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-sm uppercase tracking-wide flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-                <Gauge size={16} className="text-orange-500" /> Phân bổ tải trọng Container
+              <h3 className="font-bold text-sm uppercase tracking-wide flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                <Package size={14} style={{ color: "#f97316" }} />
+                Hàng hóa ({shipment.items.length} loại)
               </h3>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
-                Cân bằng tải tốt
-              </span>
-            </div>
-            <div className="relative border rounded-2xl p-4 bg-zinc-900/5 dark:bg-white/5 border-dashed" style={{ borderColor: "var(--border-color)", minHeight: "180px" }}>
-              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 opacity-25 pointer-events-none">
-                <svg width="100%" height="80" viewBox="0 0 600 120" fill="none" preserveAspectRatio="none">
-                  <path d={isSimulating ? `M 0 60 C 150 ${60 + Math.sin(simStepIndex * 0.4) * 20}, 300 ${60 - Math.sin(simStepIndex * 0.4) * 20}, 600 60` : "M 0 60 C 150 40, 350 80, 600 60"} stroke="#f97316" strokeWidth="3.5" strokeLinecap="round" className="transition-all duration-300" />
-                  <circle cx="300" cy={isSimulating ? 60 - Math.sin(simStepIndex * 0.4) * 20 : 60} r="6" fill="#f97316" className="transition-all duration-300" />
-                </svg>
-              </div>
-              <div className="grid grid-cols-2 gap-4 h-full relative z-10">
-                <div className="flex flex-col justify-between p-4 rounded-xl border bg-white/70 dark:bg-zinc-800/70 backdrop-blur-md" style={{ borderColor: "var(--border-light)" }}>
-                  <div>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase">Phía trước (Section 1)</span>
-                    <h4 className="text-lg font-bold text-orange-500 mt-1">{Math.floor(shipment.items.reduce((sum, item) => sum + (item.weight || 0) * item.quantity, 0) * 0.52 || 1144)} kg</h4>
-                    <span className="text-[10px] text-gray-500">Thiết bị điện tử (52%)</span>
-                  </div>
-                  <div className="space-y-1 mt-4">
-                    <div className="flex justify-between text-[9px] text-gray-400 font-semibold"><span>Khối lượng</span><span>72%</span></div>
-                    <div className="w-full bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden"><div className="bg-orange-500 h-full rounded-full" style={{ width: "72%" }} /></div>
-                  </div>
-                </div>
-                <div className="flex flex-col justify-between p-4 rounded-xl border bg-white/70 dark:bg-zinc-800/70 backdrop-blur-md" style={{ borderColor: "var(--border-light)" }}>
-                  <div>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase">Phía sau (Section 2)</span>
-                    <h4 className="text-lg font-bold text-indigo-500 mt-1">{Math.floor(shipment.items.reduce((sum, item) => sum + (item.weight || 0) * item.quantity, 0) * 0.48 || 1056)} kg</h4>
-                    <span className="text-[10px] text-gray-500">Hàng tiêu dùng (48%)</span>
-                  </div>
-                  <div className="space-y-1 mt-4">
-                    <div className="flex justify-between text-[9px] text-gray-400 font-semibold"><span>Khối lượng</span><span>48%</span></div>
-                    <div className="w-full bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden"><div className="bg-indigo-500 h-full rounded-full" style={{ width: "48%" }} /></div>
-                  </div>
-                </div>
+              <div className="flex items-center gap-3 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                <span>
+                  SL: <strong style={{ color: "var(--text-primary)" }}>{shipment.items.reduce((s, i) => s + i.quantity, 0)}</strong>
+                </span>
+                <span>
+                  Kg: <strong style={{ color: "var(--text-primary)" }}>{(shipment.items.reduce((s, i) => s + (i.weight || 0) * i.quantity, 0)).toLocaleString()}</strong>
+                </span>
               </div>
             </div>
-          </div>
-
-          {/* Cargo */}
-          <div className="card overflow-hidden">
-            <div className="px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
-              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>
-                <Package size={16} className="inline mr-2" style={{ color: "#f97316" }} />
-                Hàng hóa vận chuyển ({shipment.items.length} loại)
-              </h3>
-            </div>
-            <div className="table-wrapper">
+            <div className="table-wrapper rounded-xl border" style={{ borderColor: "var(--border-color)" }}>
               <table className="table">
                 <thead>
-                  <tr><th>Sản phẩm</th><th>SKU</th><th>Số lượng</th><th>Trọng lượng</th></tr>
+                  <tr>
+                    <th className="text-[10px]">Sản phẩm</th>
+                    <th className="text-[10px]">SKU</th>
+                    <th className="text-[10px] text-right">Số lượng</th>
+                    <th className="text-[10px] text-right">Trọng lượng</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {shipment.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="font-medium">{item.product.name}</td>
-                      <td><code className="text-xs" style={{ color: "var(--text-muted)" }}>{item.product.sku}</code></td>
-                      <td>{item.quantity} {item.product.unit}</td>
-                      <td>{item.weight ? `${item.weight} kg` : "—"}</td>
+                    <tr key={item.id} className="hover:bg-[var(--bg-input)] transition-colors">
+                      <td className="font-medium text-sm">{item.product.name}</td>
+                      <td><code className="text-[11px] px-1 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>{item.product.sku}</code></td>
+                      <td className="text-right font-semibold">{item.quantity} <span className="text-[10px] font-normal" style={{ color: "var(--text-muted)" }}>{item.product.unit}</span></td>
+                      <td className="text-right">{item.weight ? `${item.weight} kg` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* ── PHÂN BỔ TẢI TRỌNG ── */}
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-sm uppercase tracking-wide flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+                <Gauge size={14} style={{ color: "#f97316" }} /> Phân bổ tải trọng
+              </h3>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
+                Cân bằng tốt
+              </span>
+            </div>
+            <div className="relative border rounded-xl p-4 border-dashed" style={{ borderColor: "var(--border-color)", minHeight: "150px", background: "var(--bg-input)" }}>
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
+                <svg width="100%" height="60" viewBox="0 0 600 80" fill="none" preserveAspectRatio="none">
+                  <path d={isSimulating ? `M 0 40 C 150 ${40 + Math.sin(simStepIndex * 0.4) * 15}, 300 ${40 - Math.sin(simStepIndex * 0.4) * 15}, 600 40` : "M 0 40 C 150 25, 350 55, 600 40"} stroke="#f97316" strokeWidth="3" strokeLinecap="round" className="transition-all duration-300" />
+                  <circle cx="300" cy={isSimulating ? 40 - Math.sin(simStepIndex * 0.4) * 15 : 40} r="5" fill="#f97316" className="transition-all duration-300" />
+                </svg>
+              </div>
+              <div className="grid grid-cols-2 gap-3 h-full relative z-10">
+                <div className="p-3 rounded-xl border backdrop-blur-md" style={{ borderColor: "var(--border-light)", background: "var(--bg-card)" }}>
+                  <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Phía trước</span>
+                  <div className="text-lg font-bold mt-0.5" style={{ color: "#f97316" }}>
+                    {Math.floor(shipment.items.reduce((sum, item) => sum + (item.weight || 0) * item.quantity, 0) * 0.52 || 1144)} kg
+                  </div>
+                  <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>52% tải trọng</span>
+                  <div className="mt-2 w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border-color)" }}>
+                    <div className="h-full rounded-full" style={{ width: "72%", background: "linear-gradient(90deg, #f97316, #ea580c)" }} />
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl border backdrop-blur-md" style={{ borderColor: "var(--border-light)", background: "var(--bg-card)" }}>
+                  <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Phía sau</span>
+                  <div className="text-lg font-bold mt-0.5" style={{ color: "#6366f1" }}>
+                    {Math.floor(shipment.items.reduce((sum, item) => sum + (item.weight || 0) * item.quantity, 0) * 0.48 || 1056)} kg
+                  </div>
+                  <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>48% tải trọng</span>
+                  <div className="mt-2 w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border-color)" }}>
+                    <div className="h-full rounded-full" style={{ width: "48%", background: "linear-gradient(90deg, #6366f1, #4f46e5)" }} />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
