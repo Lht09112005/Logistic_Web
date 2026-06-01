@@ -65,10 +65,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       select: { id: true, name: true, code: true, address: true, city: true, province: true },
     })
 
+    // Fetch staffed warehouse for the user (STAFF role)
+    const staffedWarehouses = await prisma.warehouse.findMany({
+      where: { staffId: user.id },
+      select: { id: true, name: true, code: true, address: true, city: true, province: true },
+    })
+
     const { password: _, refreshToken: __, ...safeUser } = user
 
     sendSuccess(res, {
-      user: { ...safeUser, managedWarehouses },
+      user: { ...safeUser, managedWarehouses, staffedWarehouses },
       accessToken,
       refreshToken,
     }, 'Đăng nhập thành công')
@@ -128,6 +134,9 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       select: {
         id: true, name: true, email: true, role: true, phone: true, avatar: true, isActive: true, createdAt: true,
         managedWarehouses: {
+          select: { id: true, name: true, code: true, address: true, city: true, province: true },
+        },
+        staffedWarehouses: {
           select: { id: true, name: true, code: true, address: true, city: true, province: true },
         },
       },

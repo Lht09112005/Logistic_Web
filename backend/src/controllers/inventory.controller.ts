@@ -16,6 +16,31 @@ export const getInventory = async (req: Request, res: Response): Promise<void> =
     if (warehouseId) where.warehouseId = warehouseId
     if (productId) where.productId = productId
 
+    // Role-based warehouse filtering
+    if ((req as AuthRequest).user?.role === 'MANAGER') {
+      const managedWarehouses = await prisma.warehouse.findMany({
+        where: { managerId: (req as AuthRequest).user!.userId },
+        select: { id: true },
+      })
+      const managedIds = managedWarehouses.map((w) => w.id)
+      if (managedIds.length > 0) {
+        where.warehouseId = { in: managedIds }
+      } else {
+        where.id = 'none'
+      }
+    } else if ((req as AuthRequest).user?.role === 'STAFF') {
+      const staffWarehouses = await prisma.warehouse.findMany({
+        where: { staffId: (req as AuthRequest).user!.userId },
+        select: { id: true },
+      })
+      const staffIds = staffWarehouses.map((w) => w.id)
+      if (staffIds.length > 0) {
+        where.warehouseId = { in: staffIds }
+      } else {
+        where.id = 'none'
+      }
+    }
+
     if (lowStock === 'true') {
       where.product = { isActive: true }
       // Will filter in JS for quantity < minStockLevel
@@ -70,6 +95,31 @@ export const getAlerts = async (req: Request, res: Response): Promise<void> => {
     }
     if (severity) where.severity = severity
 
+    // Role-based warehouse filtering
+    if ((req as AuthRequest).user?.role === 'MANAGER') {
+      const managedWarehouses = await prisma.warehouse.findMany({
+        where: { managerId: (req as AuthRequest).user!.userId },
+        select: { id: true },
+      })
+      const managedIds = managedWarehouses.map((w) => w.id)
+      if (managedIds.length > 0) {
+        where.warehouseId = { in: managedIds }
+      } else {
+        where.id = 'none'
+      }
+    } else if ((req as AuthRequest).user?.role === 'STAFF') {
+      const staffWarehouses = await prisma.warehouse.findMany({
+        where: { staffId: (req as AuthRequest).user!.userId },
+        select: { id: true },
+      })
+      const staffIds = staffWarehouses.map((w) => w.id)
+      if (staffIds.length > 0) {
+        where.warehouseId = { in: staffIds }
+      } else {
+        where.id = 'none'
+      }
+    }
+
     const alerts = await prisma.stockAlert.findMany({
       where,
       orderBy: [{ severity: 'desc' }, { createdAt: 'desc' }],
@@ -98,6 +148,19 @@ export const updateInventory = async (req: AuthRequest, res: Response): Promise<
     if (!current) {
       sendError(res, 'Không tìm thấy bản ghi tồn kho', 404)
       return
+    }
+
+    // MANAGER/STAFF can only update inventory in their assigned warehouses
+    if (req.user?.role === 'MANAGER' || req.user?.role === 'STAFF') {
+      const roleField = req.user.role === 'MANAGER' ? 'managerId' : 'staffId'
+      const wh = await prisma.warehouse.findFirst({
+        where: { id: current.warehouseId, [roleField]: req.user.userId },
+        select: { id: true },
+      })
+      if (!wh) {
+        sendError(res, 'Bạn không có quyền cập nhật tồn kho này', 403)
+        return
+      }
     }
 
     const updated = await prisma.inventoryItem.update({
@@ -159,6 +222,19 @@ export const createInventory = async (req: AuthRequest, res: Response): Promise<
   try {
     const { productId, warehouseId, zoneId, rack, shelf, quantity, notes } = req.body
 
+    // MANAGER/STAFF can only add inventory to their assigned warehouses
+    if (req.user?.role === 'MANAGER' || req.user?.role === 'STAFF') {
+      const roleField = req.user.role === 'MANAGER' ? 'managerId' : 'staffId'
+      const wh = await prisma.warehouse.findFirst({
+        where: { id: warehouseId, [roleField]: req.user.userId },
+        select: { id: true },
+      })
+      if (!wh) {
+        sendError(res, 'Bạn không có quyền thêm tồn kho vào kho này', 403)
+        return
+      }
+    }
+
     const item = await prisma.inventoryItem.create({
       data: {
         productId, warehouseId, zoneId, rack, shelf,
@@ -211,6 +287,20 @@ export const getInventoryById = async (req: Request, res: Response): Promise<voi
     if (!item) {
       sendError(res, 'Không tìm thấy bản ghi tồn kho', 404)
       return
+    }
+
+    // Role-based access: MANAGER/STAFF can only view inventory from their assigned warehouses
+    const authReq = req as AuthRequest
+    if (authReq.user?.role === 'MANAGER' || authReq.user?.role === 'STAFF') {
+      const roleField = authReq.user.role === 'MANAGER' ? 'managerId' : 'staffId'
+      const wh = await prisma.warehouse.findFirst({
+        where: { id: item.warehouseId, [roleField]: authReq.user.userId },
+        select: { id: true },
+      })
+      if (!wh) {
+        sendError(res, 'Bạn không có quyền xem tồn kho này', 403)
+        return
+      }
     }
 
     sendSuccess(res, item, 'Lấy chi tiết tồn kho thành công')

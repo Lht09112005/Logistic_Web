@@ -102,7 +102,7 @@ async function main() {
   // --- Warehouses ---
   const wh1 = await prisma.warehouse.upsert({
     where: { code: 'WH-HCM-01' },
-    update: { managerId: managerHcm.id },
+    update: { managerId: managerHcm.id, staffId: staff1.id },
     create: {
       name: 'Kho Trung Tâm HCM',
       code: 'WH-HCM-01',
@@ -114,6 +114,7 @@ async function main() {
       totalArea: 5000,
       capacity: 10000,
       managerId: managerHcm.id,
+      staffId: staff1.id,
       status: 'ACTIVE',
       description: 'Kho trung tâm chính tại TP. Hồ Chí Minh',
       zones: {

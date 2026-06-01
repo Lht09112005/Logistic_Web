@@ -21,12 +21,43 @@ export const getShipments = async (req: Request, res: Response): Promise<void> =
       }
     }
     if (driverId) where.driverId = driverId
+
+    // Build search OR condition (may be combined with role filter later)
+    let searchOr: Record<string, unknown>[] | null = null
     if (search) {
-      where.OR = [
+      searchOr = [
         { shipmentCode: { contains: search, mode: 'insensitive' } },
         { originAddress: { contains: search, mode: 'insensitive' } },
         { destinationAddress: { contains: search, mode: 'insensitive' } },
       ]
+    }
+
+    // Role-based warehouse filtering
+    const userRole = (req as AuthRequest).user?.role
+    const userId = (req as AuthRequest).user?.userId
+    if (userRole === 'MANAGER' || userRole === 'STAFF') {
+      const roleField = userRole === 'MANAGER' ? 'managerId' : 'staffId'
+      const whIds = (await prisma.warehouse.findMany({
+        where: { [roleField]: userId },
+        select: { id: true },
+      })).map(w => w.id)
+
+      if (whIds.length > 0) {
+        const roleOr = [
+          { originWarehouseId: { in: whIds } },
+          { destinationWarehouseId: { in: whIds } },
+        ]
+        // Combine with search if present
+        if (searchOr) {
+          where.AND = [{ OR: searchOr }, { OR: roleOr }]
+        } else {
+          where.OR = roleOr
+        }
+      } else {
+        where.id = 'none'
+      }
+    } else if (searchOr) {
+      where.OR = searchOr
     }
 
     const [shipments, total] = await Promise.all([
@@ -488,12 +519,37 @@ export const startLoadingShipment = async (req: AuthRequest, res: Response): Pro
 // GET /api/shipments/stats
 export const getShipmentStats = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // Role-based warehouse filtering for stats
+    const userRole = req.user?.role
+    const userId = req.user?.userId
+    let roleWhere: Record<string, unknown> = {}
+
+    if (userRole === 'MANAGER' || userRole === 'STAFF') {
+      const roleField = userRole === 'MANAGER' ? 'managerId' : 'staffId'
+      const whIds = (await prisma.warehouse.findMany({
+        where: { [roleField]: userId },
+        select: { id: true },
+      })).map(w => w.id)
+
+      if (whIds.length > 0) {
+        roleWhere = {
+          OR: [
+            { originWarehouseId: { in: whIds } },
+            { destinationWarehouseId: { in: whIds } },
+          ],
+        }
+      } else {
+        roleWhere = { id: 'none' }
+      }
+    }
+
+    const baseWhere = { ...roleWhere }
     const [total, inTransit, delivered, pending, failed] = await Promise.all([
-      prisma.shipment.count(),
-      prisma.shipment.count({ where: { status: 'IN_TRANSIT' } }),
-      prisma.shipment.count({ where: { status: 'DELIVERED' } }),
-      prisma.shipment.count({ where: { status: 'PENDING' } }),
-      prisma.shipment.count({ where: { status: 'FAILED' } }),
+      prisma.shipment.count({ where: baseWhere }),
+      prisma.shipment.count({ where: { ...baseWhere, status: 'IN_TRANSIT' } }),
+      prisma.shipment.count({ where: { ...baseWhere, status: 'DELIVERED' } }),
+      prisma.shipment.count({ where: { ...baseWhere, status: 'PENDING' } }),
+      prisma.shipment.count({ where: { ...baseWhere, status: 'FAILED' } }),
     ])
 
     // Count PENDING shipments where current user is the manager of the source warehouse

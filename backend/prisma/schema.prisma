@@ -81,6 +81,7 @@ model User {
   // Relations
   auditedInventory InventoryItem[] @relation("AuditedBy")
   managedWarehouses Warehouse[]    @relation("WarehouseManager")
+  staffedWarehouses Warehouse[]    @relation("WarehouseStaff")
   drivenShipments  Shipment[]      @relation("Driver")
   createdShipments Shipment[]      @relation("CreatedBy")
 
@@ -107,7 +108,9 @@ model Warehouse {
   updatedAt   DateTime        @updatedAt
 
   // Relations
-  manager     User?           @relation("WarehouseManager", fields: [managerId], references: [id])
+  manager   User?           @relation("WarehouseManager", fields: [managerId], references: [id])
+  staffId   String?
+  staff     User?           @relation("WarehouseStaff", fields: [staffId], references: [id])
   inventory   InventoryItem[]
   zones       WarehouseZone[]
   originShipments   Shipment[] @relation("OriginWarehouse")

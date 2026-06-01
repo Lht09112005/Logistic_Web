@@ -16,6 +16,11 @@ export const getWarehouses = async (req: AuthRequest, res: Response): Promise<vo
       where.managerId = req.user.userId
     }
 
+    // STAFF only sees warehouses they are assigned to work at
+    if (req.user?.role === 'STAFF' && all !== 'true') {
+      where.staffId = req.user.userId
+    }
+
     if (status) where.status = status
     if (search) {
       where.OR = [
@@ -65,6 +70,12 @@ export const getWarehouseById = async (req: AuthRequest, res: Response): Promise
 
     // MANAGER can only view detail of their own warehouse
     if (req.user?.role === 'MANAGER' && warehouse.managerId !== req.user.userId) {
+      sendError(res, 'Bạn không có quyền xem kho này', 403)
+      return
+    }
+
+    // STAFF can only view detail of their assigned warehouse
+    if (req.user?.role === 'STAFF' && warehouse.staffId !== req.user.userId) {
       sendError(res, 'Bạn không có quyền xem kho này', 403)
       return
     }

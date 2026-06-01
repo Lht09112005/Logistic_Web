@@ -40,5 +40,8 @@
     "uuid": "^14.0.0"
   },
   "devDependencies": {},
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "license": "ISC"
 }
