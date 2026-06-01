@@ -168,13 +168,13 @@ export default function InventoryClient(props: Props) {
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
           {isAdmin || isStaffOnly ? (
-            <Link href="/dashboard/qr-scan" className="btn btn-secondary btn-sm">
-              <QrCode size={14} /> Kiểm kho QR
+            <Link href="/dashboard/qr-scan" className="btn btn-secondary btn-sm whitespace-nowrap">
+              <QrCode size={14} /> <span className="hidden sm:inline">Kiểm kho </span>QR
             </Link>
           ) : null}
           {isAdmin || isManager || isStaff ? (
-            <Link href="/dashboard/inventory/new" className="btn btn-primary btn-sm">
-              <Plus size={14} /> Thêm tồn kho
+            <Link href="/dashboard/inventory/new" className="btn btn-primary btn-sm whitespace-nowrap">
+              <Plus size={14} /> <span className="hidden sm:inline">Thêm </span>tồn kho
             </Link>
           ) : null}
         </div>

@@ -131,26 +131,33 @@ function AlertsPage() {
               const severityColor: Record<string, string> = {
                 CRITICAL: "#ef4444", HIGH: "#f97316", MEDIUM: "#f59e0b", LOW: "#6366f1",
               };
+              const severityBg: Record<string, string> = {
+                CRITICAL: "#fef2f2", HIGH: "#fff7ed", MEDIUM: "#fffbeb", LOW: "#eef2ff",
+              };
               const AlertIcon = alert.severity === "CRITICAL" ? XCircle : AlertTriangle;
 
               return (
                 <div
                   key={alert.id}
-                  className="p-6 flex items-start gap-4 hover:bg-(--bg-input) transition-colors animate-fade-in"
-                  style={{ animationDelay: `${i * 30}ms` }}
+                  className="p-4 lg:p-6 flex items-start gap-4 hover:bg-[var(--bg-input)] transition-all duration-200 animate-fade-in border-l-4"
+                  style={{
+                    animationDelay: `${i * 40}ms`,
+                    borderLeftColor: severityColor[alert.severity],
+                    background: alert.isResolved ? undefined : `${severityBg[alert.severity]}40`,
+                  }}
                 >
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: `${severityColor[alert.severity]}15` }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                    style={{ background: `${severityColor[alert.severity]}18` }}
                   >
                     <AlertIcon size={20} style={{ color: severityColor[alert.severity] }} />
                   </div>
-                  <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
                         {alert.product?.name}
                       </span>
-                      <code className="text-xs" style={{ color: "var(--text-muted)" }}>{alert.product?.sku}</code>
+                      <code className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>{alert.product?.sku}</code>
                       <span className={`badge ${getAlertSeverityBadge(alert.severity)}`}>
                         {alert.severity}
                       </span>
@@ -161,38 +168,42 @@ function AlertsPage() {
                     <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: "var(--text-muted)" }}>
                       {alert.warehouse && (
                         <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium"
-                          style={{ background: "#f5f3ff", color: "#6d28d9" }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border"
+                          style={{ background: "#f5f3ff", color: "#6d28d9", borderColor: "#e0d7fc" }}
                         >
                           {alert.warehouse.name} ({alert.warehouse.code})
                         </span>
                       )}
-                      <span>•</span>
+                      <span className="opacity-40">•</span>
                       <span className="flex items-center gap-1">
-                        <Clock size={12} />
+                        <Clock size={11} />
                         {formatDate(alert.createdAt)}
                       </span>
-                      <span>•</span>
-                      <span>Mức tối thiểu: {alert.threshold}</span>
-                      <span>•</span>
-                      <span>Hiện tại: <b style={{ color: alert.currentQty === 0 ? "#ef4444" : "#f97316" }}>{alert.currentQty}</b></span>
+                      <span className="opacity-40">•</span>
+                      <span>Tối thiểu: {alert.threshold}</span>
+                      <span className="opacity-40">•</span>
+                      <span>
+                        Hiện tại: <b style={{ color: alert.currentQty === 0 ? "#ef4444" : "#f97316" }}>{alert.currentQty}</b>
+                      </span>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 shrink-0">
                     {!alert.isResolved ? (
                       <>
                         {isAdmin || isManager ? (
                           <button
                             onClick={() => setResolvingAlert(alert)}
-                            className="btn btn-primary btn-sm justify-center gap-1.5"
+                            className="btn btn-primary btn-sm justify-center gap-1.5 whitespace-nowrap"
                           >
-                            <Truck size={14} />
+                            <Truck size={13} />
                             Giải quyết
                           </button>
                         ) : null}
                       </>
                     ) : (
-                      <span className="badge badge-success text-xs font-semibold py-1">Đã giải quyết</span>
+                      <span className="badge badge-success text-xs font-semibold py-1.5 inline-flex items-center gap-1 whitespace-nowrap">
+                        <CheckCircle size={11} /> Đã giải quyết
+                      </span>
                     )}
                   </div>
                 </div>

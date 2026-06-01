@@ -302,9 +302,12 @@ function AdminUsersContent() {
             ))}
           </div>
         ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: "var(--text-muted)" }}>
+          <div className="flex flex-col items-center justify-center py-20 gap-3 animate-fade-in" style={{ color: "var(--text-muted)" }}>
             <Users size={48} style={{ opacity: 0.2 }} />
             <p className="font-medium">Không tìm thấy người dùng</p>
+            <button onClick={openCreate} className="btn btn-primary btn-sm mt-2">
+              <Plus size={14} /> Thêm người dùng mới
+            </button>
           </div>
         ) : (
           <div className="table-wrapper">
@@ -320,8 +323,8 @@ function AdminUsersContent() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
+                {users.map((user, i) => (
+                  <tr key={user.id} className="hover:bg-[var(--bg-input)] transition-colors animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
                     <td>
                       <div className="flex items-center gap-3">
                         <div
@@ -342,7 +345,7 @@ function AdminUsersContent() {
                     </td>
                     <td>
                       <span
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
                         style={{ background: ROLE_BG[user.role], color: ROLE_COLORS[user.role] }}
                       >
                         {user.role === "ADMIN" ? <ShieldAlert size={12} /> :

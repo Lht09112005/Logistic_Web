@@ -136,7 +136,7 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4 flex-wrap">
-        <button onClick={() => router.back()} className="btn btn-ghost btn-sm">
+        <button onClick={() => router.back()} className="btn btn-secondary btn-sm">
           <ArrowLeft size={16} /> Quay lại
         </button>
         <div className="flex-1">
@@ -202,22 +202,34 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
               </h3>
             </div>
             {warehouse.zones.length === 0 ? (
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>Kho này chưa được chia phân khu.</p>
+              <div className="flex flex-col items-center justify-center py-10 animate-fade-in" style={{ color: "var(--text-muted)" }}>
+                <Layers size={36} style={{ opacity: 0.2 }} />
+                <p className="text-sm mt-2">Kho này chưa được chia phân khu.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {warehouse.zones.map((zone) => (
-                  <div key={zone.id} className="p-4 rounded-xl border" style={{ borderColor: "var(--border-color)", background: "var(--bg-input)" }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Layers size={16} className="text-indigo-500" />
+                {warehouse.zones.map((zone, i) => (
+                  <div key={zone.id} className="card-hover p-4 rounded-xl border transition-all duration-200 hover:shadow-md animate-fade-in"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      background: "var(--bg-input)",
+                      animationDelay: `${i * 60}ms`,
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#eef2ff" }}>
+                        <Layers size={15} className="text-indigo-500" />
+                      </div>
                       <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
-                        Phân khu {zone.name}
+                        {zone.name}
                       </span>
                     </div>
                     {zone.description && (
-                      <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>{zone.description}</p>
+                      <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>{zone.description}</p>
                     )}
-                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      Sức chứa: <b>{zone.capacity}</b> kiện
+                    <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                      <span className="font-semibold">Sức chứa:</span>
+                      <span style={{ color: "var(--text-primary)" }}>{zone.capacity} kiện</span>
                     </div>
                   </div>
                 ))}

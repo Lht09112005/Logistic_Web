@@ -116,8 +116,8 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
           {isAdmin || isManager ? (
-            <Link href="/dashboard/warehouse/new" className="btn btn-primary btn-sm">
-              <Plus size={14} /> Thêm kho mới
+            <Link href="/dashboard/warehouse/new" className="btn btn-primary btn-sm whitespace-nowrap">
+              <Plus size={14} /> <span className="hidden sm:inline">Thêm </span>kho mới
             </Link>
           ) : null}
         </div>
@@ -155,14 +155,14 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
           return (
             <div
               key={w.id}
-              className="card card-hover p-6 flex flex-col justify-between animate-fade-in"
+              className="card card-hover p-6 flex flex-col justify-between animate-fade-in group transition-all duration-200"
               style={{ animationDelay: `${i * 50}ms` }}
             >
               <div className="space-y-4">
                 {/* Status & icon */}
                 <div className="flex items-start justify-between">
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center"
+                    className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105"
                     style={{ background: "#eef2ff" }}
                   >
                     <Warehouse size={22} style={{ color: "#6366f1" }} />
@@ -174,7 +174,7 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
 
                 {/* Info */}
                 <div>
-                  <h3 className="font-bold text-lg hover:underline" style={{ color: "var(--text-primary)" }}>
+                  <h3 className="font-bold text-lg group-hover:text-[var(--color-primary)] transition-colors" style={{ color: "var(--text-primary)" }}>
                     <Link href={`/dashboard/warehouse/${w.id}`}>{w.name}</Link>
                   </h3>
                   <code className="text-xs" style={{ color: "var(--text-muted)" }}>{w.code}</code>
@@ -192,7 +192,7 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
                   </div>
                   <div className="progress-bar">
                     <div
-                      className="progress-fill"
+                      className="progress-fill transition-all duration-700"
                       style={{
                         width: `${occupancyPct}%`,
                         background: occupancyPct > 85 ? "#ef4444" : "linear-gradient(90deg,#6366f1,#4f46e5)",
@@ -203,14 +203,14 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
 
                 {/* Substats */}
                 <div className="grid grid-cols-3 gap-2 pt-2 text-center border-t" style={{ borderColor: "var(--border-light)" }}>
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 transition-transform group-hover:scale-105">
                     <div className="text-xs" style={{ color: "var(--text-muted)" }}>Phân khu</div>
                     <div className="font-bold text-sm flex items-center justify-center gap-1" style={{ color: "var(--text-primary)" }}>
                       <Layers size={13} style={{ color: "#6366f1" }} />
                       {w._count?.zones || 0}
                     </div>
                   </div>
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 transition-transform group-hover:scale-105">
                     <div className="text-xs" style={{ color: "var(--text-muted)" }}>Mặt hàng</div>
                     <div className="font-bold text-sm flex items-center justify-center gap-1" style={{ color: "var(--text-primary)" }}>
                       <Layers size={13} style={{ color: "#10b981" }} />
@@ -229,7 +229,7 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
               {/* View button */}
               <Link
                 href={`/dashboard/warehouse/${w.id}`}
-                className="btn btn-secondary btn-sm w-full mt-5"
+                className="btn btn-secondary btn-sm w-full mt-5 transition-all group-hover:bg-[#f97316] group-hover:text-white group-hover:border-transparent"
               >
                 Chi tiết kho
               </Link>
