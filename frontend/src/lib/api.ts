@@ -9,12 +9,45 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Attach access token from NextAuth session
+// ─── Token cache (module-level, avoids getSession() calls on every request) ───
+let _tokenCache: string | null = null;
+let _tokenInitPromise: Promise<void> | null = null;
+
+/** Initialize token cache from NextAuth session (called once by AuthContext) */
+export function setAccessToken(token: string | null) {
+  _tokenCache = token;
+}
+
+async function ensureToken(): Promise<string | null> {
+  // 1. Check refreshed token (in-memory, from refresh logic below)
+  if (typeof window !== "undefined") {
+    const refreshed = (window as any).__newAccessToken;
+    if (refreshed) return refreshed;
+  }
+
+  // 2. Check cached token
+  if (_tokenCache) return _tokenCache;
+
+  // 3. Initialize from session once (first call only)
+  if (!_tokenInitPromise) {
+    _tokenInitPromise = getSession().then((session: any) => {
+      _tokenCache = session?.accessToken ?? null;
+      _tokenInitPromise = null; // Allow retry on next call if failed
+    }).catch(() => {
+      _tokenCache = null;
+      _tokenInitPromise = null; // Reset so we retry on next call
+    });
+  }
+  await _tokenInitPromise;
+  return _tokenCache;
+}
+
+// Attach access token from cache (NO repeated getSession() calls)
 api.interceptors.request.use(async (config) => {
   if (typeof window !== "undefined") {
-    const session: any = await getSession();
-    if (session?.accessToken) {
-      config.headers.Authorization = `Bearer ${session.accessToken}`;
+    const token = await ensureToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
   }
   return config;
@@ -102,17 +135,6 @@ api.interceptors.response.use(
     }
   }
 );
-
-// Use in-memory refreshed token if available
-api.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    const inMemoryToken = (window as any).__newAccessToken;
-    if (inMemoryToken) {
-      config.headers.Authorization = `Bearer ${inMemoryToken}`;
-    }
-  }
-  return config;
-});
 
 export default api;
 

@@ -100,13 +100,16 @@ const POLL_INTERVAL = 15_000;
 // Realtime Dashboard Hook
 // ───────────────────────────────────────────
 function useRealtimeDashboard(initial: Props) {
-  // Read shared data from centralized store (stats, alerts, warehouses)
-  const shared = useSharedDataStore();
+  // Granular selectors to avoid re-render on every shared store update
+  const shipmentStats = useSharedDataStore((s) => s.shipmentStats);
+  const alertList = useSharedDataStore((s) => s.alerts);
+  const warehouseList = useSharedDataStore((s) => s.warehouses);
+  const sharedLastUpdated = useSharedDataStore((s) => s.lastUpdated);
 
   // Use shared data when available, fall back to server-provided initial data
-  const stats = shared.shipmentStats ?? initial.shipmentStats;
-  const alerts: ActiveAlert[] = (shared.alerts.length > 0 ? shared.alerts : initial.activeAlerts) as ActiveAlert[];
-  const whCount = shared.warehouses.length > 0 ? shared.warehouses.length : initial.warehouseCount;
+  const stats = shipmentStats ?? initial.shipmentStats;
+  const alerts: ActiveAlert[] = (alertList.length > 0 ? alertList : initial.activeAlerts) as ActiveAlert[];
+  const whCount = warehouseList.length > 0 ? warehouseList.length : initial.warehouseCount;
 
   // Keep local state for data unique to this page
   const [shipments, setShipments] = useState<RecentShipment[]>(initial.recentShipments);
@@ -132,19 +135,20 @@ function useRealtimeDashboard(initial: Props) {
 
   // Update lastUpdated when shared store refreshes
   useEffect(() => {
-    if (shared.lastUpdated) setLastUpdated(shared.lastUpdated);
-  }, [shared.lastUpdated]);
+    if (sharedLastUpdated) setLastUpdated(sharedLastUpdated);
+  }, [sharedLastUpdated]);
 
   // Refreshing state for manual refresh button
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    const refreshShared = useSharedDataStore.getState().refresh;
     await Promise.all([
-      shared.refresh(),      // stats, alerts, warehouses
+      refreshShared(),      // stats, alerts, warehouses
       fetchShipments(),       // shipments list
     ]);
     setRefreshing(false);
-  }, [shared, fetchShipments]);
+  }, [fetchShipments]);
 
   // Socket.io for realtime events
   useEffect(() => {
@@ -162,7 +166,7 @@ function useRealtimeDashboard(initial: Props) {
 
       // New alert — refresh shared store (syncs to badge + all consumers)
       socket.on("alert:new", () => {
-        shared.refresh();
+        useSharedDataStore.getState().refresh();
       });
 
       return socket;
@@ -175,7 +179,7 @@ function useRealtimeDashboard(initial: Props) {
         s?.disconnect();
       });
     };
-  }, [shared]);
+  }, []);
 
   return {
     stats, alerts: { list: alerts, count: alerts.length },
@@ -188,7 +192,7 @@ export default function DashboardClient(props: Props) {
   const { stats, alerts, whCount, shipments, lastUpdated, socketConnected, liveEvents, refresh, refreshing } = useRealtimeDashboard(props);
   const auth = useAuth();
   const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
-  const dashboardShared = useSharedDataStore();
+  const pendingForCurrentUser = useSharedDataStore((s) => s.shipmentStats?.pendingForCurrentUser ?? 0);
 
   // DRIVER — show driver-specific dashboard
   if (isDriver) {
@@ -374,14 +378,12 @@ export default function DashboardClient(props: Props) {
       </div>
 
       {/* Manager: Chờ duyệt section */}
-      {(() => {
-        const pendingApproval = dashboardShared.shipmentStats?.pendingForCurrentUser ?? 0;
-        return isManager && !isStaffOnly && pendingApproval > 0 ? (
+      {isManager && !isStaffOnly && pendingForCurrentUser > 0 ? (
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
               <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
                 <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                Vận đơn chờ duyệt ({pendingApproval})
+                Vận đơn chờ duyệt ({pendingForCurrentUser})
               </h2>
               <Link href="/dashboard/shipments?status=PENDING" className="text-xs font-medium" style={{ color: "#f97316" }}>
                 Xem tất cả
@@ -393,7 +395,7 @@ export default function DashboardClient(props: Props) {
               </div>
               <div>
                 <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                  Có {pendingApproval} vận đơn đang chờ bạn duyệt
+                  Có {pendingForCurrentUser} vận đơn đang chờ bạn duyệt
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                   Các vận đơn này cần được quản lý kho nguồn duyệt trước khi xếp hàng và vận chuyển
@@ -407,8 +409,7 @@ export default function DashboardClient(props: Props) {
               </Link>
             </div>
           </div>
-        ) : null;
-      })()}
+        ) : null}
 
       {/* Staff tasks section */}
       {isStaffOnly && (pendingLoading.length > 0 || pendingReceiving.length > 0) && (

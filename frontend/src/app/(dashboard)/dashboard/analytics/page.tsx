@@ -108,8 +108,11 @@ function AnimatedBar({ pct, color }: { pct: number; color: string }) {
 
 // ─── Realtime Analytics Hook ────────────────────────────────────────
 function useRealtimeAnalytics() {
-  // Read shared data (stats, alerts, warehouses) from centralized store
-  const shared = useSharedDataStore();
+  // Granular selectors to avoid re-render on every shared store update
+  const sharedStats = useSharedDataStore((s) => s.shipmentStats);
+  const sharedAlerts = useSharedDataStore((s) => s.alerts);
+  const sharedWarehouses = useSharedDataStore((s) => s.warehouses);
+  const sharedLastUpdated = useSharedDataStore((s) => s.lastUpdated);
 
   const [inventoryCount, setInventoryCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -131,7 +134,7 @@ function useRealtimeAnalytics() {
       const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
       socket.on("connect", () => setSocketConnected(true));
       socket.on("disconnect", () => setSocketConnected(false));
-      socket.on("alert:new", () => shared.refresh());
+      socket.on("alert:new", () => useSharedDataStore.getState().refresh());
       return socket;
     };
     const cleanup = initSocket();
@@ -141,25 +144,25 @@ function useRealtimeAnalytics() {
         s?.disconnect();
       });
     };
-  }, [shared]);
+  }, []);
 
   // Manual refresh
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
-      shared.refresh(),
+      useSharedDataStore.getState().refresh(),
       inventoryApi.getAll({ limit: 1 })
         .then((res) => setInventoryCount(res.data.meta?.total ?? 0))
         .catch(() => {}),
     ]);
     setRefreshing(false);
-  }, [shared]);
+  }, []);
 
-  const stats = shared.shipmentStats ?? { total: 0, inTransit: 0, delivered: 0, pending: 0, failed: 0 };
-  const alertsCount = Array.isArray(shared.alerts) ? shared.alerts.length : 0;
-  const warehouseCount = Array.isArray(shared.warehouses) ? shared.warehouses.length : 0;
-  const lastUpdated = shared.lastUpdated ?? new Date();
+  const stats = sharedStats ?? { total: 0, inTransit: 0, delivered: 0, pending: 0, failed: 0 };
+  const alertsCount = Array.isArray(sharedAlerts) ? sharedAlerts.length : 0;
+  const warehouseCount = Array.isArray(sharedWarehouses) ? sharedWarehouses.length : 0;
+  const lastUpdated = sharedLastUpdated ?? new Date();
 
   return { stats, inventoryCount, alertsCount, warehouseCount, loading, isOffline, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
 }

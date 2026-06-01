@@ -33,22 +33,19 @@ interface Props {
   warehouses: unknown[];
 }
 
-const POLL_INTERVAL = 15_000;
-
 function useRealtimeWarehouses(initial: unknown[]) {
-  // Read warehouse data from centralized shared store
-  const shared = useSharedDataStore();
-  const sharedItems = shared.warehouses.length > 0 ? shared.warehouses : initial;
+  // Granular selector for warehouses only
+  const sharedWarehouses = useSharedDataStore((s) => s.warehouses);
   const [items, setItems] = useState<unknown[]>(initial);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
   // Sync shared store data to local state when it updates
   useEffect(() => {
-    if (shared.warehouses.length > 0) {
-      setItems(shared.warehouses);
+    if (sharedWarehouses.length > 0) {
+      setItems(sharedWarehouses);
     }
-  }, [shared.warehouses]);
+  }, [sharedWarehouses]);
 
   // Socket.io
   useEffect(() => {
@@ -57,7 +54,7 @@ function useRealtimeWarehouses(initial: unknown[]) {
       const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
       socket.on("connect", () => setSocketConnected(true));
       socket.on("disconnect", () => setSocketConnected(false));
-      socket.on("alert:new", () => shared.refresh());
+      socket.on("alert:new", () => useSharedDataStore.getState().refresh());
       return socket;
     };
     const cleanup = initSocket();
@@ -67,15 +64,15 @@ function useRealtimeWarehouses(initial: unknown[]) {
         s?.disconnect();
       });
     };
-  }, [shared]);
+  }, []);
 
   // Manual refresh
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await shared.refresh();
+    await useSharedDataStore.getState().refresh();
     setRefreshing(false);
-  }, [shared]);
+  }, []);
 
   return { items, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
 }

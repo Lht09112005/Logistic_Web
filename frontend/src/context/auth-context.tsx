@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { authApi } from "@/lib/api";
+import { setAccessToken } from "@/lib/api";
 
 interface ManagedWarehouse {
   id: string;
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
       const sessionUser = session.user as any;
-      const initialUser: User = {
+      setUser({
         id: sessionUser.id || "",
         name: sessionUser.name || "",
         email: sessionUser.email || "",
@@ -62,34 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: sessionUser.phone,
         avatar: sessionUser.image || undefined,
         managedWarehouses: sessionUser.managedWarehouses || [],
-      };
-      setUser(initialUser);
+      });
 
-      // Refresh user data from backend to pick up latest managedWarehouses
-      // (in case the session was created before warehouse assignment was fixed)
-      (async () => {
-        try {
-          const res = await authApi.me();
-          const freshData = res.data?.data;
-          if (freshData) {
-            setUser({
-              id: freshData.id || initialUser.id,
-              name: freshData.name || initialUser.name,
-              email: freshData.email || initialUser.email,
-              role: freshData.role || initialUser.role,
-              phone: freshData.phone || initialUser.phone,
-              avatar: freshData.avatar || initialUser.avatar,
-              managedWarehouses: freshData.managedWarehouses || [],
-            });
-          }
-        } catch {
-          // Backend unavailable — keep session data (works with mock login)
-        }
-      })();
+      // Cache access token for API calls (avoids getSession() in interceptor)
+      setAccessToken((session as any).accessToken);
     } else if (status === "unauthenticated") {
       setUser(null);
+      setAccessToken(null);
     }
-  }, [session, status]);
+  }, [status]);
 
   const logout = useCallback(async () => {
     await signOut({ callbackUrl: "/auth/login" });

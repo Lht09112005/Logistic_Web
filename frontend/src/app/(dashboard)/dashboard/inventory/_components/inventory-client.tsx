@@ -41,9 +41,9 @@ function useRealtimeInventory(initial: Props) {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
-  // Read alerts from centralized shared store instead of polling them separately
-  const shared = useSharedDataStore();
-  const alerts = shared.alerts.length > 0 ? shared.alerts : initial.alerts;
+  // Read alerts from centralized shared store (granular selector)
+  const sharedAlerts = useSharedDataStore((s) => s.alerts);
+  const alerts = sharedAlerts?.length > 0 ? sharedAlerts : initial.alerts;
 
   const fetchAll = useCallback(async () => {
     const fallback = fallbackRef.current;
@@ -91,7 +91,7 @@ function useRealtimeInventory(initial: Props) {
       socket.on("disconnect", () => setSocketConnected(false));
       socket.on("alert:new", () => {
         fetchAll();
-        shared.refresh();
+        useSharedDataStore.getState().refresh();
       });
       return socket;
     };
@@ -102,15 +102,15 @@ function useRealtimeInventory(initial: Props) {
         s?.disconnect();
       });
     };
-  }, [fetchAll, shared]);
+  }, [fetchAll]);
 
   // Manual refresh
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchAll(), shared.refresh()]);
+    await Promise.all([fetchAll(), useSharedDataStore.getState().refresh()]);
     setRefreshing(false);
-  }, [fetchAll, shared]);
+  }, [fetchAll]);
 
   return { items, total, alerts, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
 }
