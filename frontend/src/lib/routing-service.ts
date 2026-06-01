@@ -56,8 +56,8 @@ export interface SegmentRoadData {
 
 // ==================== CONFIG ====================
 
-const ORS_API_KEY = process.env.NEXT_PUBLIC_ORS_API_KEY || "";
-const ORS_BASE_URL = "https://api.openrouteservice.org/v2";
+// Proxy qua Next.js API route (/api/routing) để tránh CORS từ browser
+const PROXY_URL = "/api/routing";
 
 // Cache với TTL 10 phút
 const routeCache = new Map<string, { route: RoadRoute; timestamp: number }>();
@@ -154,26 +154,17 @@ export async function fetchRoadRoute(
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       }
 
-      const response = await fetch(`${ORS_BASE_URL}/directions/driving-car`, {
+      // Gọi qua proxy Next.js API route (/api/routing) để tránh CORS
+      const response = await fetch(PROXY_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          Accept:
-            "application/json, application/geo+json, application/vnd.geo+json",
-          Authorization: ORS_API_KEY,
-        },
-        body: JSON.stringify({
-          coordinates,
-          "preference": "recommended",
-          units: "km",
-          "instructions": true,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coordinates }),
       });
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "");
         throw new Error(
-          `ORS API error ${response.status}: ${response.statusText}. ${errorText}`
+          `ORS proxy error ${response.status}: ${errorText}`
         );
       }
 

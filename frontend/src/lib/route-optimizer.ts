@@ -164,27 +164,77 @@ export function buildCompleteGraph(nodes: RouteNode[]): RouteEdge[] {
   }
   return edges;
 }/**
- * Tìm route tối ưu theo thứ tự sequence của checkpoints
+ * Nearest-Neighbor TSP Heuristic
+ *
+ * Xuất phát từ origin, liên tục chọn checkpoint chưa đi có khoảng cách ngắn nhất
+ * từ vị trí hiện tại, sau đó kết thúc tại destination.
+ *
+ * Đây là thuật toán xấp xỉ cho bài toán Traveling Salesman (TSP).
+ * Tỉ lệ tối ưu so với optimal: ~1.25x (trong thực tế thường gần optimal hơn).
+ * Độ phức tạp: O(V²) với V = số checkpoint (thường ≤ 15)
+ *
+ * Edge cases:
+ * - 0 checkpoint: origin → destination
+ * - 1 checkpoint: origin → cp → destination (giữ nguyên)
+ * - Nhiều checkpoint: sắp xếp theo NN heuristic
+ */
+export function nearestNeighborTSP(
+  origin: RouteNode,
+  checkpoints: RouteNode[],
+  destination: RouteNode
+): RouteNode[] {
+  if (checkpoints.length <= 1) {
+    return [origin, ...checkpoints, destination];
+  }
+
+  const ordered: RouteNode[] = [origin];
+  const unvisited = [...checkpoints];
+  let current = origin;
+
+  while (unvisited.length > 0) {
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+
+    for (let i = 0; i < unvisited.length; i++) {
+      const dist = haversineDistance(
+        current.lat, current.lng,
+        unvisited[i].lat, unvisited[i].lng
+      );
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestIdx = i;
+      }
+    }
+
+    const next = unvisited.splice(nearestIdx, 1)[0];
+    ordered.push(next);
+    current = next;
+  }
+
+  ordered.push(destination);
+  return ordered;
+}
+
+/**
+ * Tìm route tối ưu bằng Nearest-Neighbor TSP heuristic
  *
  * Chiến lược:
- * 1. Giữ nguyên thứ tự sequence của checkpoints (không reorder)
- * 2. Dùng Dijkstra trên đồ thị đầy đủ để tìm đường ngắn nhất giữa các cặp
- *    waypoint liên tiếp (origin → cp1 → cp2 → ... → destination)
- * 3. Trong đồ thị hoàn chỉnh (complete graph), Dijkstra luôn trả về cạnh trực tiếp
- *    vì đây là đường ngắn nhất giữa 2 điểm trên mặt phẳng địa lý
- * 4. Khi tích hợp road network graph (OSRM/Mapbox), Dijkstra sẽ tự động tìm
- *    đường đi thực tế (theo đường bộ) giữa các waypoint
+ * 1. Sắp xếp checkpoint theo Nearest-Neighbor TSP (tự động tìm thứ tự ngắn nhất)
+ * 2. Dùng haversine distance làm trọng số giữa các điểm
+ * 3. Tổng hợp segments + totalDistance + estimatedMinutes
  *
- * Độ phức tạp: O(V²) trong đó V = số waypoint (thường ≤ 15)
+ * Khi tích hợp road network graph (OSRM/Mapbox) trong tương lai,
+ * có thể thay haversine bằng road distance thực tế để tăng độ chính xác.
+ *
+ * Độ phức tạp: O(V²) với V = số waypoint (thường ≤ 15)
  */
 export function findShortestRoute(
   origin: RouteNode,
   checkpoints: RouteNode[],
   destination: RouteNode
 ): OptimizedRoute {
-  // Giữ nguyên thứ tự: origin → checkpoints (theo sequence) → destination
-  const orderedWaypoints = [origin, ...checkpoints, destination];
-  const completeGraph = buildCompleteGraph(orderedWaypoints);
+  // Sắp xếp checkpoint theo Nearest-Neighbor TSP
+  const orderedWaypoints = nearestNeighborTSP(origin, checkpoints, destination);
 
   const segments: OptimizedRoute["segments"] = [];
   let totalDistance = 0;
@@ -193,21 +243,22 @@ export function findShortestRoute(
     const from = orderedWaypoints[i];
     const to = orderedWaypoints[i + 1];
 
-    // Dijkstra giữa 2 waypoint liên tiếp
-    // Hiện tại: complete graph → path = [from.id, to.id]
-    // Với road network: Dijkstra sẽ tìm đường đi thực tế
-    const result = dijkstra(orderedWaypoints, completeGraph, from.id, to.id);
+    // Khoảng cách trực tiếp = haversine (trên đồ thị đầy đủ)
+    const distance = haversineDistance(
+      from.lat, from.lng,
+      to.lat, to.lng
+    );
 
-    totalDistance += result.distance;
+    totalDistance += distance;
     segments.push({
       from,
       to,
-      distance: Math.round(result.distance * 100) / 100,
+      distance: Math.round(distance * 100) / 100,
     });
   }
 
-  // Estimated time: average speed 60 km/h
-  const estimatedMinutes = Math.round((totalDistance / 60) * 60);
+  // Estimated time: average speed 60 km/h → (distance km / 60 km/h) * 60 min/h = distance minutes
+  const estimatedMinutes = Math.round(totalDistance);
 
   return {
     orderedNodes: orderedWaypoints,
