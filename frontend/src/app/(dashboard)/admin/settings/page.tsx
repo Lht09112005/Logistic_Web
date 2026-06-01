@@ -162,15 +162,15 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="card p-1 flex flex-wrap gap-1">
+      {/* Tabs — horizontal scroll on mobile */}
+      <div className="card p-1 flex overflow-x-auto gap-1 snap-x snap-mandatory no-scrollbar sm:flex-wrap sm:overflow-visible sm:snap-none">
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all snap-start shrink-0 whitespace-nowrap ${
                 activeTab === tab.key ? "text-white shadow-sm" : "hover:bg-[var(--bg-input)]"
               }`}
               style={activeTab === tab.key ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}

@@ -46,8 +46,6 @@ const adminNav = [
     group: "Vận hành",
     items: [
       { href: "/dashboard/warehouse", icon: Warehouse, label: "Quản lý kho" },
-      { href: "/dashboard/inventory", icon: Package, label: "Tồn kho" },
-      { href: "/dashboard/qr-scan", icon: QrCode, label: "Kiểm kho QR" },
       { href: "/dashboard/alerts", icon: Bell, label: "Cảnh báo", badge: "alerts" },
     ],
   },
@@ -163,7 +161,7 @@ interface SnapshotData {
   pendingTasks: number;
 }
 
-function RoleSnapshot({ collapsed, role }: { collapsed: boolean; role: string }) {
+function RoleSnapshot({ collapsed, role, onNavClick }: { collapsed: boolean; role: string; onNavClick?: () => void }) {
   // Granular selectors to avoid full re-render on every shared store update
   const shipmentStats = useSharedDataStore((s) => s.shipmentStats);
   const alertList = useSharedDataStore((s) => s.alerts);
@@ -198,6 +196,7 @@ function RoleSnapshot({ collapsed, role }: { collapsed: boolean; role: string })
       <div className="px-2 pt-1.5 pb-1.5">
         <Link
           href="/dashboard"
+          onClick={onNavClick}
           title={`${data.activeShipments} đang giao · ${data.alerts} cảnh báo · ${data.warehouses} kho`}
           className="group block"
         >
@@ -234,7 +233,7 @@ function RoleSnapshot({ collapsed, role }: { collapsed: boolean; role: string })
           <div className="px-3 py-2 flex items-center gap-2" style={{ background: accent.bg }}>
             <BarChart3 size={12} style={{ color: accent.primary }} />
             <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: accent.primary }}>
-              Tổng quan quản lý
+              Tổng quan
             </span>
           </div>
           {/* Stats list */}
@@ -294,9 +293,9 @@ function RoleSnapshot({ collapsed, role }: { collapsed: boolean; role: string })
         </div>
         {/* Pending tasks */}
         {role === "STAFF" && data.pendingTasks > 0 && (
-          <div className="px-3 py-1.5 border-t flex items-center gap-1.5" style={{ borderColor: "var(--border-color)", background: "#fff7ed" }}>
-            <ClipboardList size={10} style={{ color: "#ea580c" }} />
-            <span className="text-[9px] font-semibold" style={{ color: "#9a3412" }}>
+          <div className="px-3 py-1.5 border-t flex items-center gap-1.5" style={{ borderColor: "var(--border-color)", background: "var(--color-warning-bg)" }}>
+            <ClipboardList size={10} style={{ color: "var(--color-warning)" }} />
+            <span className="text-[9px] font-semibold" style={{ color: "var(--color-warning)" }}>
               {data.pendingTasks} việc chờ xử lý
             </span>
           </div>
@@ -318,7 +317,7 @@ interface ActiveTrip {
   items: { id: string }[];
 }
 
-function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
+function DriverActiveTrip({ collapsed, onNavClick }: { collapsed: boolean; onNavClick?: () => void }) {
   const { user, isDriver } = useAuth();
   const [trip, setTrip] = useState<ActiveTrip | null>(null);
   const [loading, setLoading] = useState(true);
@@ -416,13 +415,14 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
     <div className={cn(collapsed ? "px-2 pt-1.5 pb-1.5" : "px-3 pt-2 pb-2", animating && "animate-trip-arrive")}>
       <Link
         href={`/dashboard/shipments/${trip.id}`}
+        onClick={onNavClick}
         className={cn(
           "block rounded-xl overflow-hidden transition-all duration-300",            collapsed
             ? `border ${isActive ? "border-2 border-emerald-400 dark:border-emerald-500" : "border-emerald-200/40 dark:border-emerald-900/30"} bg-white/70 dark:bg-emerald-950/20`
             : `border-2 hover:scale-[1.02] ${isActive ? "border-emerald-500" : "border-transparent"}`
         )}
         style={!collapsed ? {
-          background: "linear-gradient(135deg, #ecfdf5, #d1fae5)",
+          background: "var(--color-success-bg)",
           boxShadow: "0 2px 8px rgba(16,185,129,0.12)",
         } : undefined}
       >
@@ -520,6 +520,20 @@ export function Sidebar() {
   const { user, logout, isDriver } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
+  // Detect mobile for auto-close sidebar on nav click
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const closeSidebar = useCallback(() => {
+    if (isMobile) toggleSidebar();
+  }, [isMobile, toggleSidebar]);
+
   const allItems = getNavItems(user?.role);
   const role = user?.role || "STAFF";
   const accent = ROLE_ACCENT[role] || ROLE_ACCENT.STAFF;
@@ -554,7 +568,7 @@ export function Sidebar() {
           className="flex items-center justify-between h-16 px-4 border-b shrink-0"
           style={{ borderColor: "var(--border-color)" }}
         >
-          <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
+          <Link href="/dashboard" onClick={closeSidebar} className="flex items-center gap-2.5 min-w-0">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: accent.gradient }}
@@ -587,9 +601,9 @@ export function Sidebar() {
         </div>
 
         {/* ─── Role-specific widgets ─── */}
-        {isDriver && <DriverActiveTrip collapsed={!sidebarOpen} />}
+        {isDriver && <DriverActiveTrip collapsed={!sidebarOpen} onNavClick={closeSidebar} />}
         {!isDriver && (isAdmin || isStaff || role === "MANAGER") && (
-          <RoleSnapshot collapsed={!sidebarOpen} role={role} />
+          <RoleSnapshot collapsed={!sidebarOpen} role={role} onNavClick={closeSidebar} />
         )}
 
         {/* Navigation */}
@@ -615,6 +629,7 @@ export function Sidebar() {
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={closeSidebar}
                       title={!sidebarOpen ? item.label : undefined}
                       className={cn("nav-item", isActive && "active", !sidebarOpen && "justify-center")}
                     >
@@ -653,7 +668,7 @@ export function Sidebar() {
         >
           {sidebarOpen ? (
             <div className="flex items-center gap-3">
-              <Link href="/admin/settings">
+              <Link href="/admin/settings" onClick={closeSidebar}>
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 cursor-pointer"
                   style={{ background: accent.gradient }}
@@ -685,7 +700,7 @@ export function Sidebar() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1">
-              <Link href="/admin/settings">
+              <Link href="/admin/settings" onClick={closeSidebar}>
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer"
                   style={{ background: accent.gradient }}

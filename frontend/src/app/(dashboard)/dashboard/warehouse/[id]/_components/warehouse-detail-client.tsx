@@ -135,32 +135,32 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <button onClick={() => router.back()} className="btn btn-secondary btn-sm">
-          <ArrowLeft size={16} /> Quay lại
+      <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-wrap">
+        <button onClick={() => router.back()} className="btn btn-secondary btn-sm px-2 sm:px-3" title="Quay lại">
+          <ArrowLeft size={16} /> <span className="hidden sm:inline">Quay lại</span>
         </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <h1 className="text-lg sm:text-2xl font-bold truncate max-w-full" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
               {warehouse.name}
             </h1>
-            <span className={`badge ${statusBadgeMap[warehouse.status]}`}>
+            <span className={`badge text-[10px] sm:text-xs ${statusBadgeMap[warehouse.status]}`}>
               {statusLabelMap[warehouse.status]}
             </span>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
-              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
-              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+            <div className="flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium" style={{ background: socketConnected ? "var(--color-success-bg)" : "var(--bg-input)", color: socketConnected ? "var(--color-success)" : "var(--text-muted)" }}>
+              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "animate-pulse" : ""}`} style={{ background: socketConnected ? "var(--color-success)" : "var(--text-muted)" }} />
+              <span className="hidden sm:inline">{socketConnected ? "Trực tiếp" : "Đang kết nối..."}</span>
             </div>
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+            <span className="text-[10px] hidden sm:inline" style={{ color: "var(--text-muted)" }}>
               {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
           </div>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
             Mã kho: {warehouse.code} • Hoạt động từ {formatDate(warehouse.createdAt, "dd/MM/yyyy")}
           </p>
         </div>
-        <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-          <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+        <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm px-2 sm:px-3">
+          <Activity size={14} className={refreshing ? "animate-spin" : ""} /> <span className="hidden sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
         </button>
       </div>
 
@@ -176,18 +176,18 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               {warehouse.description || "Không có mô tả chi tiết."}
             </p>
-            <div className="grid grid-cols-2 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <div className="space-y-1">
                 <div className="text-xs" style={{ color: "var(--text-muted)" }}>Địa chỉ</div>
                 <div className="text-sm font-semibold flex items-start gap-1.5" style={{ color: "var(--text-primary)" }}>
-                  <MapPin size={16} className="text-orange-500 mt-0.5 flex-shrink-0" />
+                  <MapPin size={16} style={{ color: "var(--color-warning)" }} className="mt-0.5 flex-shrink-0" />
                   <span>{warehouse.address}, {warehouse.city}</span>
                 </div>
               </div>
               <div className="space-y-1">
                 <div className="text-xs" style={{ color: "var(--text-muted)" }}>Diện tích sử dụng</div>
                 <div className="text-sm font-semibold flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}>
-                  <Maximize size={16} className="text-indigo-500 flex-shrink-0" />
+                  <Maximize size={16} style={{ color: "var(--color-info)" }} className="flex-shrink-0" />
                   <span>{warehouse.usedArea} / {warehouse.totalArea} m²</span>
                 </div>
               </div>
@@ -195,10 +195,10 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
           </div>
 
           {/* Zones */}
-          <div className="card p-6">
+          <div className="card p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                Phân khu quản lý ({warehouse.zones.length})
+                Phân khu ({warehouse.zones.length})
               </h3>
             </div>
             {warehouse.zones.length === 0 ? (
@@ -207,9 +207,9 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
                 <p className="text-sm mt-2">Kho này chưa được chia phân khu.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:snap-none">
                 {warehouse.zones.map((zone, i) => (
-                  <div key={zone.id} className="card-hover p-4 rounded-xl border transition-all duration-200 hover:shadow-md animate-fade-in"
+                  <div key={zone.id} className="card-hover p-3 sm:p-4 rounded-xl border transition-all duration-200 hover:shadow-md animate-fade-in snap-start shrink-0 min-w-[220px] sm:min-w-0"
                     style={{
                       borderColor: "var(--border-color)",
                       background: "var(--bg-input)",
@@ -217,8 +217,8 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
                     }}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#eef2ff" }}>
-                        <Layers size={15} className="text-indigo-500" />
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--color-info-bg)" }}>
+                        <Layers size={15} style={{ color: "var(--color-info)" }} />
                       </div>
                       <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
                         {zone.name}
@@ -236,40 +236,38 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Manager info & Quick links */}
+        </div>          {/* Manager info & Quick links */}
         <div className="space-y-6">
           {/* Manager card */}
-          <div className="card p-6">
-            <h3 className="font-bold text-sm uppercase tracking-wide mb-4" style={{ color: "var(--text-muted)" }}>
-              Quản lý kho
+          <div className="card p-4 sm:p-6">
+            <h3 className="font-bold text-xs sm:text-sm uppercase tracking-wide mb-3 sm:mb-4" style={{ color: "var(--text-muted)" }}>
+              Trưởng kho
             </h3>
             {warehouse.manager ? (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg" style={{ background: "linear-gradient(135deg,#f97316,#ea580c)" }}>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg" style={{ background: "linear-gradient(135deg,#f97316,#ea580c)" }}>
                     {warehouse.manager.name.charAt(0)}
                   </div>
-                  <div>
-                    <div className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{warehouse.manager.name}</div>
-                    <div className="text-xs text-orange-500 font-medium">Trưởng kho</div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm truncate" style={{ color: "var(--text-primary)" }}>{warehouse.manager.name}</div>
+                    <div className="text-[11px] sm:text-xs font-medium" style={{ color: "var(--color-warning)" }}>Trưởng kho</div>
                   </div>
                 </div>
                 <div className="space-y-2 pt-2 border-t text-sm" style={{ borderColor: "var(--border-light)", color: "var(--text-secondary)" }}>
-                  <a href={`mailto:${warehouse.manager.email}`} className="flex items-center gap-2 hover:underline">
-                    <Mail size={14} /> {warehouse.manager.email}
+                  <a href={`mailto:${warehouse.manager.email}`} className="flex items-center gap-2 py-1.5 -mx-1 px-1 rounded-lg hover:bg-[var(--bg-input)] transition-colors truncate">
+                    <Mail size={14} className="flex-shrink-0" /> <span className="truncate">{warehouse.manager.email}</span>
                   </a>
                   {warehouse.manager.phone && (
-                    <a href={`tel:${warehouse.manager.phone}`} className="flex items-center gap-2 hover:underline">
-                      <Phone size={14} /> {warehouse.manager.phone}
+                    <a href={`tel:${warehouse.manager.phone}`} className="flex items-center gap-2 py-1.5 -mx-1 px-1 rounded-lg hover:bg-[var(--bg-input)] transition-colors">
+                      <Phone size={14} className="flex-shrink-0" /> {warehouse.manager.phone}
                     </a>
                   )}
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-                <AlertCircle size={16} /> Chưa phân công quản lý
+                <AlertCircle size={16} /> Chưa có trưởng kho
               </div>
             )}
           </div>
@@ -278,12 +276,12 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
 
       {/* Warehouse Inventory items */}
       <div className="card overflow-hidden">
-        <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: "var(--border-color)" }}>
-          <h3 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-            <Package size={18} className="text-orange-500" />
-            Mặt hàng lưu trữ ({warehouse.inventory.length})
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex items-center justify-between" style={{ borderColor: "var(--border-color)" }}>
+          <h3 className="font-bold text-sm sm:text-base flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <Package size={16} style={{ color: "var(--color-warning)" }} className="flex-shrink-0" />
+            <span className="truncate">Mặt hàng ({warehouse.inventory.length})</span>
           </h3>
-          <Link href={`/dashboard/inventory?warehouseId=${warehouse.id}`} className="text-sm font-semibold hover:underline" style={{ color: "#f97316" }}>
+          <Link href={`/dashboard/inventory?warehouseId=${warehouse.id}`} className="text-xs sm:text-sm font-semibold hover:underline whitespace-nowrap" style={{ color: "var(--color-warning)" }}>
             Quản lý tồn kho
           </Link>
         </div>
@@ -298,20 +296,22 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
               <thead>
                 <tr>
                   <th>Sản phẩm</th>
-                  <th>SKU</th>
+                  <th className="hidden sm:table-cell">SKU</th>
                   <th>Số lượng</th>
-                  <th>Phân khu / Vị trí</th>
+                  <th>Vị trí</th>
                 </tr>
               </thead>
               <tbody>
                 {warehouse.inventory.map((item) => (
                   <tr key={item.id}>
-                    <td className="font-medium text-sm">{item.product.name}</td>
-                    <td><code className="text-xs">{item.product.sku}</code></td>
-                    <td>{item.quantity} {item.product.unit}</td>
-                    <td>
+                    <td className="font-medium text-xs sm:text-sm">
+                      <span className="line-clamp-1">{item.product.name}</span>
+                    </td>
+                    <td className="hidden sm:table-cell"><code className="text-xs">{item.product.sku}</code></td>
+                    <td className="text-xs sm:text-sm whitespace-nowrap">{item.quantity} {item.product.unit}</td>
+                    <td className="text-[11px] sm:text-xs">
                       {item.zone?.name ? `Khu ${item.zone.name}` : "—"}
-                      {item.rack ? ` / Kệ ${item.rack}-${item.shelf}` : ""}
+                      {item.rack ? <span className="hidden sm:inline"> / Kệ {item.rack}-{item.shelf}</span> : ""}
                     </td>
                   </tr>
                 ))}

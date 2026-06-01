@@ -184,11 +184,12 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                <label htmlFor="shipment-origin-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   <Warehouse size={12} className="inline mr-1" style={{ color: "#059669" }} />
                   Kho xuất phát
                 </label>
                 <select
+                  id="shipment-origin-warehouse"
                   value={originWarehouseId}
                   onChange={(e) => {
                     handleOriginChange(e.target.value);
@@ -213,13 +214,14 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                <label htmlFor="shipment-destination-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   <MapPin size={12} className="inline mr-1" style={{ color: "#ef4444" }} />
                   Kho điểm đến
                 </label>
                 {isAdmin ? (
                   /* Admin: select dropdown with full freedom */
                   <select
+                    id="shipment-destination-warehouse"
                     value={destinationWarehouseId}
                     onChange={(e) => {
                       handleDestinationChange(e.target.value);
@@ -277,8 +279,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Địa chỉ xuất phát *</label>
+                <label htmlFor="shipment-origin-address" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Địa chỉ xuất phát *</label>
                 <input
+                  id="shipment-origin-address"
                   required
                   value={originAddress}
                   onChange={(e) => setOriginAddress(e.target.value)}
@@ -288,8 +291,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Địa chỉ điểm đến *</label>
+                <label htmlFor="shipment-destination-address" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Địa chỉ điểm đến *</label>
                 <input
+                  id="shipment-destination-address"
                   required
                   value={destinationAddress}
                   onChange={(e) => setDestinationAddress(e.target.value)}
@@ -316,8 +320,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
               {items.map((item, idx) => (
                 <div key={idx} className="flex gap-3 items-end flex-wrap md:flex-nowrap p-3 rounded-lg" style={{ background: "var(--bg-input)" }}>
                   <div className="flex-1 min-w-48">
-                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Sản phẩm *</label>
+                    <label htmlFor={`shipment-item-product-${idx}`} className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Sản phẩm *</label>
                     <select
+                      id={`shipment-item-product-${idx}`}
                       required
                       value={item.productId}
                       onChange={(e) => updateItem(idx, { productId: e.target.value })}
@@ -332,8 +337,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                   </div>
 
                   <div className="w-24">
-                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Số lượng *</label>
+                    <label htmlFor={`shipment-item-qty-${idx}`} className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Số lượng *</label>
                     <input
+                      id={`shipment-item-qty-${idx}`}
                       type="number"
                       required
                       min="1"
@@ -345,8 +351,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                   </div>
 
                   <div className="w-28">
-                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>KL (kg/tùy chọn)</label>
+                    <label htmlFor={`shipment-item-weight-${idx}`} className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>KL (kg/tùy chọn)</label>
                     <input
+                      id={`shipment-item-weight-${idx}`}
                       type="number"
                       step="0.01"
                       min="0"
@@ -359,8 +366,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                   </div>
 
                   <div className="flex-1 min-w-32">
-                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Ghi chú</label>
+                    <label htmlFor={`shipment-item-notes-${idx}`} className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Ghi chú</label>
                     <input
+                      id={`shipment-item-notes-${idx}`}
                       value={item.notes || ""}
                       placeholder="Ghi chú hàng"
                       onChange={(e) => updateItem(idx, { notes: e.target.value })}
@@ -408,8 +416,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                     </div>
 
                     <div className="flex-1">
-                      <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Tên trạm *</label>
+                      <label htmlFor={`shipment-cp-name-${idx}`} className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Tên trạm *</label>
                       <input
+                        id={`shipment-cp-name-${idx}`}
                         required
                         value={cp.name}
                         placeholder="VD: Trạm dừng chân Ninh Bình"
@@ -420,8 +429,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                     </div>
 
                     <div className="flex-1">
-                      <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Địa chỉ trạm *</label>
+                      <label htmlFor={`shipment-cp-address-${idx}`} className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Địa chỉ trạm *</label>
                       <input
+                        id={`shipment-cp-address-${idx}`}
                         required
                         value={cp.address}
                         placeholder="Địa chỉ cụ thể của trạm"
@@ -432,8 +442,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                     </div>
 
                     <div className="w-48">
-                      <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Dự kiến ghé qua</label>
+                      <label htmlFor={`shipment-cp-time-${idx}`} className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Dự kiến ghé qua</label>
                       <input
+                        id={`shipment-cp-time-${idx}`}
                         type="datetime-local"
                         value={cp.estimatedAt || ""}
                         onChange={(e) => updateCheckpoint(idx, { estimatedAt: e.target.value })}
@@ -467,8 +478,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Tài xế nhận đơn</label>
+                <label htmlFor="shipment-driver" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Tài xế nhận đơn</label>
                 <select
+                  id="shipment-driver"
                   value={driverId}
                   onChange={(e) => setDriverId(e.target.value)}
                   className="input-base text-sm"
@@ -481,8 +493,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Loại phương tiện</label>
+                <label htmlFor="shipment-vehicle-type" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Loại phương tiện</label>
                 <select
+                  id="shipment-vehicle-type"
                   value={vehicleType}
                   onChange={(e) => setVehicleType(e.target.value)}
                   className="input-base text-sm"
@@ -494,8 +507,9 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Biển kiểm soát</label>
+                <label htmlFor="shipment-vehicle-number" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Biển kiểm soát</label>
                 <input
+                  id="shipment-vehicle-number"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
                   placeholder="VD: 51C-999.99"
@@ -504,10 +518,11 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Thời gian dự kiến giao</label>
+                <label htmlFor="shipment-estimated-arrival" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Thời gian dự kiến giao</label>
                 <div className="relative">
                   <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
                   <input
+                    id="shipment-estimated-arrival"
                     type="datetime-local"
                     value={estimatedArrival}
                     onChange={(e) => setEstimatedArrival(e.target.value)}
@@ -527,12 +542,13 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
             </h2>
 
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ghi chú đơn hàng</label>
+              <label htmlFor="shipment-notes" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ghi chú đơn hàng</label>
               <textarea
+                id="shipment-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Nhập ghi chú hoặc hướng dẫn vận chuyển đặc biệt..."
-                className="input-base text-sm w-100 h-28"
+                className="input-base text-sm w-full h-28"
                 style={{ resize: "none" }}
               />
             </div>

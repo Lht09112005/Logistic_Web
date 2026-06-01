@@ -196,13 +196,13 @@ export default function ShipmentsClient({ status, page, search }: Props) {
 
       {/* Filters */}
       <div className="card p-4 space-y-4">
-        {/* Status tabs */}
-        <div className="flex gap-1 flex-wrap overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {/* Status tabs — horizontal scroll on mobile */}
+        <div className="flex gap-1 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar sm:flex-wrap sm:overflow-visible sm:snap-none">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}
               onClick={() => updateParams({ status: tab.value })}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all snap-start shrink-0 whitespace-nowrap ${
                 activeStatus === tab.value
                   ? "text-white shadow-sm"
                   : "hover:bg-[var(--bg-input)]"

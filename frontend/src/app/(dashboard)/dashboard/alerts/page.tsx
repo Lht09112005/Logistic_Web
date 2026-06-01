@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/app-store";
-import { resolveAlertAction, fetchAlertsAction } from "./actions";
-import {
-  AlertTriangle, CheckCircle, RefreshCw,
+import { resolveAlertAction, fetchAlertsAction } from "./actions";import { 
+  AlertTriangle, CheckCircle, RefreshCw, ArrowLeft,
   Clock, XCircle, Truck
 } from "lucide-react";
 import { formatDate, getAlertSeverityBadge } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { RoleGuard } from "@/components/auth/role-guard";
 import ResolveAlertDialog from "./_components/resolve-alert-dialog";
@@ -38,6 +38,7 @@ interface Alert {
 }
 
 function AlertsPage() {
+  const router = useRouter();
   const { setAlerts, resolveAlert: resolveAlertStore } = useAppStore();
   const { isAdmin, isManager } = useAuth();
   const [alerts, setLocalAlerts] = useState<Alert[]>([]);
@@ -75,16 +76,21 @@ function AlertsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-            Cảnh báo tồn kho
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-            Theo dõi và giải quyết các cảnh báo tồn kho thấp hoặc hết hàng
-          </p>
+      <div className="flex items-start sm:items-center justify-between flex-wrap gap-3">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+          <button onClick={() => router.back()} className="btn btn-secondary btn-sm px-2 sm:px-3" title="Quay lại">
+            <ArrowLeft size={16} /> <span className="hidden sm:inline">Quay lại</span>
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-2xl font-bold truncate" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+              Cảnh báo tồn kho
+            </h1>
+            <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
+              Theo dõi và giải quyết các cảnh báo tồn kho thấp hoặc hết hàng
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <button onClick={fetchAlerts} className="btn btn-secondary btn-sm">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
           </button>
@@ -224,10 +230,11 @@ function AlertsPage() {
   );
 }
 
-// Wrap page with RoleGuard — only ADMIN & MANAGER can view alerts
+// Wrap page with RoleGuard — ADMIN, MANAGER & STAFF can view alerts
+// STAFF only sees alerts from their assigned warehouse (filtered by backend)
 export default function AlertsPageWrapper() {
   return (
-    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]} fallback="denied">
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER", "STAFF"]} fallback="denied">
       <AlertsPage />
     </RoleGuard>
   );

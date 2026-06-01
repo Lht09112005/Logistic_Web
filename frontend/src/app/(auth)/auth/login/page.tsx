@@ -93,10 +93,10 @@ export default function LoginPage() {
           },
           {
             role: "MANAGER",
-            label: "Quản lý kho",
-            email: "manager@logistiq.vn",
+            label: "Quản lý kho (HCM)",
+            email: "manager.hcm@logistiq.vn",
             password: "staff123",
-            desc: "Quản lý kho hàng, tồn kho, xác nhận & tạo lô hàng",
+            desc: "Quản lý kho HCM, tồn kho, xác nhận & tạo lô hàng",
             color: "#8b5cf6",
             bg: "#f5f3ff",
             darkBg: "#4c1d9540",

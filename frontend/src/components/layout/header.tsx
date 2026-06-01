@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/app-store";
 import { useTheme } from "@/context/theme-context";
 import { useAuth } from "@/context/auth-context";
@@ -16,6 +17,17 @@ export function Header({ title }: HeaderProps) {
   const unreadAlertCount = useAppStore((s) => s.unreadAlertCount);
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
+
+  // Detect desktop (>= lg breakpoint: 1024px) for header positioning
+  // On mobile, sidebar is overlay, so header spans full width (left: 0)
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   // DRIVER — mobile-only header with hamburger + avatar
   if (user?.role === 'DRIVER') {
@@ -57,7 +69,7 @@ export function Header({ title }: HeaderProps) {
     <header
       className="fixed top-0 right-0 z-10 h-16 flex items-center px-4 gap-4 border-b transition-all duration-300"
       style={{
-        left: sidebarOpen ? "256px" : "64px",
+        left: isDesktop ? (sidebarOpen ? "256px" : "64px") : "0",
         background: "var(--bg-card)",
         borderColor: "var(--border-color)",
         backdropFilter: "blur(8px)",

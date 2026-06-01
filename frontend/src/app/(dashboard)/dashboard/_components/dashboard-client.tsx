@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Truck, Package, Warehouse, Bell, TrendingUp,
   ArrowRight, MapPin, Clock, CheckCircle, AlertTriangle,
-  XCircle, Activity, Navigation, Zap,
+  XCircle, Activity, QrCode, Plus, ClipboardList,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { useSharedDataStore } from "@/store/shared-data-store";
-import DashboardDriver from "./dashboard-driver";
 
 interface ShipmentStats {
   total: number; inTransit: number; delivered: number; pending: number; failed: number;
@@ -84,15 +83,6 @@ const statCards = (stats: ShipmentStats, alerts: number, warehouses: number) => 
   },
 ];
 
-interface LiveEvent {
-  shipmentId: string;
-  latitude: number;
-  longitude: number;
-  speed?: number;
-  status?: string;
-  ts: number;
-}
-
 // POLLING INTERVAL (ms): 15 seconds — balances realtime feel with API load
 const POLL_INTERVAL = 15_000;
 
@@ -115,7 +105,7 @@ function useRealtimeDashboard(initial: Props) {
   const [shipments, setShipments] = useState<RecentShipment[]>(initial.recentShipments);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
-  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
+
 
   // Only poll for shipments list — stats/alerts/warehouses handled by shared store
   const fetchShipments = useCallback(async () => {
@@ -159,11 +149,6 @@ function useRealtimeDashboard(initial: Props) {
       socket.on("connect", () => setSocketConnected(true));
       socket.on("disconnect", () => setSocketConnected(false));
 
-      // GPS tracking — realtime
-      socket.on("shipment:position", (data: Omit<LiveEvent, "ts">) => {
-        setLiveEvents(prev => [{ ...data, ts: Date.now() }, ...prev].slice(0, 5));
-      });
-
       // New alert — refresh shared store (syncs to badge + all consumers)
       socket.on("alert:new", () => {
         useSharedDataStore.getState().refresh();
@@ -174,7 +159,6 @@ function useRealtimeDashboard(initial: Props) {
     const cleanup = initSocket();
     return () => {
       cleanup.then((s) => {
-        s?.off("shipment:position");
         s?.off("alert:new");
         s?.disconnect();
       });
@@ -183,37 +167,38 @@ function useRealtimeDashboard(initial: Props) {
 
   return {
     stats, alerts: { list: alerts, count: alerts.length },
-    whCount, shipments, lastUpdated, socketConnected, liveEvents,
+    whCount, shipments, lastUpdated, socketConnected,
     refresh: handleRefresh, refreshing,
   };
 }
 
 export default function DashboardClient(props: Props) {
-  const { stats, alerts, whCount, shipments, lastUpdated, socketConnected, liveEvents, refresh, refreshing } = useRealtimeDashboard(props);
+  const { stats, alerts, whCount, shipments, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeDashboard(props);
   const auth = useAuth();
-  const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
+  const { isAdmin, isManager } = auth;
   const pendingForCurrentUser = useSharedDataStore((s) => s.shipmentStats?.pendingForCurrentUser ?? 0);
 
-  // Hooks MUST be before any early return to avoid "Rendered fewer hooks than expected"
-  // when auth context resolves and isDriver changes between renders
+  // Fetch pending loading/receiving tasks for all roles (filtered by backend)
   const [pendingLoading, setPendingLoading] = useState<RecentShipment[]>([]);
   const [pendingReceiving, setPendingReceiving] = useState<RecentShipment[]>([]);
 
   useEffect(() => {
-    if (!isStaffOnly) return;
     shipmentsApi.getAll({ limit: "10", status: "PENDING" }).then((r) => setPendingLoading(r.data.data ?? [])).catch(() => {});
     shipmentsApi.getAll({ limit: "10", status: "DELIVERING" }).then((r) => setPendingReceiving(r.data.data ?? [])).catch(() => {});
-  }, [isStaffOnly]);
+  }, []);
 
-  // DRIVER — show driver-specific dashboard (early return is safe now, all hooks above)
-  if (isDriver) {
-    return <DashboardDriver />;
-  }
+  const pendingLoadingCount = pendingLoading.length;
+  const pendingReceivingCount = pendingReceiving.length;
+
+
+
 
   const cards = statCards(stats, alerts.count, whCount);
 
   return (
     <div className="space-y-6">
+      {/* Unified: same layout for ALL roles — only data differs based on permissions */}
+
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -245,13 +230,13 @@ export default function DashboardClient(props: Props) {
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* Stat cards — horizontal scroll on mobile */}
+      <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-2 xl:grid-cols-4 sm:gap-4 sm:overflow-visible sm:snap-none">
         {cards.map((card, i) => (
           <Link
             key={card.label}
             href={card.link}
-            className="card card-hover stat-card flex items-start gap-4 animate-fade-in"
+            className="card card-hover stat-card flex items-start gap-4 animate-fade-in snap-start shrink-0 min-w-[260px] sm:min-w-0"
             style={{ animationDelay: `${i * 60}ms` }}
           >
             <div
@@ -267,6 +252,114 @@ export default function DashboardClient(props: Props) {
             </div>
           </Link>
         ))}
+      </div>
+
+      {/* Unified task sections — Chờ xuất hàng / Chờ nhập kho */}
+      {(pendingLoadingCount > 0 || pendingReceivingCount > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Chờ xuất hàng */}
+          <div className="card overflow-hidden flex flex-col" style={{ minHeight: '320px' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Package size={16} style={{ color: '#6366f1' }} />
+                <span>Chuẩn bị xuất hàng</span>
+                {pendingLoadingCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: '#6366f1' }}>
+                    {pendingLoadingCount}
+                  </span>
+                )}
+              </h2>
+              <Link href="/dashboard/shipments?status=PENDING" className="text-xs font-medium" style={{ color: '#f97316' }}>Xem tất cả</Link>
+            </div>
+            {pendingLoadingCount === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 py-12" style={{ color: 'var(--text-muted)' }}>
+                <Package size={36} style={{ opacity: 0.2 }} />
+                <p className="text-sm">Không có đơn hàng chờ xuất</p>
+              </div>
+            ) : (
+              <div className="flex-1 divide-y overflow-y-auto" style={{ borderColor: 'var(--border-light)' }}>
+                {pendingLoading.map((s) => (
+                  <Link key={s.id} href={`/dashboard/shipments/${s.id}`}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-[var(--bg-input)] transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--color-info-bg)' }}>
+                      <Package size={15} style={{ color: '#6366f1' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.shipmentCode}</div>
+                      <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{s.destinationAddress}</div>
+                    </div>
+                    <span className="btn btn-primary btn-xs shrink-0">Chuẩn bị</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Chờ nhập kho */}
+          <div className="card overflow-hidden flex flex-col" style={{ minHeight: '320px' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Warehouse size={16} style={{ color: '#10b981' }} />
+                <span>Tiếp nhận hàng về</span>
+                {pendingReceivingCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: '#10b981' }}>
+                    {pendingReceivingCount}
+                  </span>
+                )}
+              </h2>
+              <Link href="/dashboard/shipments?status=DELIVERING" className="text-xs font-medium" style={{ color: '#f97316' }}>Xem tất cả</Link>
+            </div>
+            {pendingReceivingCount === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 py-12" style={{ color: 'var(--text-muted)' }}>
+                <Warehouse size={36} style={{ opacity: 0.2 }} />
+                <p className="text-sm">Không có hàng đang nhập kho</p>
+              </div>
+            ) : (
+              <div className="flex-1 divide-y overflow-y-auto" style={{ borderColor: 'var(--border-light)' }}>
+                {pendingReceiving.map((s) => (
+                  <Link key={s.id} href={`/dashboard/shipments/${s.id}`}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-[var(--bg-input)] transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--color-success-bg)' }}>
+                      <Warehouse size={15} style={{ color: '#10b981' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.shipmentCode}</div>
+                      <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{s.destinationAddress}</div>
+                    </div>
+                    <span className="btn btn-primary btn-xs shrink-0">Nhập kho</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Thao tác nhanh */}
+      <div className="card p-5">
+        <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--text-muted)' }}>THAO TÁC NHANH</h3>
+        <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:flex-wrap sm:snap-none">
+          {[
+            { href: '/dashboard/inventory', label: 'Xem tồn kho', icon: Package, color: '#6366f1', bg: 'var(--color-info-bg)' },
+            { href: '/dashboard/qr-scan', label: 'Kiểm kho QR', icon: QrCode, color: '#10b981', bg: 'var(--color-success-bg)' },
+            { href: '/dashboard/inventory/new', label: 'Nhập hàng mới', icon: Plus, color: '#f97316', bg: 'var(--color-warning-bg)' },
+            { href: '/dashboard/shipments', label: 'Danh sách vận đơn', icon: ClipboardList, color: '#ef4444', bg: 'var(--color-error-bg)' },
+          ].map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all hover:shadow-md hover:-translate-y-0.5 snap-start shrink-0 sm:flex-1"
+              style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}
+            >
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: action.bg }}>
+                <action.icon size={18} style={{ color: action.color }} />
+              </div>
+              <span className="text-sm font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{action.label}</span>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Main grid */}
@@ -379,7 +472,7 @@ export default function DashboardClient(props: Props) {
       </div>
 
       {/* Manager: Chờ duyệt section */}
-      {isManager && !isStaffOnly && pendingForCurrentUser > 0 ? (
+      {isManager && pendingForCurrentUser > 0 ? (
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
               <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
@@ -412,84 +505,15 @@ export default function DashboardClient(props: Props) {
           </div>
         ) : null}
 
-      {/* Staff tasks section */}
-      {isStaffOnly && (pendingLoading.length > 0 || pendingReceiving.length > 0) && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Chờ chuẩn bị hàng */}
-          {pendingLoading.length > 0 && (
-            <div className="card overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
-                <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                  <Package size={16} style={{ color: "#6366f1" }} /> Chờ xuất hàng
-                </h2>
-                <Link href="/dashboard/shipments?status=PENDING" className="text-xs font-medium" style={{ color: "#f97316" }}>
-                  Xem tất cả
-                </Link>
-              </div>
-              <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
-                {pendingLoading.slice(0, 5).map((s) => (
-                  <Link
-                    key={s.id}
-                    href={`/dashboard/shipments/${s.id}`}
-                    className="flex items-center gap-3 px-6 py-3 hover:bg-[var(--bg-input)] transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"                    style={{ background: "var(--color-info-bg)" }}>
-                      <Package size={15} style={{ color: "#6366f1" }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{s.shipmentCode}</div>
-                      <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{s.destinationAddress}</div>
-                    </div>
-                    <button className="btn btn-primary btn-xs">Chuẩn bị</button>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Chờ nhập hàng */}
-          {pendingReceiving.length > 0 && (
-            <div className="card overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
-                <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                  <Warehouse size={16} style={{ color: "#10b981" }} /> Chờ nhập kho
-                </h2>
-                <Link href="/dashboard/shipments?status=DELIVERING" className="text-xs font-medium" style={{ color: "#f97316" }}>
-                  Xem tất cả
-                </Link>
-              </div>
-              <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
-                {pendingReceiving.slice(0, 5).map((s) => (
-                  <Link
-                    key={s.id}
-                    href={`/dashboard/shipments/${s.id}`}
-                    className="flex items-center gap-3 px-6 py-3 hover:bg-[var(--bg-input)] transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"                    style={{ background: "var(--color-success-bg)" }}>
-                      <Warehouse size={15} style={{ color: "#10b981" }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{s.shipmentCode}</div>
-                      <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{s.destinationAddress}</div>
-                    </div>
-                    <button className="btn btn-primary btn-xs">Nhập kho</button>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Quick stats bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Quick stats bar — horizontal scroll on mobile */}
+      <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:snap-none">
         {[
           { label: "Chờ xác nhận", value: stats.pending, icon: Clock, color: "#6366f1" },
           { label: "Đang bốc xếp", value: stats.inTransit, icon: TrendingUp, color: "#f97316" },
           { label: "Hoàn thành", value: stats.delivered, icon: CheckCircle, color: "#10b981" },
           { label: "Thất bại / Hủy", value: stats.failed, icon: XCircle, color: "#ef4444" },
         ].map((item) => (
-          <div key={item.label} className="card p-4 flex items-center gap-3">
+          <div key={item.label} className="card p-4 flex items-center gap-3 snap-start shrink-0 min-w-[160px] md:min-w-0">
             <item.icon size={20} style={{ color: item.color }} />
             <div>
               <div className="font-bold text-lg" style={{ color: item.color }}>{item.value}</div>
@@ -499,55 +523,6 @@ export default function DashboardClient(props: Props) {
         ))}
       </div>
 
-      {/* Live Activity Ticker */}
-      <div className="card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: "var(--border-color)" }}>
-          <div className="flex items-center gap-2">
-            <Activity size={16} style={{ color: "#f97316" }} />
-            <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Cập nhật GPS thời gian thực</h2>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className={`w-2 h-2 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
-            <span className="text-xs font-medium" style={{ color: socketConnected ? "#10b981" : "var(--text-muted)" }}>
-              {socketConnected ? "Socket.io kết nối" : "Chưa kết nối"}
-            </span>
-          </div>
-        </div>
-
-        {liveEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 gap-3" style={{ color: "var(--text-muted)" }}>
-            <Navigation size={32} style={{ opacity: 0.2 }} />
-            <p className="text-sm">
-              {socketConnected ? "Chờ dữ liệu GPS từ xe — Bắt đầu giả lập trong trang chi tiết vận đơn" : "Đang kết nối Socket.io..."}
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
-            {liveEvents.map((evt, i) => (
-              <div key={evt.ts} className="flex items-center gap-4 px-5 py-3 transition-colors" style={{ background: i === 0 ? "rgba(249,115,22,0.04)" : undefined }}>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"                    style={{ background: evt.status === "DELAYED" ? "var(--color-error-bg)" : "var(--color-warning-bg)" }}>
-                  {evt.status === "DELAYED"
-                    ? <Zap size={15} style={{ color: "#ef4444" }} />
-                    : <Navigation size={15} style={{ color: "#f97316" }} />
-                  }
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {evt.status === "DELAYED" ? "🚨 Sự cố phát hiện" : "🚛 Cập nhật vị trí xe"}
-                  </div>
-                  <div className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    {evt.latitude.toFixed(4)}, {evt.longitude.toFixed(4)}
-                    {evt.speed ? ` · ${evt.speed} km/h` : ""}
-                  </div>
-                </div>
-                <div className="text-[10px] font-medium flex-shrink-0" style={{ color: "var(--text-muted)" }}>
-                  {new Date(evt.ts).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

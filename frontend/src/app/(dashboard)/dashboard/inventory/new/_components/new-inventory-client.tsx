@@ -100,13 +100,13 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
         <div className="md:col-span-2 space-y-6">
           <div className="card p-6 space-y-4">
             <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <Tag size={18} className="text-orange-500" />
+              <Tag size={18} style={{ color: "var(--color-warning)" }} />
               Sản phẩm & Địa điểm *
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Sản phẩm *</label>
+                <label htmlFor="new-inventory-product" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Sản phẩm *</label>
                 <select
                   id="new-inventory-product"
                   name="productId"
@@ -123,7 +123,7 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kho lưu trữ *</label>
+                <label htmlFor="new-inventory-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kho lưu trữ *</label>
                 <select
                   id="new-inventory-warehouse"
                   name="warehouseId"
@@ -146,13 +146,13 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
 
           <div className="card p-6 space-y-4">
             <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <MapPin size={18} className="text-orange-500" />
+              <MapPin size={18} style={{ color: "var(--color-warning)" }} />
               Vị trí chi tiết & Số lượng
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Phân khu (Zone)</label>
+                <label htmlFor="new-inventory-zone" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Phân khu (Zone)</label>
                 <select
                   id="new-inventory-zone"
                   name="zoneId"
@@ -167,12 +167,12 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
                   ))}
                 </select>
                 {!warehouseId && (
-                  <p className="text-[10px] mt-1 text-red-400">Vui lòng chọn Kho trước để hiện phân khu</p>
+                  <p className="text-[10px] mt-1" style={{ color: "var(--color-warning)" }}>Vui lòng chọn Kho trước để hiện phân khu</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Số lượng tồn kho ban đầu *</label>
+                <label htmlFor="new-inventory-quantity" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Số lượng tồn kho ban đầu *</label>
                 <input
                   id="new-inventory-quantity"
                   name="quantity"
@@ -186,7 +186,7 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kệ hàng (Rack)</label>
+                <label htmlFor="new-inventory-rack" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kệ hàng (Rack)</label>
                 <input
                   id="new-inventory-rack"
                   name="rack"
@@ -198,7 +198,7 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ngăn chứa (Shelf)</label>
+                <label htmlFor="new-inventory-shelf" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ngăn chứa (Shelf)</label>
                 <input
                   id="new-inventory-shelf"
                   name="shelf"
@@ -216,19 +216,19 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
         <div className="space-y-6">
           <div className="card p-6 space-y-4">
             <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <Clipboard size={18} className="text-orange-500" />
+              <Clipboard size={18} style={{ color: "var(--color-warning)" }} />
               Thông tin bổ sung
             </h2>
 
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ghi chú kệ kho</label>
+              <label htmlFor="new-inventory-notes" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Ghi chú kệ kho</label>
               <textarea
                 id="new-inventory-notes"
                 name="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="VD: Hàng dễ vỡ, lưu ý nhiệt độ phòng..."
-                className="input-base text-sm w-100 h-28"
+                className="input-base text-sm w-full h-28"
                 style={{ resize: "none" }}
               />
             </div>

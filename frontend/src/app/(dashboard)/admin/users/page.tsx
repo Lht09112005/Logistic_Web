@@ -240,28 +240,28 @@ function AdminUsersContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+      <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-3">
+        <div className="min-w-0 w-full sm:w-auto">
+          <h1 className="text-lg sm:text-2xl font-bold truncate max-w-full" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
             Quản lý người dùng
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
             {total} người dùng trong hệ thống
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={fetchUsers} className="btn btn-ghost btn-sm">
-            <RefreshCw size={14} /> Làm mới
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button onClick={fetchUsers} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
+            <RefreshCw size={14} /> <span className="hidden sm:inline">Làm mới</span>
           </button>
-          <button onClick={openCreate} className="btn btn-primary btn-sm">
-            <Plus size={14} /> Thêm người dùng
+          <button onClick={openCreate} className="btn btn-primary btn-sm flex-1 sm:flex-none justify-center whitespace-nowrap">
+            <Plus size={14} /> <span className="hidden sm:inline">Thêm người dùng</span>
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="card p-4 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-48">
+      <div className="card p-3 sm:p-4 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 min-w-0">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
           <input
             value={search}
@@ -271,18 +271,18 @@ function AdminUsersContent() {
             style={{ height: "38px" }}
           />
         </div>
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 overflow-x-auto no-scrollbar flex-nowrap">
           {[
             { v: "", label: "Tất cả" },
             { v: "ADMIN", label: "Quản trị" },
-            { v: "MANAGER", label: "Quản lý" },
+            { v: "MANAGER", label: "Quản lý kho" },
             { v: "STAFF", label: "Nhân viên" },
             { v: "DRIVER", label: "Tài xế" },
           ].map((tab) => (
             <button
               key={tab.v}
               onClick={() => { setRoleFilter(tab.v); setPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                 roleFilter === tab.v ? "text-white" : "hover:bg-[var(--bg-input)]"
               }`}
               style={roleFilter === tab.v ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}
@@ -316,9 +316,9 @@ function AdminUsersContent() {
                 <tr>
                   <th>Người dùng</th>
                   <th>Vai trò</th>
-                  <th>Liên hệ</th>
+                  <th className="hidden sm:table-cell">Liên hệ</th>
                   <th>Trạng thái</th>
-                  <th>Ngày tạo</th>
+                  <th className="hidden sm:table-cell">Ngày tạo</th>
                   <th className="text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -355,7 +355,7 @@ function AdminUsersContent() {
                         {ROLE_LABELS[user.role]}
                       </span>
                     </td>
-                    <td>
+                    <td className="hidden sm:table-cell">
                       <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
                         {user.phone || "—"}
                       </div>
@@ -367,7 +367,7 @@ function AdminUsersContent() {
                         <span className="badge badge-danger flex-shrink-0 inline-flex">Đã khóa</span>
                       )}
                     </td>
-                    <td>
+                    <td className="hidden sm:table-cell">
                       <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
                         <Calendar size={12} />
                         {formatDate(user.createdAt, "dd/MM/yyyy")}
@@ -427,7 +427,7 @@ function AdminUsersContent() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex overflow-x-auto gap-2 justify-center no-scrollbar px-1 py-1">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <button
               key={p}

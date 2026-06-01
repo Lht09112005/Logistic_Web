@@ -283,13 +283,14 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Destination Warehouse — auto-set from manager's warehouse, read-only */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="resolve-destination-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     <MapPin size={12} className="inline mr-1" style={{ color: "#ef4444" }} />
                     Kho cần nhập hàng (Kho đích) *
                   </label>
                   {isAdmin ? (
                     /* Admin: select dropdown with full freedom */
                     <select
+                      id="resolve-destination-warehouse"
                       value={destinationWarehouseId}
                       onChange={(e) => {
                         setDestinationWarehouseId(e.target.value);
@@ -344,11 +345,12 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
 
                 {/* Source Warehouse */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="resolve-source-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     <Warehouse size={12} className="inline mr-1" style={{ color: "#059669" }} />
                     Kho lấy hàng (Kho nguồn) *
                   </label>
                   <select
+                    id="resolve-source-warehouse"
                     value={sourceWarehouseId}
                     onChange={(e) => {
                       setSourceWarehouseId(e.target.value);
@@ -401,10 +403,11 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
 
                 {/* Quantity */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="resolve-quantity" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     Số lượng cần chuyển *
                   </label>
                   <input
+                    id="resolve-quantity"
                     type="number"
                     min={1}
                     max={maxQuantity || 1}
@@ -416,11 +419,12 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
 
                 {/* Driver */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="resolve-driver" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     <User size={12} className="inline mr-1" />
                     Tài xế
                   </label>
                   <select
+                    id="resolve-driver"
                     value={driverId}
                     onChange={(e) => setDriverId(e.target.value)}
                     className="input-base text-sm"
@@ -436,10 +440,11 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
 
                 {/* Vehicle Type */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="resolve-vehicle-type" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     Loại phương tiện
                   </label>
                   <select
+                    id="resolve-vehicle-type"
                     value={vehicleType}
                     onChange={(e) => setVehicleType(e.target.value)}
                     className="input-base text-sm"
@@ -452,10 +457,11 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
 
                 {/* Vehicle Number */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="resolve-vehicle-number" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     Biển kiểm soát
                   </label>
                   <input
+                    id="resolve-vehicle-number"
                     value={vehicleNumber}
                     onChange={(e) => setVehicleNumber(e.target.value)}
                     placeholder="VD: 51C-999.99"
@@ -465,11 +471,12 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
 
                 {/* Estimated Arrival */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="resolve-estimated-arrival" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     <Calendar size={12} className="inline mr-1" />
                     Dự kiến giao
                   </label>
                   <input
+                    id="resolve-estimated-arrival"
                     type="datetime-local"
                     value={estimatedArrival}
                     onChange={(e) => setEstimatedArrival(e.target.value)}
@@ -479,10 +486,11 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
 
                 {/* Notes */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="resolve-notes" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     Ghi chú
                   </label>
                   <textarea
+                    id="resolve-notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Ghi chú cho vận đơn chuyển hàng..."
