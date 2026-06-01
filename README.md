@@ -3,6 +3,8 @@
 > **Đề tài bài tập lớn môn Lập trình Web và Dịch vụ (INT1334)**  
 > *Một giải pháp chuyển đổi số toàn diện cho chuỗi cung ứng và vận tải logistics thời gian thực.*
 
+> 📖 **Xem [WALKTHROUGH.md](./WALKTHROUGH.md)** để có tài liệu hướng dẫn chi tiết về kiến trúc, luồng nghiệp vụ, API endpoints, phân quyền và deployment.
+
 ---
 
 ## 🌟 Tổng Quan Dự Án
@@ -159,9 +161,14 @@ npm run dev
 
 ## 👥 Tài Khoản Kiểm Thử (Demo Credentials)
 
-| Vai trò | Email | Mật khẩu | Phạm vi quyền |
-|---|---|---|---|
-| **Admin** | `admin@logistiq.vn` | `admin123` | Toàn quyền kiểm soát, quản lý kho bãi & vận đơn |
-| **Staff** | `nam@logistiq.vn` | `staff123` | Quản lý kho, điều tiết xuất nhập hàng |
-| **Driver** | `driver1@logistiq.vn`| `staff123` | Xem hành trình vận đơn được phân công |
+| Vai trò | Email | Mật khẩu |
+|---|---|---|
+| **Admin** | `admin@logistiq.vn` | `123456` |
+| **Manager HCM** | `manager.hcm@logistiq.vn` | `123456` |
+| **Manager HN** | `manager.hn@logistiq.vn` | `123456` |
+| **Manager ĐN** | `manager.dn@logistiq.vn` | `123456` |
+| **Staff** | `staff@logistiq.vn` | `123456` |
+| **Driver** | `driver@logistiq.vn` | `123456` |
+
+> 🎯 **Mỗi manager quản lý đúng 1 kho**: Xem chi tiết trong [WALKTHROUGH.md](./WALKTHROUGH.md)
 

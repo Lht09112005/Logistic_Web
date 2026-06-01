@@ -13,7 +13,7 @@ async function getFormData() {
 
   try {
     const [warehousesRes, productsRes, driversRes] = await Promise.all([
-      axios.get(`${API_URL}/warehouses`, { headers }).catch(err => {
+      axios.get(`${API_URL}/warehouses?all=true`, { headers }).catch(err => {
         console.warn("Lỗi tải kho trên Server:", err.message);
         return { data: { data: [] } };
       }),

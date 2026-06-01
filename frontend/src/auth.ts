@@ -47,15 +47,61 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               refreshToken: "mock-refresh-token",
             };
           }
-          if (email === "manager@logistiq.vn" && password === "staff123") {
+          if (email === "manager.hcm@logistiq.vn" && password === "staff123") {
             return {
-              id: "mock-manager-id",
-              name: "Hoàng Văn Quản Lý (Offline)",
-              email: "manager@logistiq.vn",
+              id: "mock-manager-hcm-id",
+              name: "Lê Văn Sài Gòn (Offline)",
+              email: "manager.hcm@logistiq.vn",
               role: "MANAGER",
-              phone: "0909876543",
+              phone: "0945678901",
               accessToken: "mock-access-token",
               refreshToken: "mock-refresh-token",
+              managedWarehouses: [{
+                id: "mock-wh-hcm-id",
+                name: "Kho Trung Tâm HCM",
+                code: "WH-HCM-01",
+                address: "123 Đường Nguyễn Văn Linh, Quận 7",
+                city: "Hồ Chí Minh",
+                province: "TP. Hồ Chí Minh",
+              }],
+            };
+          }
+          if (email === "manager.hn@logistiq.vn" && password === "staff123") {
+            return {
+              id: "mock-manager-hn-id",
+              name: "Nguyễn Thị Hà Nội (Offline)",
+              email: "manager.hn@logistiq.vn",
+              role: "MANAGER",
+              phone: "0956789012",
+              accessToken: "mock-access-token",
+              refreshToken: "mock-refresh-token",
+              managedWarehouses: [{
+                id: "mock-wh-hn-id",
+                name: "Kho Hà Nội",
+                code: "WH-HN-01",
+                address: "45 Đường Phạm Hùng, Nam Từ Liêm",
+                city: "Hà Nội",
+                province: "Hà Nội",
+              }],
+            };
+          }
+          if (email === "manager.dn@logistiq.vn" && password === "staff123") {
+            return {
+              id: "mock-manager-dn-id",
+              name: "Trần Văn Đà Nẵng (Offline)",
+              email: "manager.dn@logistiq.vn",
+              role: "MANAGER",
+              phone: "0967890123",
+              accessToken: "mock-access-token",
+              refreshToken: "mock-refresh-token",
+              managedWarehouses: [{
+                id: "mock-wh-dn-id",
+                name: "Kho Đà Nẵng",
+                code: "WH-DN-01",
+                address: "78 Đường Trần Phú, Hải Châu",
+                city: "Đà Nẵng",
+                province: "Đà Nẵng",
+              }],
             };
           }
           if (email === "driver1@logistiq.vn" && password === "staff123") {
@@ -82,6 +128,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.phone = (user as any).phone;
         token.accessToken = (user as any).accessToken;
         token.refreshToken = (user as any).refreshToken;
+        token.managedWarehouses = (user as any).managedWarehouses;
       }
       return token;
     },
@@ -92,6 +139,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session.user as any).phone = token.phone;
         (session as any).accessToken = token.accessToken;
         (session as any).refreshToken = token.refreshToken;
+        (session.user as any).managedWarehouses = token.managedWarehouses;
       }
       return session;
     },

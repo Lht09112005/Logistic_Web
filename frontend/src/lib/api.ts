@@ -127,6 +127,7 @@ export const authApi = {
     api.post("/auth/refresh", { refreshToken }),
   me: () => api.get("/auth/me"),
   updateMe: (data: Record<string, unknown>) => api.put("/auth/me", data),
+  getDrivers: () => api.get("/auth/drivers"),
 };
 
 export const productsApi = {
@@ -159,6 +160,9 @@ export const shipmentsApi = {
   create: (data: Record<string, unknown>) => api.post("/shipments", data),
   update: (id: string, data: Record<string, unknown>) =>
     api.put(`/shipments/${id}`, data),
+  approve: (id: string) => api.put(`/shipments/${id}/approve`, {}),
+  reject: (id: string, reason: string) => api.put(`/shipments/${id}/reject`, { reason }),
+  startLoading: (id: string) => api.put(`/shipments/${id}/loading`, {}),
   receive: (id: string) => api.post(`/shipments/${id}/receive`),
 };
 

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Truck, ArrowLeft, Plus, Trash2, MapPin, Calendar, Clipboard, User, Package, AlertCircle
+  Truck, ArrowLeft, Plus, Trash2, MapPin, Calendar, Clipboard, User, Package, AlertCircle, Shield, Warehouse
 } from "lucide-react";
 import { createShipmentAction } from "@/app/actions/shipments";
 import { RoleGuard } from "@/components/auth/role-guard";
+import { useAuth } from "@/context/auth-context";
 
 interface Warehouse {
   id: string; name: string; code: string; address: string; city: string;
@@ -27,6 +28,7 @@ interface Props {
 
 export default function NewShipmentClient({ warehouses, products, drivers }: Props) {
   const router = useRouter();
+  const { managedWarehouse, isAdmin, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +57,13 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
       setOriginAddress(wh.address);
     }
   };
+
+  // Auto-fill destination warehouse for managers
+  useEffect(() => {
+    if (!isAdmin && managedWarehouse) {
+      handleDestinationChange(managedWarehouse.id);
+    }
+  }, [managedWarehouse, isAdmin]);
 
   // Auto-fill destination warehouse info
   const handleDestinationChange = (whId: string) => {
@@ -143,7 +152,7 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button onClick={() => router.back()} className="btn btn-secondary p-2.5 rounded-xl flex-shrink-0">
+        <button onClick={() => router.back()} className="btn btn-secondary p-2.5 rounded-xl shrink-0">
           <ArrowLeft size={16} />
         </button>
         <div>
@@ -175,31 +184,96 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kho xuất phát</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <Warehouse size={12} className="inline mr-1" style={{ color: "#059669" }} />
+                  Kho xuất phát
+                </label>
                 <select
                   value={originWarehouseId}
-                  onChange={(e) => handleOriginChange(e.target.value)}
+                  onChange={(e) => {
+                    handleOriginChange(e.target.value);
+                    if (e.target.value === destinationWarehouseId) {
+                      setDestinationWarehouseId("");
+                    }
+                  }}
                   className="input-base text-sm"
                 >
                   <option value="">-- Chọn kho xuất phát (Tùy chọn) --</option>
-                  {warehouses.map(w => (
+                  {warehouses
+                    .filter((w) => isAdmin || !managedWarehouse || w.id !== managedWarehouse.id)
+                    .map(w => (
                     <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
                   ))}
                 </select>
+                {!isAdmin && managedWarehouse && (
+                  <p className="text-xs mt-1" style={{ color: "#6b7280" }}>
+                    Chọn kho có hàng cần chuyển đến kho của bạn
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Kho điểm đến</label>
-                <select
-                  value={destinationWarehouseId}
-                  onChange={(e) => handleDestinationChange(e.target.value)}
-                  className="input-base text-sm"
-                >
-                  <option value="">-- Chọn kho điểm đến (Tùy chọn) --</option>
-                  {warehouses.map(w => (
-                    <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
-                  ))}
-                </select>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <MapPin size={12} className="inline mr-1" style={{ color: "#ef4444" }} />
+                  Kho điểm đến
+                </label>
+                {isAdmin ? (
+                  /* Admin: select dropdown with full freedom */
+                  <select
+                    value={destinationWarehouseId}
+                    onChange={(e) => {
+                      handleDestinationChange(e.target.value);
+                      if (e.target.value === originWarehouseId) {
+                        setOriginWarehouseId("");
+                      }
+                    }}
+                    className="input-base text-sm"
+                  >
+                    <option value="">-- Chọn kho điểm đến (Tùy chọn) --</option>
+                    {warehouses
+                      .filter((w) => w.id !== originWarehouseId)
+                      .map(w => (
+                      <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
+                    ))}
+                  </select>
+                ) : managedWarehouse ? (
+                  /* Manager with warehouse: read-only card locked to managed warehouse */
+                  <>
+                    <div
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+                      style={{ background: "#f5f3ff", color: "#6d28d9", border: "1px solid #ddd6fe" }}
+                    >
+                      <Shield size={16} />
+                      <div>
+                        <span className="font-semibold">{managedWarehouse.name}</span>
+                        <span className="ml-2 text-xs opacity-70">({managedWarehouse.code})</span>
+                        <div className="text-xs opacity-70 mt-0.5">
+                          {[managedWarehouse.address, managedWarehouse.city].filter(Boolean).join(", ")}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#8b5cf6" }}>
+                      <span>📍</span> Hàng sẽ được nhập vào kho bạn đang quản lý
+                    </p>
+                  </>
+                ) : (
+                  /* Manager without warehouse assignment: show disabled message */
+                  <>
+                    <div
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+                      style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}
+                    >
+                      <AlertCircle size={16} />
+                      <div>
+                        <span className="font-semibold">Chưa có kho quản lý</span>
+                        <div className="text-xs opacity-80 mt-0.5">
+                          Liên hệ Admin để được phân quyền kho trước khi tạo vận đơn
+                        </div>
+                      </div>
+                    </div>
+                    <input type="hidden" value="" />
+                  </>
+                )}
               </div>
 
               <div>

@@ -188,6 +188,7 @@ export default function DashboardClient(props: Props) {
   const { stats, alerts, whCount, shipments, lastUpdated, socketConnected, liveEvents, refresh, refreshing } = useRealtimeDashboard(props);
   const auth = useAuth();
   const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
+  const dashboardShared = useSharedDataStore();
 
   // DRIVER — show driver-specific dashboard
   if (isDriver) {
@@ -371,6 +372,43 @@ export default function DashboardClient(props: Props) {
           )}
         </div>
       </div>
+
+      {/* Manager: Chờ duyệt section */}
+      {(() => {
+        const pendingApproval = dashboardShared.shipmentStats?.pendingForCurrentUser ?? 0;
+        return isManager && !isStaffOnly && pendingApproval > 0 ? (
+          <div className="card overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
+              <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                Vận đơn chờ duyệt ({pendingApproval})
+              </h2>
+              <Link href="/dashboard/shipments?status=PENDING" className="text-xs font-medium" style={{ color: "#f97316" }}>
+                Xem tất cả
+              </Link>
+            </div>
+            <div className="px-6 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "#eef2ff" }}>
+                <Truck size={18} style={{ color: "#6366f1" }} />
+              </div>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  Có {pendingApproval} vận đơn đang chờ bạn duyệt
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                  Các vận đơn này cần được quản lý kho nguồn duyệt trước khi xếp hàng và vận chuyển
+                </p>
+              </div>
+              <Link
+                href="/dashboard/shipments?status=PENDING"
+                className="btn btn-primary btn-sm ml-auto"
+              >
+                Duyệt ngay
+              </Link>
+            </div>
+          </div>
+        ) : null;
+      })()}
 
       {/* Staff tasks section */}
       {isStaffOnly && (pendingLoading.length > 0 || pendingReceiving.length > 0) && (

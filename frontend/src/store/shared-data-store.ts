@@ -12,6 +12,7 @@ export interface ShipmentStats {
   delivered: number;
   pending: number;
   failed: number;
+  pendingForCurrentUser?: number;
 }
 
 // ─── Global polling state (outside Zustand to avoid serialization) ───

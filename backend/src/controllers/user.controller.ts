@@ -14,6 +14,9 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     const role = req.query.role as string | undefined
     const isActive = req.query.isActive as string | undefined
 
+    const authReq = req as AuthRequest
+    const requesterRole = authReq.user?.role
+
     const where: Record<string, unknown> = {}
     if (search) {
       where.OR = [
@@ -22,7 +25,12 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
         { phone: { contains: search, mode: 'insensitive' } },
       ]
     }
-    if (role) where.role = role
+    // MANAGER can only see STAFF & DRIVER (not ADMIN or MANAGER)
+    if (requesterRole === 'MANAGER') {
+      where.role = { in: ['STAFF', 'DRIVER'] }
+    } else if (role) {
+      where.role = role
+    }
     if (isActive !== undefined) where.isActive = isActive === 'true'
 
     const [users, total] = await Promise.all([

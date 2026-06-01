@@ -296,8 +296,197 @@ export const receiveShipment = async (req: AuthRequest, res: Response): Promise<
   }
 }
 
+// PUT /api/shipments/:id/approve
+export const approveShipment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: req.params.id },
+      include: {
+        originWarehouse: { select: { id: true, managerId: true } },
+        items: true,
+      },
+    })
+
+    if (!shipment) {
+      sendError(res, 'Không tìm thấy vận đơn', 404)
+      return
+    }
+
+    if (shipment.status !== 'PENDING') {
+      sendError(res, 'Chỉ có thể duyệt vận đơn đang ở trạng thái chờ', 400)
+      return
+    }
+
+    // Only the manager of the source warehouse can approve
+    const userId = req.user!.userId
+    const userRole = req.user!.role
+    if (userRole !== 'ADMIN') {
+      if (!shipment.originWarehouse || shipment.originWarehouse.managerId !== userId) {
+        sendError(res, 'Bạn không có quyền duyệt vận đơn này. Chỉ quản lý kho nguồn mới có thể duyệt.', 403)
+        return
+      }
+    }
+
+    // Reserve inventory from source warehouse
+    if (shipment.originWarehouseId && shipment.items.length > 0) {
+      for (const item of shipment.items) {
+        const inventoryItems = await prisma.inventoryItem.findMany({
+          where: {
+            productId: item.productId,
+            warehouseId: shipment.originWarehouseId,
+            quantity: { gte: item.quantity },
+          },
+          orderBy: { quantity: 'desc' },
+        })
+
+        const totalAvailable = inventoryItems.reduce((sum, inv) => sum + inv.quantity, 0)
+        if (totalAvailable < item.quantity) {
+          sendError(res, `Kho nguồn không đủ hàng: ${item.productId}. Yêu cầu ${item.quantity}, chỉ còn ${totalAvailable}`, 400)
+          return
+        }
+
+        // Reserve from the first matching inventory item
+        let remaining = item.quantity
+        for (const inv of inventoryItems) {
+          if (remaining <= 0) break
+          const toReserve = Math.min(remaining, inv.quantity)
+          await prisma.inventoryItem.update({
+            where: { id: inv.id },
+            data: { reservedQty: inv.reservedQty + toReserve },
+          })
+          remaining -= toReserve
+        }
+      }
+    }
+
+    const updated = await prisma.shipment.update({
+      where: { id: req.params.id },
+      data: { status: 'CONFIRMED' },
+      include: {
+        driver: { select: { id: true, name: true, phone: true } },
+        checkpoints: { orderBy: { sequence: 'asc' } },
+      },
+    })
+
+    sendSuccess(res, updated, 'Đã duyệt vận đơn thành công')
+  } catch (error) {
+    sendError(res, 'Lỗi duyệt vận đơn', 500, error)
+  }
+}
+
+// PUT /api/shipments/:id/reject
+export const rejectShipment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { reason } = req.body
+
+    if (!reason || reason.trim() === '') {
+      sendError(res, 'Vui lòng cung cấp lý do từ chối', 400)
+      return
+    }
+
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: req.params.id },
+      include: {
+        originWarehouse: { select: { id: true, managerId: true } },
+      },
+    })
+
+    if (!shipment) {
+      sendError(res, 'Không tìm thấy vận đơn', 404)
+      return
+    }
+
+    if (shipment.status !== 'PENDING') {
+      sendError(res, 'Chỉ có thể từ chối vận đơn đang ở trạng thái chờ', 400)
+      return
+    }
+
+    const userId = req.user!.userId
+    const userRole = req.user!.role
+    if (userRole !== 'ADMIN') {
+      if (!shipment.originWarehouse || shipment.originWarehouse.managerId !== userId) {
+        sendError(res, 'Bạn không có quyền từ chối vận đơn này', 403)
+        return
+      }
+    }
+
+    const updated = await prisma.shipment.update({
+      where: { id: req.params.id },
+      data: { status: 'CANCELLED', rejectionReason: reason },
+      include: {
+        driver: { select: { id: true, name: true, phone: true } },
+        checkpoints: { orderBy: { sequence: 'asc' } },
+      },
+    })
+
+    sendSuccess(res, updated, 'Đã từ chối vận đơn')
+  } catch (error) {
+    sendError(res, 'Lỗi từ chối vận đơn', 500, error)
+  }
+}
+
+// PUT /api/shipments/:id/loading
+export const startLoadingShipment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: req.params.id },
+      include: {
+        originWarehouse: { select: { id: true, managerId: true } },
+        items: true,
+      },
+    })
+
+    if (!shipment) {
+      sendError(res, 'Không tìm thấy vận đơn', 404)
+      return
+    }
+
+    if (shipment.status !== 'CONFIRMED') {
+      sendError(res, 'Chỉ có thể xếp hàng cho vận đơn đã duyệt', 400)
+      return
+    }
+
+    // Deduct inventory from source warehouse (release reservedQty, deduct quantity)
+    if (shipment.originWarehouseId && shipment.items.length > 0) {
+      for (const item of shipment.items) {
+        let remaining = item.quantity
+        const inventoryItems = await prisma.inventoryItem.findMany({
+          where: {
+            productId: item.productId,
+            warehouseId: shipment.originWarehouseId,
+            reservedQty: { gte: 1 },
+          },
+          orderBy: { reservedQty: 'desc' },
+        })
+
+        for (const inv of inventoryItems) {
+          if (remaining <= 0) break
+          const toDeduct = Math.min(remaining, inv.reservedQty, inv.quantity)
+          await prisma.inventoryItem.update({
+            where: { id: inv.id },
+            data: {
+              quantity: inv.quantity - toDeduct,
+              reservedQty: inv.reservedQty - toDeduct,
+            },
+          })
+          remaining -= toDeduct
+        }
+      }
+    }
+
+    const updated = await prisma.shipment.update({
+      where: { id: req.params.id },
+      data: { status: 'LOADING' },
+    })
+
+    sendSuccess(res, updated, 'Đã bắt đầu xếp hàng')
+  } catch (error) {
+    sendError(res, 'Lỗi xếp hàng', 500, error)
+  }
+}
+
 // GET /api/shipments/stats
-export const getShipmentStats = async (_req: Request, res: Response): Promise<void> => {
+export const getShipmentStats = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const [total, inTransit, delivered, pending, failed] = await Promise.all([
       prisma.shipment.count(),
@@ -307,7 +496,25 @@ export const getShipmentStats = async (_req: Request, res: Response): Promise<vo
       prisma.shipment.count({ where: { status: 'FAILED' } }),
     ])
 
-    sendSuccess(res, { total, inTransit, delivered, pending, failed })
+    // Count PENDING shipments where current user is the manager of the source warehouse
+    let pendingForCurrentUser = 0
+    if (req.user) {
+      const userWarehouses = await prisma.warehouse.findMany({
+        where: { managerId: req.user.userId },
+        select: { id: true },
+      })
+      const warehouseIds = userWarehouses.map((wh) => wh.id)
+      if (warehouseIds.length > 0) {
+        pendingForCurrentUser = await prisma.shipment.count({
+          where: {
+            status: 'PENDING',
+            originWarehouseId: { in: warehouseIds },
+          },
+        })
+      }
+    }
+
+    sendSuccess(res, { total, inTransit, delivered, pending, failed, pendingForCurrentUser })
   } catch (error) {
     sendError(res, 'Lỗi lấy thống kê', 500, error)
   }

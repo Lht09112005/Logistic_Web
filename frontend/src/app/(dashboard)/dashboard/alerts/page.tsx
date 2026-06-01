@@ -4,16 +4,18 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/app-store";
 import { resolveAlertAction, fetchAlertsAction } from "./actions";
 import {
-  Bell, AlertTriangle, CheckCircle, RefreshCw,
-  Clock, XCircle, Package, ArrowRight
+  AlertTriangle, CheckCircle, RefreshCw,
+  Clock, XCircle, Truck
 } from "lucide-react";
 import { formatDate, getAlertSeverityBadge } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
-import Link from "next/link";
+import { RoleGuard } from "@/components/auth/role-guard";
+import ResolveAlertDialog from "./_components/resolve-alert-dialog";
 
 interface Alert {
   id: string;
   productId: string;
+  warehouseId?: string;
   alertType: string;
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   message: string;
@@ -27,14 +29,21 @@ interface Alert {
     category: string;
     imageUrl?: string;
   };
+  warehouse?: {
+    id: string;
+    name: string;
+    code: string;
+    city: string;
+  };
 }
 
-export default function AlertsPage() {
+function AlertsPage() {
   const { setAlerts, resolveAlert: resolveAlertStore } = useAppStore();
-  const { isAdmin, isManager, isStaff } = useAuth();
+  const { isAdmin, isManager } = useAuth();
   const [alerts, setLocalAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("unresolved");
+  const [resolvingAlert, setResolvingAlert] = useState<Alert | null>(null);
 
   const fetchAlerts = async () => {
     setLoading(true);
@@ -58,29 +67,9 @@ export default function AlertsPage() {
     fetchAlerts();
   }, [filter]);
 
-  const handleResolve = async (id: string) => {
-    try {
-      // Optimistic update: mark as resolved immediately
-      setLocalAlerts((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, isResolved: true } : a))
-      );
-      // Update global unread alert count immediately
-      resolveAlertStore(id);
-
-      // Call Server Action to persist the change on the backend
-      const res = await resolveAlertAction(id);
-
-      if (!res.success) {
-        // Revert optimistic update on failure
-        setLocalAlerts((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, isResolved: false } : a))
-        );
-        console.warn("Lỗi xử lý cảnh báo:", res.message);
-      }
-      // On success, the server action already revalidated the path
-    } catch (err: any) {
-      console.warn("Lỗi xử lý cảnh báo:", err.message || err);
-    }
+  const handleResolved = () => {
+    setResolvingAlert(null);
+    fetchAlerts();
   };
 
   return (
@@ -112,7 +101,7 @@ export default function AlertsPage() {
           <button
             key={tab.v}
             onClick={() => setFilter(tab.v)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === tab.v ? "text-white" : "hover:bg-[var(--bg-input)]"}`}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === tab.v ? "text-white" : "hover:bg-(--bg-input)"}`}
             style={filter === tab.v ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}
           >
             {tab.label}
@@ -131,7 +120,7 @@ export default function AlertsPage() {
         ) : alerts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-center" style={{ color: "var(--text-muted)" }}>
             <CheckCircle size={48} className="text-emerald-500 opacity-80" />
-            <h3 className="font-bold text-lg text-[var(--text-primary)]">Tuyệt vời!</h3>
+            <h3 className="font-bold text-lg text-(--text-primary)">Tuyệt vời!</h3>
             <p className="text-sm max-w-sm">
               Không có cảnh báo tồn kho nào cần xử lý. Hệ thống kho của bạn đang vận hành ổn định.
             </p>
@@ -139,7 +128,6 @@ export default function AlertsPage() {
         ) : (
           <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
             {alerts.map((alert, i) => {
-              const isLow = alert.alertType === "LOW_STOCK";
               const severityColor: Record<string, string> = {
                 CRITICAL: "#ef4444", HIGH: "#f97316", MEDIUM: "#f59e0b", LOW: "#6366f1",
               };
@@ -148,11 +136,11 @@ export default function AlertsPage() {
               return (
                 <div
                   key={alert.id}
-                  className="p-6 flex items-start gap-4 hover:bg-[var(--bg-input)] transition-colors animate-fade-in"
+                  className="p-6 flex items-start gap-4 hover:bg-(--bg-input) transition-colors animate-fade-in"
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                     style={{ background: `${severityColor[alert.severity]}15` }}
                   >
                     <AlertIcon size={20} style={{ color: severityColor[alert.severity] }} />
@@ -170,7 +158,16 @@ export default function AlertsPage() {
                     <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                       {alert.message}
                     </p>
-                    <div className="flex items-center gap-3 text-xs" style={{ color: "var(--text-muted)" }}>
+                    <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: "var(--text-muted)" }}>
+                      {alert.warehouse && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium"
+                          style={{ background: "#f5f3ff", color: "#6d28d9" }}
+                        >
+                          {alert.warehouse.name} ({alert.warehouse.code})
+                        </span>
+                      )}
+                      <span>•</span>
                       <span className="flex items-center gap-1">
                         <Clock size={12} />
                         {formatDate(alert.createdAt)}
@@ -184,21 +181,14 @@ export default function AlertsPage() {
                   <div className="flex flex-col gap-2">
                     {!alert.isResolved ? (
                       <>
-                        {isAdmin || isManager || isStaff ? (
+                        {isAdmin || isManager ? (
                           <button
-                            onClick={() => handleResolve(alert.id)}
-                            className="btn btn-secondary btn-sm text-emerald-600 hover:text-emerald-700"
+                            onClick={() => setResolvingAlert(alert)}
+                            className="btn btn-primary btn-sm justify-center gap-1.5"
                           >
+                            <Truck size={14} />
                             Giải quyết
                           </button>
-                        ) : null}
-                        {isAdmin || isManager || isStaff ? (
-                          <Link
-                            href={`/dashboard/qr-scan?productId=${alert.productId}`}
-                            className="btn btn-primary btn-sm justify-center"
-                          >
-                            Nhập kho
-                          </Link>
                         ) : null}
                       </>
                     ) : (
@@ -211,6 +201,23 @@ export default function AlertsPage() {
           </div>
         )}
       </div>
+      {/* Resolve Alert Dialog */}
+      {resolvingAlert && (
+        <ResolveAlertDialog
+          alert={resolvingAlert}
+          onClose={() => setResolvingAlert(null)}
+          onResolved={handleResolved}
+        />
+      )}
     </div>
+  );
+}
+
+// Wrap page with RoleGuard — only ADMIN & MANAGER can view alerts
+export default function AlertsPageWrapper() {
+  return (
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]} fallback="denied">
+      <AlertsPage />
+    </RoleGuard>
   );
 }

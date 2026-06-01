@@ -6,12 +6,13 @@ import { AuthRequest } from '../middleware/auth.middleware'
 // GET /api/warehouses
 export const getWarehouses = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { status, search } = req.query
+    const { status, search, all } = req.query
 
     const where: Record<string, unknown> = {}
 
     // MANAGER only sees warehouses they are assigned to manage
-    if (req.user?.role === 'MANAGER') {
+    // Pass ?all=true to bypass this filter (e.g. for shipment creation flows)
+    if (req.user?.role === 'MANAGER' && all !== 'true') {
       where.managerId = req.user.userId
     }
 

@@ -6,7 +6,7 @@ import { AuthRequest } from '../middleware/auth.middleware'
 // GET /api/inventory
 export const getInventory = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page = '1', limit = '20', warehouseId, lowStock, search } = req.query
+    const { page = '1', limit = '20', warehouseId, lowStock, search, productId } = req.query
 
     const pageNum = parseInt(page as string)
     const limitNum = parseInt(limit as string)
@@ -14,6 +14,7 @@ export const getInventory = async (req: Request, res: Response): Promise<void> =
 
     const where: Record<string, unknown> = {}
     if (warehouseId) where.warehouseId = warehouseId
+    if (productId) where.productId = productId
 
     if (lowStock === 'true') {
       where.product = { isActive: true }
@@ -74,6 +75,7 @@ export const getAlerts = async (req: Request, res: Response): Promise<void> => {
       orderBy: [{ severity: 'desc' }, { createdAt: 'desc' }],
       include: {
         product: { select: { id: true, name: true, sku: true, category: true, imageUrl: true } },
+        warehouse: { select: { id: true, name: true, code: true, city: true } },
       },
     })
 
@@ -90,7 +92,7 @@ export const updateInventory = async (req: AuthRequest, res: Response): Promise<
 
     const current = await prisma.inventoryItem.findUnique({
       where: { id: req.params.id },
-      include: { product: true },
+      include: { product: true, warehouse: { select: { id: true, name: true } } },
     })
 
     if (!current) {
@@ -120,23 +122,30 @@ export const updateInventory = async (req: AuthRequest, res: Response): Promise<
       const severity = quantity === 0 ? 'CRITICAL' : quantity < current.product.minStockLevel / 2 ? 'HIGH' : 'MEDIUM'
       const alertType = quantity === 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK'
 
-      await prisma.stockAlert.upsert({
-        where: {
-          // Custom composite - find existing unresolved alert
-          id: (await prisma.stockAlert.findFirst({
-            where: { productId: current.productId, isResolved: false, alertType },
-          }))?.id || 'new-alert',
-        },
-        update: { currentQty: quantity, severity, updatedAt: new Date() },
-        create: {
-          productId: current.productId,
-          alertType,
-          severity,
-          message: `${current.product.name} ${quantity === 0 ? 'đã hết hàng' : 'sắp hết hàng'} (còn ${quantity} ${current.product.unit})`,
-          threshold: current.product.minStockLevel,
-          currentQty: quantity,
-        },
+      // Find existing unresolved alert for this product+warehouse combination
+      const existingAlert = await prisma.stockAlert.findFirst({
+        where: { productId: current.productId, warehouseId: current.warehouseId, isResolved: false, alertType },
       })
+
+      if (existingAlert) {
+        await prisma.stockAlert.update({
+          where: { id: existingAlert.id },
+          data: { currentQty: quantity, severity, updatedAt: new Date() },
+        })
+      } else {
+        const warehouseName = current.warehouse?.name || 'Unknown'
+        await prisma.stockAlert.create({
+          data: {
+            productId: current.productId,
+            warehouseId: current.warehouseId,
+            alertType,
+            severity,
+            message: `${current.product.name} ${quantity === 0 ? 'đã hết hàng' : 'sắp hết hàng'} tại ${warehouseName} (còn ${quantity} ${current.product.unit})`,
+            threshold: current.product.minStockLevel,
+            currentQty: quantity,
+          },
+        })
+      }
     }
 
     sendSuccess(res, updated, 'Cập nhật tồn kho thành công')

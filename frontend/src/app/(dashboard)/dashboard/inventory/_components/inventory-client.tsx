@@ -118,7 +118,7 @@ function useRealtimeInventory(initial: Props) {
 export default function InventoryClient(props: Props) {
   const router = useRouter();
   const { items: inventory, total, alerts, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeInventory(props);
-  const { isAdmin, isManager, isStaff } = useAuth();
+  const { isAdmin, isManager, isStaff, isStaffOnly } = useAuth();
   const [search, setSearch] = useState(props.initialSearch || "");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
 
@@ -167,9 +167,11 @@ export default function InventoryClient(props: Props) {
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
-          <Link href="/dashboard/qr-scan" className="btn btn-secondary btn-sm">
-            <QrCode size={14} /> Kiểm kho QR
-          </Link>
+          {isAdmin || isStaffOnly ? (
+            <Link href="/dashboard/qr-scan" className="btn btn-secondary btn-sm">
+              <QrCode size={14} /> Kiểm kho QR
+            </Link>
+          ) : null}
           {isAdmin || isManager || isStaff ? (
             <Link href="/dashboard/inventory/new" className="btn btn-primary btn-sm">
               <Plus size={14} /> Thêm tồn kho
@@ -316,9 +318,11 @@ export default function InventoryClient(props: Props) {
                 <Link href={`/dashboard/inventory/${item.id}`} className="btn btn-ghost btn-sm flex-1 justify-center">
                   <Eye size={13} /> Chi tiết
                 </Link>
-                <Link href={`/dashboard/qr-scan?productId=${item.product.id}`} className="btn btn-secondary btn-sm flex-1 justify-center">
-                  <QrCode size={13} /> Kiểm kho
-                </Link>
+                {isAdmin || isStaffOnly ? (
+                  <Link href={`/dashboard/qr-scan?productId=${item.product.id}`} className="btn btn-secondary btn-sm flex-1 justify-center">
+                    <QrCode size={13} /> Kiểm kho
+                  </Link>
+                ) : null}
               </div>
             </div>
           );

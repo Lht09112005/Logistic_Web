@@ -10,14 +10,16 @@ import {
 
 const router = Router()
 
-// All user management routes require authentication + ADMIN role
+// Require authentication for all routes
 router.use(authenticate)
-router.use(authorize('ADMIN'))
 
-router.get('/', getUsers)
-router.get('/:id', getUserById)
-router.post('/', createUser)
-router.put('/:id', updateUser)
-router.delete('/:id', deleteUser)
+// GET — ADMIN & MANAGER can view users (MANAGER can only see STAFF & DRIVER)
+router.get('/', authorize('ADMIN', 'MANAGER'), getUsers)
+router.get('/:id', authorize('ADMIN', 'MANAGER'), getUserById)
+
+// Mutations — ADMIN only
+router.post('/', authorize('ADMIN'), createUser)
+router.put('/:id', authorize('ADMIN'), updateUser)
+router.delete('/:id', authorize('ADMIN'), deleteUser)
 
 export default router

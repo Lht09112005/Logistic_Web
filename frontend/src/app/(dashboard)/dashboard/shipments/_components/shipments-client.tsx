@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Truck, Plus, Search, Filter, MapPin, Clock,
-  CheckCircle, Eye, Activity,
+  CheckCircle, Eye, Activity, ThumbsUp,
 } from "lucide-react";
 import {
   formatDate, formatRelative,
@@ -16,7 +16,9 @@ import { useAuth } from "@/context/auth-context";
 
 const STATUS_TABS = [
   { label: "Tất cả", value: "" },
-  { label: "Chờ xác nhận", value: "PENDING" },
+  { label: "Chờ duyệt", value: "PENDING" },
+  { label: "Đã duyệt", value: "CONFIRMED" },
+  { label: "Đang xếp hàng", value: "LOADING" },
   { label: "Đang vận chuyển", value: "IN_TRANSIT" },
   { label: "Đã giao", value: "DELIVERED" },
   { label: "Đã hủy", value: "CANCELLED" },
@@ -102,6 +104,8 @@ export default function ShipmentsClient({ status, page, search }: Props) {
   const driverId = isDriver && user?.id ? user.id : undefined;
   const { shipments, total, loading, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeShipments(status, page, search, driverId);
   const [searchText, setSearchText] = useState(search || "");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectModal, setRejectModal] = useState<{ id: string; open: boolean; reason: string }>({ id: "", open: false, reason: "" });
   const activeStatus = status || "";
 
   const updateParams = useCallback(
@@ -119,6 +123,30 @@ export default function ShipmentsClient({ status, page, search }: Props) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     updateParams({ search: searchText });
+  };
+
+  const handleApprove = async (id: string) => {
+    setApprovingId(id);
+    try {
+      await shipmentsApi.approve(id);
+      await refresh();
+    } catch (err: any) {
+      console.warn("Lỗi duyệt vận đơn:", err?.response?.data?.message || err?.message);
+    }
+    setApprovingId(null);
+  };
+
+  const handleReject = async () => {
+    if (!rejectModal.reason.trim()) return;
+    setApprovingId(rejectModal.id);
+    try {
+      await shipmentsApi.reject(rejectModal.id, rejectModal.reason);
+      await refresh();
+    } catch (err: any) {
+      console.warn("Lỗi từ chối vận đơn:", err?.response?.data?.message || err?.message);
+    }
+    setApprovingId(null);
+    setRejectModal({ id: "", open: false, reason: "" });
   };
 
   if (loading) {
@@ -274,12 +302,39 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                       </div>
                     </td>
                     <td>
-                      <Link
-                        href={`/dashboard/shipments/${s.id}`}
-                        className="btn btn-ghost btn-sm"
-                      >
-                        <Eye size={14} /> Xem
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: any) => mw.id === (s as any).originWarehouseId))) &&
+                          (s.status as string) === "PENDING" && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(s.id as string)}
+                              disabled={approvingId === s.id || rejectModal.open}
+                              className="btn btn-primary btn-sm"
+                            >
+                              {approvingId === s.id ? (
+                                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <ThumbsUp size={13} />
+                              )}
+                              Duyệt
+                            </button>
+                            <button
+                              onClick={() => setRejectModal({ id: s.id as string, open: true, reason: "" })}
+                              disabled={approvingId === s.id}
+                              className="btn btn-ghost btn-sm"
+                              style={{ color: "#ef4444" }}
+                            >
+                              Từ chối
+                            </button>
+                          </>
+                        )}
+                        <Link
+                          href={`/dashboard/shipments/${s.id}`}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          <Eye size={14} /> Xem
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -296,6 +351,29 @@ export default function ShipmentsClient({ status, page, search }: Props) {
           <span>
             {shipments.filter((s) => (s as Record<string, unknown>).status === "IN_TRANSIT").length} vận đơn đang trên đường
           </span>
+        </div>
+      )}
+
+      {/* Reject modal */}
+      {rejectModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setRejectModal({ ...rejectModal, open: false })} />
+          <div className="relative w-full max-w-md rounded-2xl shadow-2xl border p-6 space-y-4" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+            <h3 className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>Từ chối vận đơn</h3>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Vui lòng nhập lý do từ chối vận đơn này:</p>
+            <textarea
+              value={rejectModal.reason}
+              onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
+              placeholder="Nhập lý do từ chối..."
+              className="input-base text-sm resize-none"
+              rows={3}
+              style={{ width: "100%" }}
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setRejectModal({ ...rejectModal, open: false })} className="btn btn-secondary">Hủy</button>
+              <button onClick={handleReject} disabled={!rejectModal.reason.trim()} className="btn" style={{ background: "#ef4444", color: "white" }}>Xác nhận từ chối</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
