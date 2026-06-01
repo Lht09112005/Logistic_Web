@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Truck, MapPin, CheckCircle, Circle, Clock,
-  Package, Activity, ChevronRight, Menu,
+  Package, Activity, ChevronRight,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
-import { useAppStore } from "@/store/app-store";
 
 interface DriverShipment {
   id: string;
@@ -27,7 +26,6 @@ const POLL_INTERVAL = 15_000;
 
 export default function DashboardDriver() {
   const { user } = useAuth();
-  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const [shipments, setShipments] = useState<DriverShipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -83,15 +81,6 @@ export default function DashboardDriver() {
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
-        {/* Floating hamburger — chỉ mobile */}
-        <button
-          onClick={toggleSidebar}
-          className="fixed top-3 left-3 z-50 lg:hidden w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
-          style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-secondary)" }}
-          aria-label="Mở menu"
-        >
-          <Menu size={18} />
-        </button>
         <div className="skeleton h-10 w-48 rounded-xl" />
         <div className="skeleton h-40 rounded-2xl" />
         <div className="skeleton h-72 rounded-2xl" />
@@ -107,15 +96,7 @@ export default function DashboardDriver() {
 
   return (
     <div className="space-y-5 sm:space-y-6 driver-dashboard">
-      {/* Floating hamburger — chỉ mobile */}
-      <button
-        onClick={toggleSidebar}
-        className="fixed top-3 left-3 z-50 lg:hidden w-9 h-9 rounded-xl flex items-center justify-center shadow-lg"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-secondary)" }}
-        aria-label="Mở menu"
-      >
-        <Menu size={18} />
-      </button>
+
 
       {/* Header */}
       <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-2 sm:gap-3">

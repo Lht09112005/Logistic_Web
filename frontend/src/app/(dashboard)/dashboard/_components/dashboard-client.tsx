@@ -194,20 +194,21 @@ export default function DashboardClient(props: Props) {
   const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
   const pendingForCurrentUser = useSharedDataStore((s) => s.shipmentStats?.pendingForCurrentUser ?? 0);
 
-  // DRIVER — show driver-specific dashboard
-  if (isDriver) {
-    return <DashboardDriver />;
-  }
-
+  // Hooks MUST be before any early return to avoid "Rendered fewer hooks than expected"
+  // when auth context resolves and isDriver changes between renders
   const [pendingLoading, setPendingLoading] = useState<RecentShipment[]>([]);
   const [pendingReceiving, setPendingReceiving] = useState<RecentShipment[]>([]);
 
-  // Fetch pending tasks for staff
   useEffect(() => {
     if (!isStaffOnly) return;
     shipmentsApi.getAll({ limit: "10", status: "PENDING" }).then((r) => setPendingLoading(r.data.data ?? [])).catch(() => {});
     shipmentsApi.getAll({ limit: "10", status: "DELIVERING" }).then((r) => setPendingReceiving(r.data.data ?? [])).catch(() => {});
   }, [isStaffOnly]);
+
+  // DRIVER — show driver-specific dashboard (early return is safe now, all hooks above)
+  if (isDriver) {
+    return <DashboardDriver />;
+  }
 
   const cards = statCards(stats, alerts.count, whCount);
 
@@ -237,8 +238,8 @@ export default function DashboardClient(props: Props) {
             <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
           {isAdmin || isManager ? (
-            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
-              <Truck size={15} /> Tạo vận đơn
+            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm whitespace-nowrap">
+              <Truck size={15} /> <span className="hidden sm:inline">Tạo </span>vận đơn
             </Link>
           ) : null}
         </div>

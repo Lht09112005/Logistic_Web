@@ -53,12 +53,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content — mobile: sidebar là overlay nên không margin, desktop: margin theo sidebar */}
       <div
-        className={`transition-all duration-300 min-h-screen flex flex-col ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'}`}
+        className={`transition-all duration-300 h-screen flex flex-col ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'}`}
       >
         <Header />
 
         <main
-          className={`flex-1 p-6 ${isDriver ? 'mt-0' : 'mt-16'} animate-fade-in`}
+          className={`flex-1 p-4 md:p-6 pt-[96px] animate-fade-in flex flex-col lg:pl-8`}
           style={{ maxWidth: "100%", overflowX: "hidden" }}
         >
           {children}
