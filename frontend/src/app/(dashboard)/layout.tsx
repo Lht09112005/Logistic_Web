@@ -5,9 +5,12 @@ import { useSharedDataStore } from "@/store/shared-data-store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { useAppStore } from "@/store/app-store";
+import { useAuth } from "@/context/auth-context";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const sidebarOpen = useAppStore((state) => state.sidebarOpen);
+  const { user } = useAuth();
+  const isDriver = user?.role === 'DRIVER';
 
   // Centralized polling for shared data (stats, alerts, warehouses)
   // This single polling loop replaces 5+ independent polling intervals in child components
@@ -48,15 +51,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>
       <Sidebar />
 
-      {/* Main content */}
+      {/* Main content — mobile: sidebar là overlay nên không margin, desktop: margin theo sidebar */}
       <div
-        className="transition-all duration-300 min-h-screen flex flex-col"
-        style={{ marginLeft: sidebarOpen ? "256px" : "64px" }}
+        className={`transition-all duration-300 min-h-screen flex flex-col ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'}`}
       >
         <Header />
 
         <main
-          className="flex-1 p-6 mt-16 animate-fade-in"
+          className={`flex-1 p-6 ${isDriver ? 'mt-0' : 'mt-16'} animate-fade-in`}
           style={{ maxWidth: "100%", overflowX: "hidden" }}
         >
           {children}

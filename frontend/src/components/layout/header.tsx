@@ -17,6 +17,9 @@ export function Header({ title }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
 
+  // Tài xế không cần header
+  if (user?.role === 'DRIVER') return null;
+
   return (
     <header
       className="fixed top-0 right-0 z-10 h-16 flex items-center px-4 gap-4 border-b transition-all duration-300"

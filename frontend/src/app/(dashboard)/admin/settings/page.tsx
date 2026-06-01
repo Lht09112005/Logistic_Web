@@ -36,7 +36,19 @@ const PREFS_KEY = "logistiq_notification_prefs";
 
 export default function AdminSettingsPage() {
   const { user } = useAuth();
+  const isDriver = user?.role === 'DRIVER';
+
+  // Tài xế: chỉ cần Hồ sơ + Mật khẩu
+  const visibleTabs = isDriver
+    ? TABS.filter((t) => t.key === 'profile' || t.key === 'password')
+    : TABS;
+
   const [activeTab, setActiveTab] = useState<Tab>("profile");
+
+  // Safety: nếu activeTab không còn trong danh sách tab cho phép, về mặc định
+  if (isDriver && activeTab !== 'profile' && activeTab !== 'password') {
+    setActiveTab('profile');
+  }
 
   // Profile state
   const [profile, setProfile] = useState({ name: "", email: "", phone: "" });
@@ -152,7 +164,7 @@ export default function AdminSettingsPage() {
 
       {/* Tabs */}
       <div className="card p-1 flex flex-wrap gap-1">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <button

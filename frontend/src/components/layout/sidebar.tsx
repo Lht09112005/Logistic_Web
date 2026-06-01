@@ -6,13 +6,14 @@ import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/app-store";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { useAuth } from "@/context/auth-context";
+import { useTheme } from "@/context/theme-context";
 import { cn } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
 import {
   LayoutDashboard, Package, Warehouse, Truck, QrCode,
   Bell, Settings, LogOut, ChevronLeft, Users, BarChart3,
   Navigation, MapPin, CheckCircle, Circle, Activity,
-  Clock,  TrendingUp, AlertTriangle, ClipboardList,
+  Clock,  TrendingUp, AlertTriangle, ClipboardList, Sun, Moon,
 } from "lucide-react";
 
 // ─── Role-based accent colors ─────────────────────────────────
@@ -163,17 +164,20 @@ interface SnapshotData {
 }
 
 function RoleSnapshot({ collapsed, role }: { collapsed: boolean; role: string }) {
-  const shared = useSharedDataStore();
+  // Granular selectors to avoid full re-render on every shared store update
+  const shipmentStats = useSharedDataStore((s) => s.shipmentStats);
+  const alertList = useSharedDataStore((s) => s.alerts);
+  const warehouseList = useSharedDataStore((s) => s.warehouses);
 
   // Compute snapshot from shared store data (eliminates duplicate polling)
-  const data: SnapshotData | null = shared.shipmentStats
+  const data: SnapshotData | null = shipmentStats
     ? {
-        activeShipments: shared.shipmentStats.inTransit ?? 0,
-        alerts: Array.isArray(shared.alerts) ? shared.alerts.length : 0,
-        warehouses: Array.isArray(shared.warehouses) ? shared.warehouses.length : 0,
+        activeShipments: shipmentStats.inTransit ?? 0,
+        alerts: Array.isArray(alertList) ? alertList.length : 0,
+        warehouses: Array.isArray(warehouseList) ? warehouseList.length : 0,
         pendingTasks:
-          (shared.shipmentStats.pending ?? 0) +
-          (shared.shipmentStats.inTransit ?? 0),
+          (shipmentStats.pending ?? 0) +
+          (shipmentStats.inTransit ?? 0),
       }
     : null;
 
@@ -429,7 +433,7 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
             collapsed ? "w-6 h-6" : "w-7 h-7"
           )}
             style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}>
-            <Truck size={collapsed ? 12 : 14} color="white" />
+            {collapsed ? <Navigation size={12} color="white" /> : <Truck size={14} color="white" />}
           </div>
           {!collapsed && (
             <>
@@ -465,27 +469,27 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
         {/* Expanded details */}
         {!collapsed && (
           <>
-            <div className="px-3 pb-1">
-              <div className="flex justify-between text-[9px] mb-1" style={{ color: "#065f46" }}>
+            <div className="px-3 pb-2">
+              <div className="flex justify-between text-[8px] mb-0.5" style={{ color: "#047857" }}>
                 <span>Tiến độ</span>
                 <span className="font-semibold">{completedCp}/{totalCp}</span>
               </div>
-              <div className="progress-bar" style={{ height: "4px" }}>
-                <div className="progress-fill" style={{
+              <div className="progress-bar rounded-full" style={{ height: "2px" }}>
+                <div className="progress-fill rounded-full" style={{
                   width: `${progressPct}%`,
-                  background: "linear-gradient(90deg,#10b981,#059669)",
+                  background: "#10b981",
                 }} />
               </div>
             </div>
-            <div className="px-3 pb-2 flex items-center gap-1 text-[8px]" style={{ color: "#047857" }}>
-              <MapPin size={8} />
-              <span className="truncate">{trip.originAddress} → {trip.destinationAddress}</span>
+            <div className="px-3 pb-2 flex items-center gap-1 text-[7px]" style={{ color: "#047857" }}>
+              <MapPin size={7} />
+              <span className="truncate leading-tight">{trip.originAddress} → {trip.destinationAddress}</span>
             </div>
             {trip.checkpoints && trip.checkpoints.length > 0 && (
-              <div className="px-3 pb-2 flex gap-1 flex-wrap">
+              <div className="px-3 pb-2 flex gap-1 flex-wrap max-h-[40px] overflow-y-auto driver-cp-scroll">
                 {trip.checkpoints.slice(0, 5).map((cp) => (
                   <div key={cp.id}
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7px]"
+                    className="flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[7px] leading-none"
                     style={{
                       background: cp.isCompleted ? "#a7f3d0" : "rgba(255,255,255,0.6)",
                       color: cp.isCompleted ? "#065f46" : "#047857",
@@ -495,7 +499,7 @@ function DriverActiveTrip({ collapsed }: { collapsed: boolean }) {
                   </div>
                 ))}
                 {trip.checkpoints.length > 5 && (
-                  <span className="text-[7px]" style={{ color: "var(--text-muted)" }}>+{trip.checkpoints.length - 5}</span>
+                  <span className="text-[6px]" style={{ color: "var(--text-muted)" }}>+{trip.checkpoints.length - 5}</span>
                 )}
               </div>
             )}
@@ -514,14 +518,15 @@ export function Sidebar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const unreadAlertCount = useAppStore((s) => s.unreadAlertCount);
   const { user, logout, isDriver } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const allItems = getNavItems(user?.role);
   const role = user?.role || "STAFF";
   const accent = ROLE_ACCENT[role] || ROLE_ACCENT.STAFF;
   const isAdmin = role === "ADMIN";
   const isStaff = role === "STAFF";
-  const shared = useSharedDataStore();
-  const pendingApprovalCount = shared.shipmentStats?.pendingForCurrentUser ?? 0;
+  // Granular selectors to avoid full re-render on every shared store update
+  const pendingForCurrentUser = useSharedDataStore((s) => s.shipmentStats?.pendingForCurrentUser ?? 0);
 
   return (
     <>
@@ -625,12 +630,12 @@ export function Sidebar() {
                           {unreadAlertCount > 99 ? "99+" : unreadAlertCount}
                         </span>
                       )}
-                      {sidebarOpen && (item as any).badge === "pending" && pendingApprovalCount > 0 && (
+                      {sidebarOpen && (item as any).badge === "pending" && pendingForCurrentUser > 0 && (
                         <span
                           className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0 animate-pulse"
                           style={{ background: "#6366f1", color: "white" }}
                         >
-                          {pendingApprovalCount > 99 ? "99+" : pendingApprovalCount}
+                          {pendingForCurrentUser > 99 ? "99+" : pendingForCurrentUser}
                         </span>
                       )}
                     </Link>
@@ -662,6 +667,16 @@ export function Sidebar() {
                   {roleLabels[role] || "Nhân viên"}
                 </p>
               </div>
+              {/* Theme toggle — cho tài xế ở sidebar, non-driver ở header */}
+              {isDriver && (
+                <button
+                  onClick={toggleTheme}
+                  className="btn-icon shrink-0"
+                  title={theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
+                >
+                  {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                </button>
+              )}
               <button onClick={logout} className="btn-icon shrink-0" title="Đăng xuất">
                 <LogOut size={16} style={{ color: "var(--text-secondary)" }} />
               </button>
@@ -675,6 +690,16 @@ export function Sidebar() {
               >
                 {user?.name?.charAt(0) || "U"}
               </div>
+              {/* Theme toggle — collapsed cho tài xế */}
+              {isDriver && (
+                <button
+                  onClick={toggleTheme}
+                  className="btn-icon w-full justify-center"
+                  title={theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
+                >
+                  {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+                </button>
+              )}
               <button onClick={logout} className="btn-icon w-full justify-center" title="Đăng xuất">
                 <LogOut size={14} />
               </button>
