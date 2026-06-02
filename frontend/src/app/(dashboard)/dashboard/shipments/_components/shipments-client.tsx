@@ -6,6 +6,8 @@ import Link from "next/link";
 import {
   Truck, Plus, Search, Filter, MapPin, Clock,
   CheckCircle, Eye, Activity, ThumbsUp,
+  Navigation, Zap, Flag, Package, ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import {
   formatDate, formatRelative,
@@ -23,6 +25,14 @@ const STATUS_TABS = [
   { label: "Đang vận chuyển", value: "IN_TRANSIT" },
   { label: "Đã giao", value: "DELIVERED" },
   { label: "Đã hủy", value: "CANCELLED" },
+];
+
+// Tab filter riêng cho tài xế
+const DRIVER_STATUS_TABS = [
+  { label: "Tất cả", value: "", icon: Truck },
+  { label: "Đang chạy", value: "LOADING,IN_TRANSIT,DELIVERING", icon: Navigation },
+  { label: "Sắp tới", value: "CONFIRMED", icon: Zap },
+  { label: "Lịch sử", value: "DELIVERED", icon: CheckCircle },
 ];
 
 interface Props {
@@ -163,6 +173,152 @@ export default function ShipmentsClient({ status, page, search }: Props) {
     );
   }
 
+  // ─── DRIVER VIEW: Card layout ───
+  if (isDriver) {
+    return (
+      <div className="space-y-4">
+        {/* Driver header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+            Chuyến đi của tôi
+          </h1>
+          <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+            <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${socketConnected ? "bg-emerald-500" : "bg-gray-300"}`} />
+            {total} chuyến
+          </span>
+        </div>
+
+        {/* Driver tab filters */}
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {DRIVER_STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => updateParams({ status: tab.value })}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 whitespace-nowrap"
+              style={
+                activeStatus === tab.value
+                  ? { background: "linear-gradient(135deg,#10b981,#059669)", color: "white", boxShadow: "0 2px 8px rgba(16,185,129,0.3)" }
+                  : { background: "var(--bg-input)", color: "var(--text-secondary)" }
+              }
+            >
+              <tab.icon size={14} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+            <input
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Tìm theo mã vận đơn..."
+              className="input-base pl-9 py-2 text-sm"
+              style={{ height: "38px" }}
+            />
+          </div>
+          <button type="submit" className="btn btn-secondary btn-sm"><Filter size={14} /></button>
+          <button type="button" onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+            <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+          </button>
+        </form>
+
+        {/* Cards */}
+        {(shipments as Record<string, unknown>[]).length === 0 ? (
+          <div className="card flex flex-col items-center justify-center py-16 gap-3" style={{ color: "var(--text-muted)" }}>
+            <Truck size={40} style={{ opacity: 0.2 }} />
+            <p className="font-medium">Không có chuyến đi nào</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {(shipments as Record<string, unknown>[]).map((s) => {
+              const statusColorMap: Record<string, string> = {
+                LOADING: "#f97316", IN_TRANSIT: "#3b82f6", DELIVERING: "#8b5cf6",
+                CONFIRMED: "#6366f1", DELIVERED: "#10b981", CANCELLED: "#ef4444", PENDING: "#f59e0b",
+              };
+              const statusIconMap: Record<string, typeof Truck> = {
+                LOADING: Package, IN_TRANSIT: Navigation, DELIVERING: Flag,
+                CONFIRMED: Clock, DELIVERED: CheckCircle, PENDING: AlertTriangle,
+              };
+              const sStatus = s.status as string;
+              const color = statusColorMap[sStatus] || "#6b7280";
+              const Icon = statusIconMap[sStatus] || Truck;
+              const isActive = ["LOADING", "IN_TRANSIT", "DELIVERING"].includes(sStatus);
+              return (
+                <Link
+                  key={s.id as string}
+                  href={`/dashboard/shipments/${s.id}`}
+                  className="card block overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
+                  style={isActive ? { border: `2px solid ${color}`, background: `${color}06` } : {}}
+                >
+                  {/* Card header */}
+                  <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: "var(--border-color)" }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+                        <Icon size={16} style={{ color }} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{s.shipmentCode as string}</p>
+                        <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{s.vehicleType as string} • {s.vehicleNumber as string}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`badge ${getShipmentStatusBadge(sStatus)}`}>
+                        {getShipmentStatusLabel(sStatus)}
+                      </span>
+                      <ChevronRight size={14} style={{ color: "var(--text-muted)" }} />
+                    </div>
+                  </div>
+                  {/* Card body */}
+                  <div className="px-4 py-3 grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[9px] font-semibold uppercase mb-0.5" style={{ color: "var(--text-muted)" }}>Xuất phát</p>
+                      <div className="flex items-start gap-1">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 mt-0.5 shrink-0" />
+                        <p className="text-xs leading-tight" style={{ color: "var(--text-primary)" }}>
+                          {((s.originWarehouse as Record<string, string>)?.name) || (s.originAddress as string)}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-semibold uppercase mb-0.5" style={{ color: "var(--text-muted)" }}>Giao tới</p>
+                      <div className="flex items-start gap-1">
+                        <MapPin size={10} style={{ color: "#f97316", flexShrink: 0, marginTop: 2 }} />
+                        <p className="text-xs leading-tight" style={{ color: "var(--text-primary)" }}>
+                          {((s.destinationWarehouse as Record<string, string>)?.name) || (s.destinationAddress as string)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Card footer */}
+                  {(s.estimatedArrival || isActive) && (
+                    <div className="px-4 pb-3 flex items-center justify-between">
+                      {s.estimatedArrival ? (
+                        <div className="flex items-center gap-1 text-xs" style={{ color: isActive ? color : "var(--text-muted)" }}>
+                          <Clock size={11} />
+                          Dự kiến: <strong className="ml-0.5">{formatRelative(s.estimatedArrival as string)}</strong>
+                        </div>
+                      ) : <span />}
+                      {isActive && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse"
+                          style={{ background: `${color}20`, color }}>
+                          ● Đang chạy
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── NON-DRIVER VIEW: Table layout (unchanged) ───
   return (
     <div className="space-y-6">
       {/* Header */}

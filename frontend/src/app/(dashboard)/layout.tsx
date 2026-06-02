@@ -128,9 +128,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Header />
 
         <main
-          className={`flex-1 px-4 md:px-6 pb-4 md:pb-6 animate-fade-in flex flex-col lg:pl-8 ${
-            isDriver ? 'pt-12 lg:pt-6' : 'pt-20'
-          }`}
+          className="flex-1 px-4 md:px-6 pb-4 md:pb-6 pt-20 animate-fade-in flex flex-col lg:pl-8"
           style={{ maxWidth: "100%", overflowX: "hidden" }}
         >
           {children}

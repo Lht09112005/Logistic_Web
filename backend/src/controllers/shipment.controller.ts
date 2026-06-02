@@ -319,6 +319,48 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
       },
     })
 
+    // Handle Incident Realtime Notification
+    if (notes && typeof notes === 'string' && notes.includes('[SỰ CỐ')) {
+      try {
+        const managers = await prisma.user.findMany({
+          where: {
+            OR: [
+              { role: 'ADMIN' },
+              { role: 'MANAGER', managedWarehouses: { some: { id: { in: [shipment.originWarehouseId, shipment.destinationWarehouseId].filter(Boolean) as string[] } } } }
+            ]
+          }
+        })
+
+        const incidentMessage = notes.split(']')[1]?.trim() || notes
+        
+        const notifications = managers.map(user => ({
+          userId: user.id,
+          title: `Sự cố chuyến ${shipment.shipmentCode}`,
+          message: incidentMessage,
+          type: 'ERROR' as const,
+          link: `/dashboard/shipments/${shipment.id}`,
+        }))
+
+        if (notifications.length > 0) {
+          // Prisma doesn't return created IDs for createMany in SQLite, but we can just emit what we have
+          // or we can create them one by one to get real IDs. Let's createMany for DB, and emit with temp IDs.
+          await prisma.notification.createMany({ data: notifications })
+          
+          const { io } = await import('../index')
+          notifications.forEach(n => {
+            io.emit(`notification:${n.userId}`, {
+              ...n,
+              id: Date.now().toString() + Math.random().toString(36).substring(7),
+              isRead: false,
+              createdAt: new Date().toISOString()
+            })
+          })
+        }
+      } catch (err) {
+        console.error("Failed to create incident notifications:", err)
+      }
+    }
+
     // Emit realtime notifications for completed checkpoints
     // Notifies MANAGER and STAFF of the destination warehouse
     if (completedCheckpoints.length > 0 && existing.destinationWarehouseId) {
@@ -348,7 +390,6 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
         status,
       })
     }
-
     sendSuccess(res, shipment, 'Cập nhật vận đơn thành công')
   } catch (error: unknown) {
     if ((error as { code?: string }).code === 'P2025') {

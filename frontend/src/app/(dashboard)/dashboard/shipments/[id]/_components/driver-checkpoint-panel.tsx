@@ -5,7 +5,7 @@ import {
   CheckCircle2, Circle, Truck, Package, Warehouse,
   MapPin, Navigation, Flag, Loader2,
   CheckCircle, Clock, ArrowRightFromLine, ArrowLeftToLine,
-  PartyPopper, X,
+  PartyPopper, X, AlertTriangle, Zap, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { getShipmentStatusLabel } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
@@ -42,6 +42,7 @@ type StepStatus = "pending" | "current" | "completed";
 
 type Step =
   | { key: "loading"; label: string; description: string; icon: typeof Package; status: StepStatus }
+  | { key: "departing"; label: string; description: string; icon: typeof Zap; status: StepStatus }
   | { key: "delivering"; label: string; description: string; icon: typeof Flag; status: StepStatus }
   | { key: `cp-${string}`; label: string; description: string; icon: typeof MapPin; status: StepStatus; checkpointId: string };
 
@@ -55,7 +56,6 @@ function ConfettiEffect({ trigger, checkpointName }: { trigger: boolean; checkpo
 
   useEffect(() => {
     if (!trigger) return;
-
     const colors = ["#f97316", "#10b981", "#6366f1", "#ef4444", "#eab308", "#ec4899", "#14b8a6"];
     const newParticles = Array.from({ length: 24 }, (_, i) => ({
       id: i,
@@ -66,7 +66,6 @@ function ConfettiEffect({ trigger, checkpointName }: { trigger: boolean; checkpo
       delay: Math.random() * 0.3,
     }));
     setParticles(newParticles);
-
     const timer = setTimeout(() => setParticles([]), 2000);
     return () => clearTimeout(timer);
   }, [trigger]);
@@ -145,6 +144,132 @@ function SuccessToast({
   );
 }
 
+// ─── Incident Report Modal ───
+const INCIDENT_TYPES = [
+  { id: "traffic", label: "🚧 Kẹt xe / Tắc đường", description: "Ùn tắc giao thông, chậm tiến độ" },
+  { id: "accident", label: "🚨 Tai nạn / Hỏng xe", description: "Xe bị hỏng, tai nạn trên đường" },
+  { id: "cargo", label: "📦 Hàng hóa bị hư", description: "Hàng bị vỡ, ướt, hư hỏng" },
+  { id: "delay", label: "⏰ Trễ giờ dự kiến", description: "Sẽ đến muộn hơn kế hoạch" },
+  { id: "other", label: "📝 Vấn đề khác", description: "Ghi chú sự cố khác" },
+];
+
+function IncidentModal({
+  visible,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (type: string, note: string) => void;
+  submitting: boolean;
+}) {
+  const [selectedType, setSelectedType] = useState("");
+  const [note, setNote] = useState("");
+
+  const reset = () => { setSelectedType(""); setNote(""); };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleSubmit = () => {
+    if (!selectedType) return;
+    const typeLabel = INCIDENT_TYPES.find(t => t.id === selectedType)?.label || selectedType;
+    onSubmit(typeLabel, note);
+    reset();
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
+      <div
+        className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border-color)", background: "#fef2f2" }}>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center">
+              <AlertTriangle size={14} style={{ color: "#ef4444" }} />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm" style={{ color: "#991b1b" }}>Báo cáo sự cố</h3>
+              <p className="text-[10px]" style={{ color: "#b91c1c" }}>Thông báo để điều phối viên hỗ trợ</p>
+            </div>
+          </div>
+          <button onClick={handleClose} className="btn-icon" style={{ color: "#ef4444" }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+            Loại sự cố
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            {INCIDENT_TYPES.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setSelectedType(t.id)}
+                className="flex items-center gap-3 p-2.5 rounded-xl border-2 text-left transition-all duration-150"
+                style={{
+                  borderColor: selectedType === t.id ? "#ef4444" : "var(--border-color)",
+                  background: selectedType === t.id ? "#fef2f2" : "var(--bg-input)",
+                }}
+              >
+                <span className="text-base">{t.label.split(" ")[0]}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold" style={{ color: selectedType === t.id ? "#b91c1c" : "var(--text-primary)" }}>
+                    {t.label.split(" ").slice(1).join(" ")}
+                  </p>
+                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t.description}</p>
+                </div>
+                {selectedType === t.id && <CheckCircle size={14} style={{ color: "#ef4444", flexShrink: 0 }} />}
+              </button>
+            ))}
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>
+              Ghi chú thêm (không bắt buộc)
+            </p>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Mô tả chi tiết sự cố..."
+              rows={2}
+              className="input-base text-xs resize-none w-full"
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 pb-4 flex gap-2">
+          <button onClick={handleClose} className="btn btn-secondary flex-1" style={{ fontSize: 13 }}>
+            Hủy
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!selectedType || submitting}
+            className="btn flex-1"
+            style={{
+              background: selectedType ? "linear-gradient(135deg,#ef4444,#dc2626)" : "var(--bg-input)",
+              color: selectedType ? "white" : "var(--text-muted)",
+              fontSize: 13,
+              cursor: selectedType ? "pointer" : "not-allowed",
+            }}
+          >
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : <AlertTriangle size={14} />}
+            Gửi báo cáo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Compact Route Visualizer ───
 function RouteVisualizer({
   checkpoints, status, onCheckpointClick, actionLoading, completedCpId,
@@ -155,21 +280,21 @@ function RouteVisualizer({
 }) {
   const completedCount = checkpoints.filter((cp) => cp.isCompleted).length;
   const nextCpIndex = checkpoints.findIndex((cp) => !cp.isCompleted);
-  const isRouteActive = ["LOADING", "IN_TRANSIT", "DELIVERING"].includes(status);
+  const isRouteActive = ["IN_TRANSIT", "DELIVERING"].includes(status);
 
   const nodes = useMemo(() => {
     return [
       { id: "origin", label: "Kho xuất", isCheckpoint: false,
-        status: (completedCount > 0 || ["LOADING","IN_TRANSIT","DELIVERING"].includes(status) ? "completed" : "current") as "completed" | "current" },
+        status: (["LOADING","IN_TRANSIT","DELIVERING","DELIVERED"].includes(status) ? "completed" : "current") as "completed" | "current" },
       ...checkpoints.map((cp, idx) => ({
         id: cp.id, label: cp.name, isCheckpoint: true,
         justCompleted: cp.id === completedCpId,
-        status: (cp.isCompleted ? "completed" : idx === nextCpIndex ? "current" : "pending") as "completed" | "current" | "pending",
+        status: (cp.isCompleted ? "completed" : idx === nextCpIndex && isRouteActive ? "current" : "pending") as "completed" | "current" | "pending",
       })),
       { id: "destination", label: "Kho nhập", isCheckpoint: false,
         status: (status === "DELIVERED" ? "completed" : "pending") as "completed" | "pending" },
     ];
-  }, [checkpoints, completedCount, nextCpIndex, status, completedCpId]);
+  }, [checkpoints, nextCpIndex, status, completedCpId, isRouteActive]);
 
   return (
     <div className="px-4 py-2.5 border-b" style={{ borderColor: "var(--border-color)" }}>
@@ -272,6 +397,10 @@ export default function DriverCheckpointPanel({
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [completedCpId, setCompletedCpId] = useState<string | null>(null);
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [incidentSubmitting, setIncidentSubmitting] = useState(false);
+  const [incidentSent, setIncidentSent] = useState(false);
+  const [showCargoList, setShowCargoList] = useState(false);
 
   const allCheckpointsCompleted = checkpoints.length > 0 && checkpoints.every((cp) => cp.isCompleted);
   const nextCpIndex = checkpoints.findIndex((cp) => !cp.isCompleted);
@@ -308,19 +437,49 @@ export default function DriverCheckpointPanel({
     });
   };
 
+  const handleIncidentSubmit = async (type: string, note: string) => {
+    setIncidentSubmitting(true);
+    try {
+      const incidentNote = `[SỰ CỐ - ${new Date().toLocaleTimeString("vi-VN")}] ${type}${note ? `: ${note}` : ""}`;
+      await shipmentsApi.update(shipmentId, { notes: incidentNote });
+      setIncidentSent(true);
+      setShowIncidentModal(false);
+      setToastMessage(`Đã gửi báo cáo: ${type}`);
+      setToastVisible(true);
+    } catch {
+      setError("Gửi báo cáo thất bại, vui lòng thử lại!");
+    }
+    setIncidentSubmitting(false);
+  };
+
+  // ─── Derive step statuses ───
   const getStepStatus = (stepType: string): StepStatus => {
     switch (stepType) {
-      case "loading": return status === "LOADING" || status === "IN_TRANSIT" || status === "DELIVERED" ? "completed" : status === "PENDING" ? "current" : "pending";
-      case "delivering": return status === "DELIVERED" ? "completed" : status === "IN_TRANSIT" && allCheckpointsCompleted ? "current" : "pending";
-      default: return "pending";
+      case "loading":
+        // Completed once driver has confirmed pickup (status left CONFIRMED)
+        return ["LOADING", "IN_TRANSIT", "DELIVERING", "DELIVERED"].includes(status) ? "completed"
+          : status === "CONFIRMED" ? "current" : "pending";
+      case "departing":
+        // Current when LOADING (waiting for driver to press Khởi hành), completed after IN_TRANSIT
+        return ["IN_TRANSIT", "DELIVERING", "DELIVERED"].includes(status) ? "completed"
+          : status === "LOADING" ? "current" : "pending";
+      case "delivering":
+        return status === "DELIVERED" ? "completed"
+          : (status === "IN_TRANSIT" || status === "DELIVERING") && allCheckpointsCompleted ? "current"
+          : "pending";
+      default:
+        return "pending";
     }
   };
 
   const steps: Step[] = [
-    { key: "loading", label: "Lấy hàng", description: "Chất hàng lên xe", icon: Package, status: getStepStatus("loading") },
+    { key: "loading", label: "Lấy hàng", description: "Xác nhận nhận hàng tại kho xuất", icon: Package, status: getStepStatus("loading") },
+    { key: "departing", label: "Khởi hành", description: "Xe rời kho, bắt đầu hành trình", icon: Zap, status: getStepStatus("departing") },
     ...checkpoints.map((cp, idx) => ({
       key: `cp-${cp.id}` as const, label: cp.name, description: cp.address, icon: MapPin,
-      status: cp.isCompleted ? "completed" as StepStatus : idx === nextCpIndex ? "current" as StepStatus : "pending" as StepStatus,
+      status: cp.isCompleted ? "completed" as StepStatus
+        : (idx === nextCpIndex && ["IN_TRANSIT"].includes(status)) ? "current" as StepStatus
+        : "pending" as StepStatus,
       checkpointId: cp.id,
     })),
     { key: "delivering", label: "Bàn giao", description: "Giao hàng đến kho đích", icon: Flag, status: getStepStatus("delivering") },
@@ -329,216 +488,295 @@ export default function DriverCheckpointPanel({
   const justCompletedId = completedCpId;
 
   return (
-    <div className="card overflow-hidden border-warning relative">
-      <ConfettiEffect trigger={showConfetti} checkpointName={confirmedCpName} />
+    <>
+      <IncidentModal
+        visible={showIncidentModal}
+        onClose={() => setShowIncidentModal(false)}
+        onSubmit={handleIncidentSubmit}
+        submitting={incidentSubmitting}
+      />
       <SuccessToast message={toastMessage} visible={toastVisible} onClose={() => setToastVisible(false)} />
 
-      {/* Compact Header */}
-      <div className="px-4 py-2 bg-warning">
-        <div className="flex items-center gap-2">
-          <Truck size={16} className="text-warning" />
-          <div>
-            <h3 className="font-bold text-xs uppercase tracking-wide text-warning">
-              Bảng điều khiển tài xế
-            </h3>
-            <p className="text-[10px]" style={{ color: "var(--color-warning)" }}>
-              {shipmentCode} • {getShipmentStatusLabel(status)}
-            </p>
+      <div className="card overflow-hidden border-warning relative">
+        <ConfettiEffect trigger={showConfetti} checkpointName={confirmedCpName} />
+
+        {/* Header */}
+        <div className="px-4 py-2.5 bg-warning">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Truck size={16} className="text-warning" />
+              <div>
+                <h3 className="font-bold text-xs uppercase tracking-wide text-warning">
+                  Bảng điều khiển tài xế
+                </h3>
+                <p className="text-[10px]" style={{ color: "var(--color-warning)" }}>
+                  {shipmentCode} • {getShipmentStatusLabel(status)}
+                </p>
+              </div>
+            </div>
+            {/* Incident report button */}
+            <button
+              onClick={() => setShowIncidentModal(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-all hover:scale-105"
+              style={{
+                background: incidentSent ? "#fef2f2" : "rgba(239,68,68,0.12)",
+                color: "#ef4444",
+                border: "1px solid rgba(239,68,68,0.25)",
+              }}
+              title="Báo cáo sự cố"
+            >
+              <AlertTriangle size={11} />
+              {incidentSent ? "Đã báo cáo" : "Sự cố"}
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Route Visualizer */}
-      <RouteVisualizer
-        checkpoints={checkpoints} status={status}
-        onCheckpointClick={handleRouteCheckpointClick}
-        actionLoading={actionLoading} completedCpId={completedCpId}
-      />
+        {/* Route Visualizer — chỉ hiện khi đang đi */}
+        {["IN_TRANSIT", "DELIVERING"].includes(status) && checkpoints.length > 0 && (
+          <RouteVisualizer
+            checkpoints={checkpoints} status={status}
+            onCheckpointClick={handleRouteCheckpointClick}
+            actionLoading={actionLoading} completedCpId={completedCpId}
+          />
+        )}
 
-      {/* Error */}
-      {error && (
-        <div className="mx-4 mt-1.5 p-1.5 text-[10px] rounded-lg animate-shake bg-error text-error">
-          {error}
-        </div>
-      )}
+        {/* Error */}
+        {error && (
+          <div className="mx-4 mt-1.5 p-1.5 text-[10px] rounded-lg animate-shake bg-error text-error">
+            {error}
+          </div>
+        )}
 
-      {/* Progress bar - compact */}
-      <div className="px-4 pt-2">
-        <div className="flex justify-between text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>
-          <span>Tiến độ</span>
-          <span className="font-semibold text-warning">{completedCount}/{checkpoints.length} chặng</span>
-        </div>
-        <div className="progress-bar mb-2" style={{ height: "4px" }}>
-          <div className="progress-fill" style={{
-            width: `${(completedCount / Math.max(checkpoints.length, 1)) * 100}%`,
-            transition: "width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
-          }} />
-        </div>
-      </div>
+        {/* Progress bar */}
+        {checkpoints.length > 0 && (
+          <div className="px-4 pt-2">
+            <div className="flex justify-between text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>
+              <span>Tiến độ</span>
+              <span className="font-semibold text-warning">{completedCount}/{checkpoints.length} chặng</span>
+            </div>
+            <div className="progress-bar mb-2" style={{ height: "4px" }}>
+              <div className="progress-fill" style={{
+                width: `${(completedCount / Math.max(checkpoints.length, 1)) * 100}%`,
+                transition: "width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              }} />
+            </div>
+          </div>
+        )}
 
-      {/* Compact Timeline */}
-      <div className="px-4 pb-2 space-y-0.5 max-h-[280px] overflow-y-auto driver-cp-scroll">
-        {steps.map((step, idx) => {
-          const isLast = idx === steps.length - 1;
-          const StepIcon = step.icon;
-          const isCurrent = step.status === "current";
-          const isCompleted = step.status === "completed";
-          const isCp = isCpStep(step);
-          const isCpCurrent = isCp && step.status === "current";
-          const justCompleted = isCp && isCpStep(step) && step.checkpointId === justCompletedId;
+        {/* Timeline */}
+        <div className="px-4 pb-2 space-y-0.5 max-h-[300px] overflow-y-auto driver-cp-scroll">
+          {steps.map((step, idx) => {
+            const isLast = idx === steps.length - 1;
+            const StepIcon = step.icon;
+            const isCurrent = step.status === "current";
+            const isCompleted = step.status === "completed";
+            const isCp = isCpStep(step);
+            const isCpCurrent = isCp && step.status === "current";
+            const justCompleted = isCp && isCpStep(step) && step.checkpointId === justCompletedId;
 
-          return (
-            <div key={step.key} className={`flex gap-2 ${justCompleted ? "animate-step-complete" : ""}`}>
-              <div className="flex flex-col items-center">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-500 shrink-0 ${
-                  isCompleted ? "bg-emerald-500 border-emerald-500"
-                    : isCurrent ? "bg-orange-500 border-orange-500 animate-pulse"
-                    : "bg-transparent border-gray-300"
-                } ${justCompleted ? "animate-icon-pop" : ""}`}>
-                  {isCompleted ? <CheckCircle2 size={12} className="text-white" />
-                    : isCurrent ? <StepIcon size={11} className="text-white" />
-                    : <Circle size={11} style={{ color: "var(--text-muted)" }} />}
+            return (
+              <div key={step.key} className={`flex gap-2 ${justCompleted ? "animate-step-complete" : ""}`}>
+                <div className="flex flex-col items-center">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-500 shrink-0 ${
+                    isCompleted ? "bg-emerald-500 border-emerald-500"
+                      : isCurrent ? (step.key === "departing" ? "bg-blue-500 border-blue-500 animate-pulse" : "bg-orange-500 border-orange-500 animate-pulse")
+                      : "bg-transparent border-gray-300"
+                  } ${justCompleted ? "animate-icon-pop" : ""}`}>
+                    {isCompleted ? <CheckCircle2 size={12} className="text-white" />
+                      : isCurrent ? <StepIcon size={11} className="text-white" />
+                      : <Circle size={11} style={{ color: "var(--text-muted)" }} />}
+                  </div>
+                  {!isLast && <div className="w-px h-3 my-0.5 transition-all duration-700"
+                    style={{ background: isCompleted ? "#10b981" : "var(--border-color)" }} />}
                 </div>
-                {!isLast && <div className="w-px h-3 my-0.5 transition-all duration-700"
-                  style={{ background: isCompleted ? "#10b981" : "var(--border-color)" }} />}
-              </div>
 
-              <div className={`flex-1 pb-2 transition-all duration-300 min-w-0 ${justCompleted ? "animate-slide-in" : ""}`}>
-                <div className="flex items-start justify-between gap-1">
-                  <div className="min-w-0 flex-1">
-                    <div className={`text-[11px] font-semibold transition-colors duration-300 truncate ${
-                      isCompleted ? "text-emerald-600" : isCurrent ? "text-orange-600" : "text-gray-400"
-                    } ${justCompleted ? "animate-text-pop" : ""}`}>
-                      {step.label}
-                      {justCompleted && (
-                        <span className="ml-1 inline-flex items-center text-[7px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded-full animate-badge-pop">
-                          <CheckCircle size={7} className="mr-0.5" /> OK
+                <div className={`flex-1 pb-2 transition-all duration-300 min-w-0 ${justCompleted ? "animate-slide-in" : ""}`}>
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-[11px] font-semibold transition-colors duration-300 truncate ${
+                        isCompleted ? "text-emerald-600"
+                          : isCurrent ? (step.key === "departing" ? "text-blue-600" : "text-orange-600")
+                          : "text-gray-400"
+                      } ${justCompleted ? "animate-text-pop" : ""}`}>
+                        {step.label}
+                        {justCompleted && (
+                          <span className="ml-1 inline-flex items-center text-[7px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded-full animate-badge-pop">
+                            <CheckCircle size={7} className="mr-0.5" />OK
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] truncate" style={{ color: "var(--text-muted)" }}>
+                        {step.description}
+                      </div>
+                      {isCp && isCpStep(step) && step.checkpointId && (
+                        <div className="flex items-center gap-1 text-[9px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                          <Package size={8} />
+                          {items.length} mặt hàng
+                          {checkpoints.find((cp) => cp.id === step.checkpointId)?.estimatedAt && (
+                            <><span className="mx-0.5">•</span><Clock size={8} />
+                              {new Date(checkpoints.find((cp) => cp.id === step.checkpointId)!.estimatedAt!)
+                                .toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-shrink-0">
+                      {/* Checkpoint confirm button */}
+                      {isCpCurrent && isCp && (
+                        <button disabled={actionLoading !== null}
+                          onClick={() => handleAction(`cp-${step.checkpointId}`, async () => {
+                            await shipmentsApi.update(shipmentId, {
+                              checkpoints: checkpoints.map((cp) =>
+                                cp.id === step.checkpointId ? { ...cp, isCompleted: true, arrivedAt: new Date().toISOString() } : cp
+                              ),
+                            });
+                            onCheckpointUpdate(step.checkpointId);
+                            const cp = checkpoints.find((c) => c.id === step.checkpointId);
+                            if (cp) triggerSuccess(cp.name, cp.id);
+                          })}
+                          className="btn btn-primary whitespace-nowrap"
+                          style={{ padding: "3px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px" }}>
+                          {actionLoading === `cp-${step.checkpointId}`
+                            ? <Loader2 size={10} className="animate-spin" />
+                            : <><CheckCircle size={10} /> Xác nhận</>}
+                        </button>
+                      )}
+
+                      {/* Nhận hàng button: CONFIRMED → LOADING */}
+                      {step.key === "loading" && !isCompleted && status === "CONFIRMED" && (
+                        <button disabled={actionLoading !== null}
+                          onClick={() => handleAction("loading", async () => {
+                            await shipmentsApi.update(shipmentId, { status: "LOADING" });
+                            onStatusUpdate("LOADING");
+                          })}
+                          className="btn btn-primary whitespace-nowrap"
+                          style={{ padding: "3px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px" }}>
+                          {actionLoading === "loading"
+                            ? <Loader2 size={10} className="animate-spin" />
+                            : <><ArrowRightFromLine size={10} /> Nhận hàng</>}
+                        </button>
+                      )}
+                      {step.key === "loading" && isCompleted && (
+                        <span className="text-[10px] font-medium text-emerald-600 flex items-center gap-1 animate-fade-in">
+                          <CheckCircle size={11} /> Đã lấy
+                        </span>
+                      )}
+
+                      {/* Khởi hành button: LOADING → IN_TRANSIT */}
+                      {step.key === "departing" && isCurrent && status === "LOADING" && (
+                        <button disabled={actionLoading !== null}
+                          onClick={() => handleAction("departing", async () => {
+                            await shipmentsApi.update(shipmentId, { status: "IN_TRANSIT" });
+                            onStatusUpdate("IN_TRANSIT");
+                          })}
+                          className="btn whitespace-nowrap"
+                          style={{
+                            padding: "3px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px",
+                            background: "linear-gradient(135deg,#3b82f6,#2563eb)",
+                            color: "white",
+                          }}>
+                          {actionLoading === "departing"
+                            ? <Loader2 size={10} className="animate-spin" />
+                            : <><Zap size={10} /> Khởi hành</>}
+                        </button>
+                      )}
+                      {step.key === "departing" && isCompleted && (
+                        <span className="text-[10px] font-medium text-blue-600 flex items-center gap-1 animate-fade-in">
+                          <Zap size={11} /> Đang đi
+                        </span>
+                      )}
+
+                      {/* Delivering / Hoàn thành buttons */}
+                      {step.key === "delivering" && isCurrent && (
+                        <div className="flex flex-col gap-1">
+                          <button disabled={actionLoading !== null}
+                            onClick={() => handleAction("arrived", async () => {
+                              await shipmentsApi.update(shipmentId, { status: "DELIVERING" });
+                              onStatusUpdate("DELIVERING");
+                            })}
+                            className="btn btn-primary whitespace-nowrap"
+                            style={{ padding: "3px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px" }}>
+                            {actionLoading === "arrived"
+                              ? <Loader2 size={10} className="animate-spin" />
+                              : <><ArrowLeftToLine size={10} /> Đã đến kho</>}
+                          </button>
+                          <button disabled={actionLoading !== null}
+                            onClick={() => handleAction("delivered", async () => {
+                              await shipmentsApi.update(shipmentId, { status: "DELIVERED" });
+                              onStatusUpdate("DELIVERED");
+                            })}
+                            className="inline-flex items-center"
+                            style={{ padding: "2px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px", color: "var(--color-success)", border: "1px solid var(--color-success-border)", background: "var(--color-success-bg)", cursor: "pointer" }}>
+                            {actionLoading === "delivered"
+                              ? <Loader2 size={10} className="animate-spin" />
+                              : <><Flag size={10} /> Hoàn thành</>}
+                          </button>
+                        </div>
+                      )}
+                      {step.key === "delivering" && isCompleted && (
+                        <span className="text-[10px] font-medium text-emerald-600 flex items-center gap-1 animate-fade-in">
+                          <CheckCircle size={11} /> Đã bàn giao
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] truncate" style={{ color: "var(--text-muted)" }}>
-                      {step.description}
-                    </div>
-                    {isCp && isCpStep(step) && step.checkpointId && (
-                      <div className="flex items-center gap-1 text-[9px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                        <Package size={8} />
-                        {items.length} mặt hàng
-                        {checkpoints.find((cp) => cp.id === step.checkpointId)?.estimatedAt && (
-                          <><span className="mx-0.5">•</span><Clock size={8} />
-                            {new Date(checkpoints.find((cp) => cp.id === step.checkpointId)!.estimatedAt!)
-                              .toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-shrink-0">
-                    {isCpCurrent && isCp && (
-                      <button disabled={actionLoading !== null}
-                        onClick={() => handleAction(`cp-${step.checkpointId}`, async () => {
-                          await shipmentsApi.update(shipmentId, {
-                            checkpoints: checkpoints.map((cp) =>
-                              cp.id === step.checkpointId ? { ...cp, isCompleted: true, arrivedAt: new Date().toISOString() } : cp
-                            ),
-                          });
-                          onCheckpointUpdate(step.checkpointId);
-                          const cp = checkpoints.find((c) => c.id === step.checkpointId);
-                          if (cp) triggerSuccess(cp.name, cp.id);
-                        })}
-                        className="btn btn-primary whitespace-nowrap px-4 py-2 text-xs min-h-[44px] sm:min-h-0 sm:px-3 sm:py-1.5"
-                        style={{ borderRadius: "8px", gap: "6px" }}>
-                        {actionLoading === `cp-${step.checkpointId}`
-                          ? <Loader2 size={14} className="animate-spin" />
-                          : <><CheckCircle size={14} /> Xác nhận</>}
-                      </button>
-                    )}
-                    {step.key === "loading" && !isCompleted && (
-                      <button disabled={actionLoading !== null}
-                        onClick={() => handleAction("loading", async () => {
-                          await shipmentsApi.update(shipmentId, { status: "LOADING" });
-                          onStatusUpdate("LOADING");
-                        })}
-                        className="btn btn-primary whitespace-nowrap px-4 py-2 text-xs min-h-[44px] sm:min-h-0 sm:px-3 sm:py-1.5"
-                        style={{ borderRadius: "8px", gap: "6px" }}>
-                        {actionLoading === "loading"
-                          ? <Loader2 size={14} className="animate-spin" />
-                          : <><ArrowRightFromLine size={14} /> Nhận hàng</>}
-                      </button>
-                    )}
-                    {step.key === "loading" && isCompleted && (
-                      <span className="text-[11px] font-medium text-emerald-600 flex items-center gap-1.5 animate-fade-in">
-                        <CheckCircle size={14} /> Đã lấy
-                      </span>
-                    )}
-                    {step.key === "delivering" && isCurrent && (
-                      <div className="flex flex-col gap-2">
-                        <button disabled={actionLoading !== null}
-                          onClick={() => handleAction("arrived", async () => {
-                            await shipmentsApi.update(shipmentId, { status: "DELIVERING" });
-                            onStatusUpdate("DELIVERING");
-                          })}
-                          className="btn btn-primary whitespace-nowrap px-4 py-2 text-xs min-h-[44px] sm:min-h-0 sm:px-3 sm:py-1.5"
-                          style={{ borderRadius: "8px", gap: "6px" }}>
-                          {actionLoading === "arrived"
-                            ? <Loader2 size={14} className="animate-spin" />
-                            : <><ArrowLeftToLine size={14} /> Đã đến kho</>}
-                        </button>
-                        <button disabled={actionLoading !== null}
-                          onClick={() => handleAction("delivered", async () => {
-                            await shipmentsApi.update(shipmentId, { status: "DELIVERED" });
-                            onStatusUpdate("DELIVERED");
-                          })}
-                          className="inline-flex items-center justify-center font-semibold px-4 py-2 text-xs min-h-[44px] sm:min-h-0 sm:px-3 sm:py-1.5"
-                          style={{ borderRadius: "8px", gap: "6px", color: "var(--color-success)", border: "1.5px solid var(--color-success-border)", background: "var(--color-success-bg)", cursor: "pointer" }}>
-                          {actionLoading === "delivered"
-                            ? <Loader2 size={14} className="animate-spin" />
-                            : <><Flag size={14} /> Hoàn thành</>}
-                        </button>
-                      </div>
-                    )}
-                    {step.key === "delivering" && isCompleted && (
-                      <span className="text-[10px] font-medium text-emerald-600 flex items-center gap-1 animate-fade-in">
-                        <CheckCircle size={11} /> Đã bàn giao
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {/* Current position bar - compact */}
-      {nextCpIndex >= 0 && nextCpIndex < checkpoints.length && (            <div className="px-4 py-1.5 border-t transition-colors duration-500"
-          style={{ borderColor: "var(--border-color)", background: completedCpId ? "var(--color-success-bg)" : "var(--color-warning-bg)" }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[10px]">
-              <Navigation size={11} style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }} />
-              <span style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }}>
-                <strong>Vị trí:</strong> Đang tại <strong>{checkpoints[nextCpIndex]?.name}</strong>
+        {/* Current position bar */}
+        {["IN_TRANSIT"].includes(status) && nextCpIndex >= 0 && nextCpIndex < checkpoints.length && (
+          <div className="px-4 py-1.5 border-t transition-colors duration-500"
+            style={{ borderColor: "var(--border-color)", background: completedCpId ? "var(--color-success-bg)" : "var(--color-warning-bg)" }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <Navigation size={11} style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }} />
+                <span style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }}>
+                  <strong>Hướng đến:</strong> <strong>{checkpoints[nextCpIndex]?.name}</strong>
+                </span>
+              </div>
+              <span className="text-[9px] font-medium" style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }}>
+                {nextCpIndex + 1}/{checkpoints.length}
               </span>
             </div>
-            <span className="text-[9px] font-medium" style={{ color: completedCpId ? "var(--color-success)" : "var(--color-warning)" }}>
-              {nextCpIndex + 1}/{checkpoints.length}
-            </span>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Cargo summary - compact */}
-      <div className="px-4 py-1.5 border-t flex items-center justify-between"
-        style={{ borderColor: "var(--border-color)", background: "var(--bg-input)" }}>
-        <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-secondary)" }}>
-          <Package size={11} />
-          <span>{items.length} loại</span>
-        </div>
-        <div className="flex items-center gap-1 text-[9px]" style={{ color: "var(--text-muted)" }}>
-          <Warehouse size={10} />
-          {originWarehouse?.name || "Kho 1"} → {destinationWarehouse?.name || "Kho 2"}
+        {/* Cargo summary — collapsible */}
+        <div className="border-t" style={{ borderColor: "var(--border-color)", background: "var(--bg-input)" }}>
+          <button
+            onClick={() => setShowCargoList(!showCargoList)}
+            className="w-full px-4 py-1.5 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-secondary)" }}>
+              <Package size={11} />
+              <span>{items.length} loại hàng hóa</span>
+              <span className="mx-1">•</span>
+              <Warehouse size={10} />
+              <span className="text-[9px]">
+                {originWarehouse?.name || "Kho xuất"} → {destinationWarehouse?.name || "Kho nhập"}
+              </span>
+            </div>
+            {showCargoList
+              ? <ChevronUp size={12} style={{ color: "var(--text-muted)" }} />
+              : <ChevronDown size={12} style={{ color: "var(--text-muted)" }} />}
+          </button>
+          {showCargoList && items.length > 0 && (
+            <div className="px-4 pb-2 space-y-1 max-h-32 overflow-y-auto">
+              {items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                  <span className="truncate flex-1">{item.product.name}</span>
+                  <span className="font-semibold ml-2 shrink-0">{item.quantity} {item.product.unit}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
