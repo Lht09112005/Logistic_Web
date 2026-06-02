@@ -39,6 +39,7 @@ interface Shipment {
   estimatedArrival?: string; actualArrival?: string;
   startedAt?: string; totalDistance?: number;
   notes?: string; createdAt: string;
+  rejectionReason?: string;
   originWarehouse?: { id: string; name: string; code: string } | null;
   destinationWarehouse?: { id: string; name: string; code: string } | null;
   driver?: { id: string; name: string; phone?: string };
