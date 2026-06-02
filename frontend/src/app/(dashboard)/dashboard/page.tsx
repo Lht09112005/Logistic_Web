@@ -20,7 +20,10 @@ interface RecentShipment {
   shipmentCode: string;
   status: string;
   destinationAddress: string;
+  originAddress: string;
   estimatedArrival?: string;
+  actualArrival?: string;
+  checkpoints?: { id: string; isCompleted: boolean }[];
   driver?: { name: string; phone?: string } | null;
 }
 
