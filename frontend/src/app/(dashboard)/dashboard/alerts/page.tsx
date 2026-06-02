@@ -135,10 +135,10 @@ function AlertsPage() {
           <div className="divide-y" style={{ borderColor: "var(--border-light)" }}>
             {alerts.map((alert, i) => {
               const severityColor: Record<string, string> = {
-                CRITICAL: "#ef4444", HIGH: "#f97316", MEDIUM: "#f59e0b", LOW: "#6366f1",
+                CRITICAL: "--color-error", HIGH: "--color-warning", MEDIUM: "--color-warning", LOW: "--color-info",
               };
-              const severityBg: Record<string, string> = {
-                CRITICAL: "#fef2f2", HIGH: "#fff7ed", MEDIUM: "#fffbeb", LOW: "#eef2ff",
+              const severityBgVar: Record<string, string> = {
+                CRITICAL: "var(--color-error-bg)", HIGH: "var(--color-warning-bg)", MEDIUM: "var(--color-warning-bg)", LOW: "var(--color-info-bg)",
               };
               const AlertIcon = alert.severity === "CRITICAL" ? XCircle : AlertTriangle;
 
@@ -148,15 +148,15 @@ function AlertsPage() {
                   className="p-4 lg:p-6 flex items-start gap-4 hover:bg-[var(--bg-input)] transition-all duration-200 animate-fade-in border-l-4"
                   style={{
                     animationDelay: `${i * 40}ms`,
-                    borderLeftColor: severityColor[alert.severity],
-                    background: alert.isResolved ? undefined : `${severityBg[alert.severity]}40`,
+                    borderLeftColor: `var(${severityColor[alert.severity]})`,
+                    background: alert.isResolved ? undefined : severityBgVar[alert.severity],
                   }}
                 >
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
-                    style={{ background: `${severityColor[alert.severity]}18` }}
+                    style={{ background: severityBgVar[alert.severity] }}
                   >
-                    <AlertIcon size={20} style={{ color: severityColor[alert.severity] }} />
+                    <AlertIcon size={20} style={{ color: `var(${severityColor[alert.severity]})` }} />
                   </div>
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -175,7 +175,7 @@ function AlertsPage() {
                       {alert.warehouse && (
                         <span
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border"
-                          style={{ background: "#f5f3ff", color: "#6d28d9", borderColor: "#e0d7fc" }}
+                          style={{ background: "var(--color-info-bg)", color: "var(--color-info)", borderColor: "var(--color-info-border)" }}
                         >
                           {alert.warehouse.name} ({alert.warehouse.code})
                         </span>
@@ -189,7 +189,7 @@ function AlertsPage() {
                       <span>Tối thiểu: {alert.threshold}</span>
                       <span className="opacity-40">•</span>
                       <span>
-                        Hiện tại: <b style={{ color: alert.currentQty === 0 ? "#ef4444" : "#f97316" }}>{alert.currentQty}</b>
+                        Hiện tại: <b style={{ color: alert.currentQty === 0 ? "var(--color-error)" : "var(--color-warning)" }}>{alert.currentQty}</b>
                       </span>
                     </div>
                   </div>
