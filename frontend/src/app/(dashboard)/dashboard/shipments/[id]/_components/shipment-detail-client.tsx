@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MapPin, Clock, Truck, User, Phone,
   CheckCircle, Circle, Package, Navigation,
-  Gauge, Activity, ThumbsUp, Flag, AlertCircle
+  Gauge, Activity, ThumbsUp, Flag, AlertCircle, Info
 } from "lucide-react";
 import {
   formatDate, formatRelative, getShipmentStatusLabel, getShipmentStatusBadge,
@@ -281,6 +281,19 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
               destinationWarehouse={shipment.destinationWarehouse}
               onStatusUpdate={handleStatusUpdate}
             />
+          )}
+
+          {/* ── SỰ CỐ / GHI CHÚ ── */}
+          {shipment.notes && (
+            <div className="card p-5 border-l-4" style={{ borderLeftColor: shipment.notes.includes("[SỰ CỐ") ? "#ef4444" : "#f97316" }}>
+              <h3 className="font-bold text-sm uppercase tracking-wide mb-3 flex items-center gap-1.5" style={{ color: shipment.notes.includes("[SỰ CỐ") ? "#ef4444" : "var(--text-muted)" }}>
+                {shipment.notes.includes("[SỰ CỐ") ? <AlertCircle size={14} /> : <Info size={14} />}
+                {shipment.notes.includes("[SỰ CỐ") ? "Báo cáo sự cố" : "Ghi chú chuyến đi"}
+              </h3>
+              <div className="p-3 rounded-xl whitespace-pre-wrap text-sm" style={{ background: shipment.notes.includes("[SỰ CỐ") ? "#fef2f2" : "var(--bg-input)", color: shipment.notes.includes("[SỰ CỐ") ? "#991b1b" : "var(--text-primary)" }}>
+                {shipment.notes}
+              </div>
+            </div>
           )}
 
           {/* ── TÀI XẾ & THÔNG SỐ VẬN CHUYỂN (non-DRIVER) ── */}
