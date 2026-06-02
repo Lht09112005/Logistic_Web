@@ -446,11 +446,11 @@ export default function DriverCheckpointPanel({
                           const cp = checkpoints.find((c) => c.id === step.checkpointId);
                           if (cp) triggerSuccess(cp.name, cp.id);
                         })}
-                        className="btn btn-primary whitespace-nowrap"
-                        style={{ padding: "3px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px" }}>
+                        className="btn btn-primary whitespace-nowrap px-4 py-2 text-xs min-h-[44px] sm:min-h-0 sm:px-3 sm:py-1.5"
+                        style={{ borderRadius: "8px", gap: "6px" }}>
                         {actionLoading === `cp-${step.checkpointId}`
-                          ? <Loader2 size={10} className="animate-spin" />
-                          : <><CheckCircle size={10} /> Xác nhận</>}
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <><CheckCircle size={14} /> Xác nhận</>}
                       </button>
                     )}
                     {step.key === "loading" && !isCompleted && (
@@ -459,41 +459,41 @@ export default function DriverCheckpointPanel({
                           await shipmentsApi.update(shipmentId, { status: "LOADING" });
                           onStatusUpdate("LOADING");
                         })}
-                        className="btn btn-primary whitespace-nowrap"
-                        style={{ padding: "3px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px" }}>
+                        className="btn btn-primary whitespace-nowrap px-4 py-2 text-xs min-h-[44px] sm:min-h-0 sm:px-3 sm:py-1.5"
+                        style={{ borderRadius: "8px", gap: "6px" }}>
                         {actionLoading === "loading"
-                          ? <Loader2 size={10} className="animate-spin" />
-                          : <><ArrowRightFromLine size={10} /> Nhận hàng</>}
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <><ArrowRightFromLine size={14} /> Nhận hàng</>}
                       </button>
                     )}
                     {step.key === "loading" && isCompleted && (
-                      <span className="text-[10px] font-medium text-emerald-600 flex items-center gap-1 animate-fade-in">
-                        <CheckCircle size={11} /> Đã lấy
+                      <span className="text-[11px] font-medium text-emerald-600 flex items-center gap-1.5 animate-fade-in">
+                        <CheckCircle size={14} /> Đã lấy
                       </span>
                     )}
                     {step.key === "delivering" && isCurrent && (
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-2">
                         <button disabled={actionLoading !== null}
                           onClick={() => handleAction("arrived", async () => {
                             await shipmentsApi.update(shipmentId, { status: "DELIVERING" });
                             onStatusUpdate("DELIVERING");
                           })}
-                          className="btn btn-primary whitespace-nowrap"
-                          style={{ padding: "3px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px" }}>
+                          className="btn btn-primary whitespace-nowrap px-4 py-2 text-xs min-h-[44px] sm:min-h-0 sm:px-3 sm:py-1.5"
+                          style={{ borderRadius: "8px", gap: "6px" }}>
                           {actionLoading === "arrived"
-                            ? <Loader2 size={10} className="animate-spin" />
-                            : <><ArrowLeftToLine size={10} /> Đã đến kho</>}
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <><ArrowLeftToLine size={14} /> Đã đến kho</>}
                         </button>
                         <button disabled={actionLoading !== null}
                           onClick={() => handleAction("delivered", async () => {
                             await shipmentsApi.update(shipmentId, { status: "DELIVERED" });
                             onStatusUpdate("DELIVERED");
                           })}
-                          className="inline-flex items-center"
-                          style={{ padding: "2px 8px", fontSize: "9px", borderRadius: "6px", gap: "3px", color: "var(--color-success)", border: "1px solid var(--color-success-border)", background: "var(--color-success-bg)", cursor: "pointer" }}>
+                          className="inline-flex items-center justify-center font-semibold px-4 py-2 text-xs min-h-[44px] sm:min-h-0 sm:px-3 sm:py-1.5"
+                          style={{ borderRadius: "8px", gap: "6px", color: "var(--color-success)", border: "1.5px solid var(--color-success-border)", background: "var(--color-success-bg)", cursor: "pointer" }}>
                           {actionLoading === "delivered"
-                            ? <Loader2 size={10} className="animate-spin" />
-                            : <><Flag size={10} /> Hoàn thành</>}
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <><Flag size={14} /> Hoàn thành</>}
                         </button>
                       </div>
                     )}
