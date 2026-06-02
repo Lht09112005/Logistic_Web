@@ -46,6 +46,7 @@ const adminNav = [
     group: "Vận hành",
     items: [
       { href: "/dashboard/warehouse", icon: Warehouse, label: "Quản lý kho" },
+      { href: "/dashboard/inventory", icon: Package, label: "Hàng hóa" },
       { href: "/dashboard/alerts", icon: Bell, label: "Cảnh báo", badge: "alerts" },
     ],
   },
@@ -520,11 +521,15 @@ export function Sidebar() {
   const { user, logout, isDriver } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  // Detect mobile for auto-close sidebar on nav click
+  // Detect mobile for auto-close sidebar on nav click & auto-close on mount
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px)");
     setIsMobile(mq.matches);
+    // Auto-close sidebar on mobile at initial load (fix: sidebar covers screen on mobile)
+    if (mq.matches && sidebarOpen) {
+      toggleSidebar();
+    }
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);

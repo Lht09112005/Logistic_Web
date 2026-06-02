@@ -24,7 +24,18 @@ interface RecentShipment {
   driver?: { name: string; phone?: string } | null;
 }
 
+import { auth } from "@/auth";
+import DashboardDriver from "./_components/dashboard-driver";
+
 export default async function DashboardPage() {
+  // Get session to check role
+  const session = await auth();
+  const isDriver = (session?.user as any)?.role === 'DRIVER';
+
+  if (isDriver) {
+    return <DashboardDriver />;
+  }
+
   // SSR: Fetch fresh data per-request (attaches user's auth token via server-api.ts)
   const defaultStats: ShipmentStats = { total: 0, inTransit: 0, delivered: 0, pending: 0, failed: 0 };
 
