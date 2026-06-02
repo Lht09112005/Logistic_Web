@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -119,7 +119,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      <Sidebar />
+      <Suspense fallback={<div className="w-64 h-full hidden lg:block border-r" style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-color)" }} />}>
+        <Sidebar />
+      </Suspense>
 
       {/* Main content — mobile: sidebar là overlay nên không margin, desktop: margin theo sidebar */}
       <div
