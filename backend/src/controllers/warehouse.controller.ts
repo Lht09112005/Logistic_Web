@@ -35,6 +35,7 @@ export const getWarehouses = async (req: AuthRequest, res: Response): Promise<vo
       orderBy: { createdAt: 'desc' },
       include: {
         manager: { select: { id: true, name: true, email: true } },
+        staff: { select: { id: true, name: true, email: true } },
         _count: { select: { inventory: true, zones: true } },
       },
     })
@@ -52,6 +53,7 @@ export const getWarehouseById = async (req: AuthRequest, res: Response): Promise
       where: { id: req.params.id },
       include: {
         manager: { select: { id: true, name: true, email: true, phone: true } },
+        staff: { select: { id: true, name: true, email: true, phone: true } },
         zones: true,
         inventory: {
           take: 20,
@@ -112,6 +114,7 @@ export const createWarehouse = async (req: Request, res: Response): Promise<void
       },
       include: {
         manager: { select: { id: true, name: true } },
+        staff: { select: { id: true, name: true } },
         zones: true,
       },
     })
@@ -132,7 +135,11 @@ export const updateWarehouse = async (req: Request, res: Response): Promise<void
     const warehouse = await prisma.warehouse.update({
       where: { id: req.params.id },
       data: req.body,
-      include: { manager: { select: { id: true, name: true } } },
+      include: {
+        manager: { select: { id: true, name: true, email: true } },
+        staff: { select: { id: true, name: true, email: true } },
+        _count: { select: { inventory: true, zones: true } },
+      },
     })
     sendSuccess(res, warehouse, 'Cập nhật kho thành công')
   } catch (error: unknown) {

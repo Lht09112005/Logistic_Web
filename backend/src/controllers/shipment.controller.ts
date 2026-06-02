@@ -323,15 +323,25 @@ export const receiveShipment = async (req: AuthRequest, res: Response): Promise<
           productId: item.productId,
           warehouseId: shipment.destinationWarehouseId!,
         },
+        include: { product: true },
       })
 
       if (existingInventory) {
+        const newQty = existingInventory.quantity + item.quantity
         const updated = await prisma.inventoryItem.update({
           where: { id: existingInventory.id },
-          data: { quantity: existingInventory.quantity + item.quantity },
+          data: { quantity: newQty },
         })
         inventoryResults.push(updated)
+        
+        if (newQty >= existingInventory.product.minStockLevel) {
+          await prisma.stockAlert.updateMany({
+            where: { productId: item.productId, warehouseId: shipment.destinationWarehouseId!, isResolved: false },
+            data: { isResolved: true, resolvedAt: new Date() },
+          })
+        }
       } else {
+        const product = await prisma.product.findUnique({ where: { id: item.productId } })
         const created = await prisma.inventoryItem.create({
           data: {
             productId: item.productId,
@@ -340,6 +350,13 @@ export const receiveShipment = async (req: AuthRequest, res: Response): Promise<
           },
         })
         inventoryResults.push(created)
+        
+        if (product && item.quantity >= product.minStockLevel) {
+          await prisma.stockAlert.updateMany({
+            where: { productId: item.productId, warehouseId: shipment.destinationWarehouseId!, isResolved: false },
+            data: { isResolved: true, resolvedAt: new Date() },
+          })
+        }
       }
     }
 
