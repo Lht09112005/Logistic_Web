@@ -180,30 +180,47 @@ export const updateInventory = async (req: AuthRequest, res: Response): Promise<
       },
     })
 
-    // Check for low stock and create alerts
-    if (quantity < current.product.minStockLevel) {
+    // Check for alerts based on new quantity
+    const existingAlerts = await prisma.stockAlert.findMany({
+      where: { productId: current.productId, warehouseId: current.warehouseId, isResolved: false },
+    })
+
+    if (quantity >= current.product.minStockLevel) {
+      // Resolve any existing alerts if stock is healthy
+      if (existingAlerts.length > 0) {
+        await prisma.stockAlert.updateMany({
+          where: { id: { in: existingAlerts.map(a => a.id) } },
+          data: { isResolved: true, resolvedAt: new Date() },
+        })
+      }
+    } else {
+      // Stock is low or out, create or update alert
       const severity = quantity === 0 ? 'CRITICAL' : quantity < current.product.minStockLevel / 2 ? 'HIGH' : 'MEDIUM'
       const alertType = quantity === 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK'
+      const warehouseName = current.warehouse?.name || 'Unknown'
+      const message = `${current.product.name} ${quantity === 0 ? 'đã hết hàng' : 'sắp hết hàng'} tại ${warehouseName} (còn ${quantity} ${current.product.unit})`
 
-      // Find existing unresolved alert for this product+warehouse combination
-      const existingAlert = await prisma.stockAlert.findFirst({
-        where: { productId: current.productId, warehouseId: current.warehouseId, isResolved: false, alertType },
-      })
-
+      const existingAlert = existingAlerts[0]
       if (existingAlert) {
         await prisma.stockAlert.update({
           where: { id: existingAlert.id },
-          data: { currentQty: quantity, severity, updatedAt: new Date() },
+          data: { currentQty: quantity, severity, alertType, message, updatedAt: new Date() },
         })
+        // Resolve any duplicate alerts
+        if (existingAlerts.length > 1) {
+          await prisma.stockAlert.updateMany({
+            where: { id: { in: existingAlerts.slice(1).map(a => a.id) } },
+            data: { isResolved: true, resolvedAt: new Date() },
+          })
+        }
       } else {
-        const warehouseName = current.warehouse?.name || 'Unknown'
         await prisma.stockAlert.create({
           data: {
             productId: current.productId,
             warehouseId: current.warehouseId,
             alertType,
             severity,
-            message: `${current.product.name} ${quantity === 0 ? 'đã hết hàng' : 'sắp hết hàng'} tại ${warehouseName} (còn ${quantity} ${current.product.unit})`,
+            message,
             threshold: current.product.minStockLevel,
             currentQty: quantity,
           },

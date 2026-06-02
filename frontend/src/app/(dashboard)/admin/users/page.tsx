@@ -37,6 +37,7 @@ interface WarehouseOption {
   code: string;
   city: string;
   manager: { id: string; name: string } | null;
+  staff: { id: string; name: string } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -77,7 +78,8 @@ function AdminUsersContent() {
   const [form, setForm] = useState<UserForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: "DELETE" | "TOGGLE_ACTIVE"; user: User } | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   // Warehouse assignment state
   const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
@@ -141,9 +143,9 @@ function AdminUsersContent() {
       const list = (res.data.data || []) as WarehouseOption[];
       setWarehouses(list);
 
-      // Pre-select the warehouse managed by the user being edited
+      // Pre-select the warehouse managed/staffed by the user being edited
       if (editUser) {
-        const wh = list.find((w) => w.manager?.id === editUser.id);
+        const wh = list.find((w) => w.manager?.id === editUser.id || w.staff?.id === editUser.id);
         setSelectedWarehouseId(wh?.id || "");
       }
     }).catch(() => {}).finally(() => {
@@ -186,26 +188,29 @@ function AdminUsersContent() {
         userId = res.data.data.id;
       }
 
-      // Handle warehouse assignment for MANAGER role
-      if (form.role === "MANAGER") {
-        const currentlyManagedWh = editingUser
-          ? warehouses.find((w) => w.manager?.id === editingUser.id)
+      // Handle warehouse assignment for MANAGER or STAFF role
+      if (form.role === "MANAGER" || form.role === "STAFF") {
+        const currentlyAssignedWh = editingUser
+          ? warehouses.find((w) => w.manager?.id === editingUser.id || w.staff?.id === editingUser.id)
           : null;
-        const oldWarehouseId = currentlyManagedWh?.id || "";
+        const oldWarehouseId = currentlyAssignedWh?.id || "";
 
         if (selectedWarehouseId && selectedWarehouseId !== oldWarehouseId) {
           // Unassign previous warehouse if the user had one
           if (oldWarehouseId) {
-            await warehousesApi.update(oldWarehouseId, { managerId: null }).catch(() => {});
+            const updateData = currentlyAssignedWh?.manager?.id === editingUser?.id ? { managerId: null } : { staffId: null };
+            await warehousesApi.update(oldWarehouseId, updateData).catch(() => {});
           }
           // Assign the selected warehouse to this user
-          await warehousesApi.update(selectedWarehouseId, { managerId: userId });
+          const newUpdateData = form.role === "MANAGER" ? { managerId: userId } : { staffId: userId };
+          await warehousesApi.update(selectedWarehouseId, newUpdateData);
         }
       } else if (editingUser) {
-        // Unassign warehouse if role changed away from MANAGER
-        const oldWh = warehouses.find((w) => w.manager?.id === editingUser.id);
+        // Unassign warehouse if role changed away from MANAGER/STAFF
+        const oldWh = warehouses.find((w) => w.manager?.id === editingUser.id || w.staff?.id === editingUser.id);
         if (oldWh) {
-          await warehousesApi.update(oldWh.id, { managerId: null }).catch(() => {});
+          const updateData = oldWh.manager?.id === editingUser.id ? { managerId: null } : { staffId: null };
+          await warehousesApi.update(oldWh.id, updateData).catch(() => {});
         }
       }
 
@@ -218,22 +223,24 @@ function AdminUsersContent() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await usersApi.delete(id);
-      setDeleteConfirm(null);
-      fetchUsers();
-    } catch {
-      // ignore
-    }
-  };
+  const handleDeleteClick = (user: User) => setConfirmAction({ type: "DELETE", user });
+  const handleToggleActiveClick = (user: User) => setConfirmAction({ type: "TOGGLE_ACTIVE", user });
 
-  const handleToggleActive = async (user: User) => {
+  const executeConfirmAction = async () => {
+    if (!confirmAction) return;
+    setConfirming(true);
     try {
-      await usersApi.update(user.id, { isActive: !user.isActive });
+      if (confirmAction.type === "DELETE") {
+        await usersApi.delete(confirmAction.user.id);
+      } else {
+        await usersApi.update(confirmAction.user.id, { isActive: !confirmAction.user.isActive });
+      }
       fetchUsers();
     } catch {
       // ignore
+    } finally {
+      setConfirming(false);
+      setConfirmAction(null);
     }
   };
 
@@ -383,38 +390,19 @@ function AdminUsersContent() {
                           <Edit3 size={15} />
                         </button>
                         <button
-                          onClick={() => handleToggleActive(user)}
+                          onClick={() => handleToggleActiveClick(user)}
                           className="btn-icon"
                           title={user.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
                         >
                           {user.isActive ? <UserX size={15} style={{ color: "#ef4444" }} /> : <UserCheck size={15} style={{ color: "#10b981" }} />}
                         </button>
-                        {deleteConfirm === user.id ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleDelete(user.id)}
-                              className="btn btn-danger btn-sm"
-                              style={{ padding: "4px 8px", fontSize: "11px" }}
-                            >
-                              Xóa
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(null)}
-                              className="btn btn-ghost btn-sm"
-                              style={{ padding: "4px 8px", fontSize: "11px" }}
-                            >
-                              Hủy
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirm(user.id)}
-                            className="btn-icon"
-                            title="Xóa"
-                          >
-                            <Trash2 size={15} style={{ color: "var(--text-muted)" }} />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteClick(user)}
+                          className="btn-icon"
+                          title="Xóa"
+                        >
+                          <Trash2 size={15} style={{ color: "var(--text-muted)" }} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -544,18 +532,18 @@ function AdminUsersContent() {
                 />
               </div>
 
-              {/* Warehouse assignment (only for MANAGER) */}
-              {form.role === "MANAGER" && (
+              {/* Warehouse assignment (only for MANAGER and STAFF) */}
+              {(form.role === "MANAGER" || form.role === "STAFF") && (
                 <div className="p-4 rounded-xl space-y-3" style={{ background: "var(--bg-input)", border: "1px solid var(--border-color)" }}>
                   <div className="flex items-center gap-2">
                     <Warehouse size={16} style={{ color: "#8b5cf6" }} />
                     <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                      Phân quyền quản lý kho
+                      Phân quyền kho
                     </span>
                   </div>
                   <div>
                     <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                      Gán kho cho người quản lý
+                      Gán kho cho {form.role === "MANAGER" ? "người quản lý" : "nhân viên"}
                     </label>
                     {warehousesLoading ? (
                       <div className="input-base text-sm flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
@@ -572,7 +560,7 @@ function AdminUsersContent() {
                         {warehouses.map((wh) => (
                           <option key={wh.id} value={wh.id}>
                             {wh.name} ({wh.code}) — {wh.city}
-                            {wh.manager ? ` (${wh.manager.name})` : " (Chưa có QL)"}
+                            {form.role === "MANAGER" ? (wh.manager ? ` (QL: ${wh.manager.name})` : " (Chưa có QL)") : (wh.staff ? ` (NV: ${wh.staff.name})` : " (Chưa có NV)")}
                           </option>
                         ))}
                       </select>
@@ -580,7 +568,7 @@ function AdminUsersContent() {
                     {selectedWarehouseId && (() => {
                       const wh = warehouses.find((w) => w.id === selectedWarehouseId);
                       if (!wh) return null;
-                      if (wh.manager && wh.manager.id !== editingUser?.id) {
+                      if (form.role === "MANAGER" && wh.manager && wh.manager.id !== editingUser?.id) {
                         return (
                           <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#f59e0b" }}>
                             <AlertTriangle size={10} />
@@ -588,10 +576,25 @@ function AdminUsersContent() {
                           </p>
                         );
                       }
-                      if (!wh.manager) {
+                      if (form.role === "STAFF" && wh.staff && wh.staff.id !== editingUser?.id) {
+                        return (
+                          <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#f59e0b" }}>
+                            <AlertTriangle size={10} />
+                            Kho này đang có nhân viên <strong>{wh.staff.name}</strong>. Hành động này sẽ thay thế nhân viên.
+                          </p>
+                        );
+                      }
+                      if (form.role === "MANAGER" && !wh.manager) {
                         return (
                           <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#059669" }}>
                             Kho hiện chưa có người quản lý. Sẽ gán quyền cho người dùng này.
+                          </p>
+                        );
+                      }
+                      if (form.role === "STAFF" && !wh.staff) {
+                        return (
+                          <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#059669" }}>
+                            Kho hiện chưa có nhân viên. Sẽ gán quyền cho người dùng này.
                           </p>
                         );
                       }
@@ -613,6 +616,46 @@ function AdminUsersContent() {
                 className="btn btn-primary flex-1"
               >
                 {saving ? "Đang lưu..." : editingUser ? "Cập nhật" : "Tạo người dùng"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Modal */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmAction(null)} />
+          <div className="relative w-full max-w-sm card p-6 animate-scale-in">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ background: confirmAction.type === "DELETE" ? "#fef2f2" : "#fff7ed", color: confirmAction.type === "DELETE" ? "#ef4444" : "#f97316" }}
+              >
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                  {confirmAction.type === "DELETE" ? "Xác nhận xóa" : confirmAction.user.isActive ? "Xác nhận khóa" : "Xác nhận kích hoạt"}
+                </h3>
+                <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+                  {confirmAction.type === "DELETE" 
+                    ? `Bạn có chắc chắn muốn xóa người dùng "${confirmAction.user.name}"? Hành động này không thể hoàn tác.`
+                    : `Bạn có chắc chắn muốn ${confirmAction.user.isActive ? "khóa" : "kích hoạt"} tài khoản của "${confirmAction.user.name}"?`}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6 pt-4 border-t" style={{ borderColor: "var(--border-light)" }}>
+              <button onClick={() => setConfirmAction(null)} className="btn btn-secondary flex-1">
+                Hủy
+              </button>
+              <button
+                onClick={executeConfirmAction}
+                disabled={confirming}
+                className="btn flex-1"
+                style={confirmAction.type === "DELETE" ? { background: "#ef4444", color: "white" } : { background: "#f97316", color: "white" }}
+              >
+                {confirming ? "Đang xử lý..." : "Xác nhận"}
               </button>
             </div>
           </div>

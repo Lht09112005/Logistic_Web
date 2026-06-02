@@ -282,7 +282,7 @@ export default function InventoryClient(props: Props) {
                     <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
                       <span>Tồn kho</span>
                       <span className="font-bold" style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-primary)" }}>
-                        {item.quantity} / {item.product.minStockLevel * 2} {item.product.unit}
+                        {item.quantity} {item.product.unit}
                       </span>
                     </div>
                     <div className="progress-bar">
