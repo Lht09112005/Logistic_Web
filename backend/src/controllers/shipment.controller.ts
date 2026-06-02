@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { prisma } from '../config/database'
 import { sendSuccess, sendError } from '../utils/response'
 import { AuthRequest } from '../middleware/auth.middleware'
+import { io } from '../index'
 
 // GET /api/shipments
 export const getShipments = async (req: Request, res: Response): Promise<void> => {
@@ -32,10 +33,19 @@ export const getShipments = async (req: Request, res: Response): Promise<void> =
       ]
     }
 
-    // Role-based warehouse filtering
+    // Role-based filtering
     const userRole = (req as AuthRequest).user?.role
     const userId = (req as AuthRequest).user?.userId
-    if (userRole === 'MANAGER' || userRole === 'STAFF') {
+
+    if (userRole === 'DRIVER') {
+      // DRIVER can only see shipments assigned to them
+      if (!userId) {
+        where.id = 'none'
+      } else {
+        where.driverId = userId
+      }
+      if (searchOr) where.OR = searchOr
+    } else if (userRole === 'MANAGER' || userRole === 'STAFF') {
       const roleField = userRole === 'MANAGER' ? 'managerId' : 'staffId'
       const whIds = (await prisma.warehouse.findMany({
         where: { [roleField]: userId },
@@ -106,6 +116,13 @@ export const getShipmentById = async (req: Request, res: Response): Promise<void
 
     if (!shipment) {
       sendError(res, 'Không tìm thấy vận đơn', 404)
+      return
+    }
+
+    // DRIVER can only view their own shipments
+    const authReq = req as AuthRequest
+    if (authReq.user?.role === 'DRIVER' && shipment.driverId !== authReq.user.userId) {
+      sendError(res, 'Bạn không có quyền xem vận đơn này', 403)
       return
     }
 
@@ -185,6 +202,31 @@ export const createShipment = async (req: AuthRequest, res: Response): Promise<v
 export const updateShipment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { status, currentLat, currentLng, vehicleNumber, estimatedArrival, notes, checkpoints } = req.body
+    const userId = req.user!.userId
+    const userRole = req.user!.role
+
+    // Fetch existing shipment to enforce access rules
+    const existing = await prisma.shipment.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        driverId: true,
+        destinationWarehouseId: true,
+        shipmentCode: true,
+        destinationWarehouse: { select: { id: true, name: true, managerId: true, staffId: true } },
+      },
+    })
+
+    if (!existing) {
+      sendError(res, 'Không tìm thấy vận đơn', 404)
+      return
+    }
+
+    // DRIVER can only update their own assigned shipment
+    if (userRole === 'DRIVER' && existing.driverId !== userId) {
+      sendError(res, 'Bạn không có quyền cập nhật vận đơn này', 403)
+      return
+    }
 
     const updateData: Record<string, unknown> = {}
     if (status) updateData.status = status
@@ -212,6 +254,7 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
     if (status === 'DELIVERED') updateData.actualArrival = new Date()
 
     // Handle checkpoint updates (driver confirms arrival at a checkpoint)
+    const completedCheckpoints: { id: string; name: string }[] = []
     if (checkpoints && Array.isArray(checkpoints)) {
       for (const cp of checkpoints) {
         if (cp.id) {
@@ -223,10 +266,13 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
             updateCpData.arrivedAt = new Date()
           }
           if (Object.keys(updateCpData).length > 0) {
-            await prisma.shipmentCheckpoint.update({
+            const updatedCp = await prisma.shipmentCheckpoint.update({
               where: { id: cp.id },
               data: updateCpData,
             })
+            if (cp.isCompleted) {
+              completedCheckpoints.push({ id: updatedCp.id, name: updatedCp.name })
+            }
           }
         }
       }
@@ -240,6 +286,36 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
         checkpoints: { orderBy: { sequence: 'asc' } },
       },
     })
+
+    // Emit realtime notifications for completed checkpoints
+    // Notifies MANAGER and STAFF of the destination warehouse
+    if (completedCheckpoints.length > 0 && existing.destinationWarehouseId) {
+      for (const cp of completedCheckpoints) {
+        const payload = {
+          shipmentId: existing.id,
+          shipmentCode: existing.shipmentCode,
+          checkpointId: cp.id,
+          checkpointName: cp.name,
+          destinationWarehouseId: existing.destinationWarehouseId,
+          destinationWarehouseName: existing.destinationWarehouse?.name,
+          timestamp: new Date().toISOString(),
+        }
+        // Broadcast to shipment room (anyone tracking this shipment)
+        io.to(`shipment:${existing.id}`).emit('checkpoint:completed', payload)
+        // Broadcast globally so STAFF/MANAGER of destination warehouse can react
+        io.emit('shipment:checkpoint_update', payload)
+      }
+    }
+
+    // Also broadcast position update
+    if (currentLat !== undefined && currentLng !== undefined) {
+      io.emit('shipment:position', {
+        shipmentId: existing.id,
+        latitude: currentLat,
+        longitude: currentLng,
+        status,
+      })
+    }
 
     sendSuccess(res, shipment, 'Cập nhật vận đơn thành công')
   } catch (error: unknown) {
