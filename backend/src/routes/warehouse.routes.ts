@@ -9,10 +9,13 @@ const router = Router()
 
 router.use(authenticate)
 
-router.get('/', getWarehouses)
-router.get('/:id', getWarehouseById)
-router.post('/', authorize('ADMIN', 'MANAGER'), createWarehouse)
+// DRIVER cannot access warehouse management at all
+router.get('/', authorize('ADMIN', 'MANAGER', 'STAFF'), getWarehouses)
+router.get('/:id', authorize('ADMIN', 'MANAGER', 'STAFF'), getWarehouseById)
+
+// Only ADMIN can create/delete warehouses
+router.post('/', authorize('ADMIN'), createWarehouse)
 router.put('/:id', authorize('ADMIN', 'MANAGER'), updateWarehouse)
-router.delete('/:id', authorize('ADMIN', 'MANAGER'), deleteWarehouse)
+router.delete('/:id', authorize('ADMIN'), deleteWarehouse)
 
 export default router

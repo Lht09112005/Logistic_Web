@@ -9,9 +9,10 @@ const router = Router()
 
 router.use(authenticate)
 
-router.get('/', getInventory)
-router.get('/alerts', getAlerts)
-router.get('/:id', getInventoryById)
+// DRIVER cannot access inventory at all
+router.get('/', authorize('ADMIN', 'MANAGER', 'STAFF'), getInventory)
+router.get('/alerts', authorize('ADMIN', 'MANAGER', 'STAFF'), getAlerts)
+router.get('/:id', authorize('ADMIN', 'MANAGER', 'STAFF'), getInventoryById)
 router.post('/', authorize('ADMIN', 'MANAGER', 'STAFF'), createInventory)
 router.put('/alerts/:id/resolve', authorize('ADMIN', 'MANAGER', 'STAFF'), resolveAlert)
 router.put('/:id', authorize('ADMIN', 'MANAGER', 'STAFF'), updateInventory)
