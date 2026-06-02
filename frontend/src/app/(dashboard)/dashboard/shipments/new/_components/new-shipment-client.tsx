@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Truck, ArrowLeft, Plus, Trash2, MapPin, Calendar, Clipboard, User, Package, AlertCircle, Shield, Warehouse
+  Truck, ArrowLeft, Plus, Trash2, MapPin, Calendar, Clipboard, User, Package, AlertCircle, Shield, Warehouse, Navigation
 } from "lucide-react";
 import { createShipmentAction } from "@/app/actions/shipments";
 import { RoleGuard } from "@/components/auth/role-guard";
 import { useAuth } from "@/context/auth-context";
+import { findShortestRoute, RouteNode } from "@/lib/route-optimizer";
 
 interface Warehouse {
   id: string; name: string; code: string; address: string; city: string;
@@ -96,6 +97,62 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
   };
   const updateCheckpoint = (index: number, fields: Partial<typeof checkpoints[0]>) => {
     setCheckpoints(checkpoints.map((cp, i) => i === index ? { ...cp, ...fields } : cp));
+  };
+
+  const optimizeRoute = () => {
+    if (!originWarehouseId || !destinationWarehouseId) {
+      setError("Vui lòng chọn đầy đủ kho xuất phát và kho điểm đến trước khi tối ưu lộ trình!");
+      return;
+    }
+    const originWH = warehouses.find(w => w.id === originWarehouseId);
+    const destWH = warehouses.find(w => w.id === destinationWarehouseId);
+    if (!originWH?.latitude || !destWH?.latitude) {
+      setError("Kho được chọn chưa có tọa độ (vĩ độ/kinh độ) để tối ưu!");
+      return;
+    }
+
+    // Convert to RouteNode
+    const originNode: RouteNode = { id: originWH.id, lat: originWH.latitude, lng: originWH.longitude! };
+    const destNode: RouteNode = { id: destWH.id, lat: destWH.latitude, lng: destWH.longitude! };
+    
+    // We only optimize checkpoints that have matched warehouses (based on name or address, or just use dummy lat/lng if we integrated geocoding, but here we can only optimize if we know their coords).
+    // Actually, to make it work beautifully for the demo, let's allow user to select warehouses as checkpoints!
+    // But currently checkpoints are just free text (name, address, estimatedAt). 
+    // If they don't have coords, we can't optimize. Let's assume we can match them by name to existing warehouses.
+    const validCheckpoints = checkpoints.map(cp => {
+      // try to find matching warehouse by address or name
+      const wh = warehouses.find(w => w.name === cp.name || w.address === cp.address);
+      if (wh && wh.latitude && wh.longitude) {
+        return { id: cp.name, lat: wh.latitude, lng: wh.longitude, original: cp };
+      }
+      return null;
+    }).filter(Boolean) as { id: string, lat: number, lng: number, original: typeof checkpoints[0] }[];
+
+    if (validCheckpoints.length < checkpoints.length) {
+      setError("Một số trạm kiểm soát không có tọa độ trên hệ thống, không thể tối ưu tự động.");
+      return;
+    }
+
+    if (validCheckpoints.length === 0) {
+      setError("Không có trạm kiểm soát nào để tối ưu.");
+      return;
+    }
+
+    const cpNodes: RouteNode[] = validCheckpoints.map(cp => ({ id: cp.id, lat: cp.lat, lng: cp.lng }));
+    const optimized = findShortestRoute(originNode, cpNodes, destNode);
+    
+    // Reorder checkpoints based on optimized.orderedNodes (ignoring first and last which are origin/dest)
+    const newCheckpoints = optimized.orderedNodes.slice(1, -1).map((node, idx) => {
+      const original = validCheckpoints.find(c => c.id === node.id)?.original;
+      return {
+        ...original!,
+        sequence: idx + 1
+      };
+    });
+    
+    setCheckpoints(newCheckpoints);
+    setError("Đã tối ưu lộ trình thành công!");
+    setTimeout(() => setError(null), 3000);
   };
 
   // Submit form
@@ -398,9 +455,16 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                 <MapPin size={18} className="text-indigo-500" />
                 Các trạm kiểm soát trung gian (Checkpoints)
               </h2>
-              <button type="button" onClick={addCheckpoint} className="btn btn-secondary btn-sm rounded-lg">
-                <Plus size={14} /> Thêm trạm
-              </button>
+              <div className="flex gap-2">
+                {checkpoints.length > 1 && (
+                  <button type="button" onClick={optimizeRoute} className="btn btn-secondary btn-sm rounded-lg" style={{ color: "#10b981", borderColor: "#10b981" }}>
+                    <Navigation size={14} /> Tối ưu lộ trình
+                  </button>
+                )}
+                <button type="button" onClick={addCheckpoint} className="btn btn-secondary btn-sm rounded-lg">
+                  <Plus size={14} /> Thêm trạm
+                </button>
+              </div>
             </div>
 
             {checkpoints.length === 0 ? (

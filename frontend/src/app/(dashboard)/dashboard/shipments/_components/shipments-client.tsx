@@ -242,9 +242,11 @@ export default function ShipmentsClient({ status, page, search }: Props) {
           <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: "var(--text-muted)" }}>
             <Truck size={48} style={{ opacity: 0.2 }} />
             <p className="font-medium">Không tìm thấy vận đơn</p>
-            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
-              <Plus size={14} /> Tạo vận đơn mới
-            </Link>
+            {(isAdmin || isManager) && (
+              <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
+                <Plus size={14} /> Tạo vận đơn mới
+              </Link>
+            )}
           </div>
         ) : (
           <div className="table-wrapper">
