@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/store/app-store";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { useAuth } from "@/context/auth-context";
@@ -132,6 +132,12 @@ const driverNav = [
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Tổng quan" },
       { href: "/dashboard/shipments", icon: Navigation, label: "Chuyến đi" },
+    ],
+  },
+  {
+    group: "Lịch sử",
+    items: [
+      { href: "/dashboard/shipments?status=DELIVERED", icon: CheckCircle, label: "Hoàn thành" },
     ],
   },
   {
@@ -389,8 +395,9 @@ function DriverActiveTrip({ collapsed, onNavClick }: { collapsed: boolean; onNav
   if (!isDriver || loading) return null;
   if (!trip) {
     if (collapsed) return null;
+    // Show upcoming confirmed trip if no active trip
     return (
-      <div className="px-3 pt-2 pb-2 animate-idle-in">
+      <div className="px-3 pt-2 pb-2 animate-idle-in space-y-2">
         <div
           className="rounded-xl border border-dashed p-3 flex flex-col items-center gap-1.5 text-center"
           style={{ borderColor: "var(--border-color)", background: "var(--bg-input)" }}
@@ -399,7 +406,13 @@ function DriverActiveTrip({ collapsed, onNavClick }: { collapsed: boolean; onNav
             <Clock size={14} style={{ color: "#94a3b8" }} />
           </div>
           <p className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>Đang rảnh</p>
-          <p className="text-[8px]" style={{ color: "var(--text-muted)" }}>Chưa có chuyến đi</p>
+          <p className="text-[8px]" style={{ color: "var(--text-muted)" }}>Chưa có chuyến đang chạy</p>
+          <Link href="/dashboard/shipments?status=CONFIRMED"
+            className="text-[9px] font-semibold px-2 py-0.5 rounded-full mt-0.5"
+            style={{ background: "#eef2ff", color: "#6366f1" }}
+          >
+            Xem chuyến sắp tới
+          </Link>
         </div>
       </div>
     );
@@ -485,6 +498,13 @@ function DriverActiveTrip({ collapsed, onNavClick }: { collapsed: boolean; onNav
               <MapPin size={7} />
               <span className="truncate leading-tight">{trip.originAddress} → {trip.destinationAddress}</span>
             </div>
+            {/* ETA */}
+            {(trip as any).estimatedArrival && (
+              <div className="px-3 pb-1 flex items-center gap-1 text-[7px]" style={{ color: "#047857" }}>
+                <Clock size={7} />
+                <span>ETA: <strong>{new Date((trip as any).estimatedArrival).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</strong></span>
+              </div>
+            )}
             {trip.checkpoints && trip.checkpoints.length > 0 && (
               <div className="px-3 pb-2 flex gap-1 flex-wrap max-h-[40px] overflow-y-auto driver-cp-scroll">
                 {trip.checkpoints.slice(0, 5).map((cp) => (
@@ -514,11 +534,14 @@ function DriverActiveTrip({ collapsed, onNavClick }: { collapsed: boolean; onNav
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const unreadAlertCount = useAppStore((s) => s.unreadAlertCount);
   const { user, logout, isDriver } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
+  const currentQueryString = searchParams.toString();
 
   // Detect mobile for auto-close sidebar on nav click
   const [isMobile, setIsMobile] = useState(false);
@@ -620,10 +643,20 @@ export function Sidebar() {
               )}
               <div className="space-y-1">
                 {group.items.map((item) => {
-                  const isActive =
-                    item.href === "/dashboard"
-                      ? pathname === "/dashboard"
-                      : pathname.startsWith(item.href);
+                  const itemPath = item.href.split("?")[0];
+                  const itemQuery = item.href.split("?")[1];
+                  
+                  let isActive = false;
+                  if (item.href === "/dashboard") {
+                    isActive = pathname === "/dashboard";
+                  } else if (itemQuery) {
+                    isActive = pathname === itemPath && currentQueryString.includes(itemQuery);
+                  } else {
+                    isActive = pathname.startsWith(itemPath);
+                    if (item.href === "/dashboard/shipments" && currentQueryString.includes("status=DELIVERED")) {
+                      isActive = false;
+                    }
+                  }
 
                   return (
                     <Link
