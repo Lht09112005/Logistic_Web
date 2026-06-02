@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const [user, setUser] = useState<User | null>(null);
 
+  // Sync user object khi session thay đổi
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
       const sessionUser = session.user as any;
@@ -63,14 +64,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         avatar: sessionUser.image || undefined,
         managedWarehouses: sessionUser.managedWarehouses || [],
       });
-
-      // Cache access token for API calls (avoids getSession() in interceptor)
-      setAccessToken((session as any).accessToken);
     } else if (status === "unauthenticated") {
       setUser(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, status]);
+
+  // Sync access token riêng — bỏ qua mock token để tránh 401
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      const token = (session as any).accessToken;
+      setAccessToken(token?.startsWith("mock-") ? null : token ?? null);
+    } else if (status === "unauthenticated") {
       setAccessToken(null);
     }
-  }, [status]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, status]);
 
   const logout = useCallback(async () => {
     await signOut({ callbackUrl: "/auth/login" });

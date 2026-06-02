@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MapPin, Clock, Truck, User, Phone,
   CheckCircle, Circle, Package, Navigation,
-  Gauge, Activity, ThumbsUp, Flag
+  Gauge, Activity, ThumbsUp, Flag, AlertCircle
 } from "lucide-react";
 import {
   formatDate, formatRelative, getShipmentStatusLabel, getShipmentStatusBadge,
@@ -15,6 +15,7 @@ import { useAuth } from "@/context/auth-context";
 import DriverCheckpointPanel from "./driver-checkpoint-panel";
 import StaffLoadingPanel from "./staff-loading-panel";
 import StaffReceivingPanel from "./staff-receiving-panel";
+import { toast } from "sonner";
 
 interface Checkpoint {
   id: string; name: string; address: string;
@@ -159,7 +160,14 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
             shipment.status === "PENDING" && (
             <>
               <button className="btn btn-primary btn-sm" onClick={async () => {
-                try { await shipmentsApi.approve(shipment.id); refresh(); } catch {}
+                try {
+                  await shipmentsApi.approve(shipment.id);
+                  toast.success("Đã duyệt vận đơn thành công!");
+                  router.push("/dashboard/shipments");
+                } catch (err: any) {
+                  const msg = err?.response?.data?.message || err?.message;
+                  toast.error("Lỗi duyệt vận đơn: " + msg);
+                }
               }}>
                 <ThumbsUp size={14} /> Duyệt
               </button>
@@ -187,6 +195,20 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           )}
         </div>
       </div>
+
+      {/* ── Rejection Alert ── */}
+      {shipment.status === "CANCELLED" && shipment.rejectionReason && (
+        <div className="mx-4 lg:mx-6 mt-4 p-4 rounded-xl flex items-start gap-3 border" style={{ background: "var(--bg-card)", borderColor: "#ef4444" }}>
+          <AlertCircle size={20} className="mt-0.5 shrink-0" style={{ color: "#ef4444" }} />
+          <div>
+            <h3 className="font-bold text-sm" style={{ color: "#ef4444" }}>Vận đơn đã bị từ chối</h3>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>Lý do: </span>
+              {shipment.rejectionReason}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Main content: flex row on desktop, column on mobile ── */}
       <div className="flex flex-1 min-h-0 gap-4 lg:gap-6 p-4 lg:p-6 overflow-hidden flex-col lg:flex-row">
@@ -560,10 +582,14 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                   if (!rejectReason.trim()) return;
                   try {
                     await shipmentsApi.reject(shipment.id, rejectReason);
-                    refresh();
-                  } catch {}
-                  setRejectOpen(false);
-                  setRejectReason("");
+                    toast.success("Đã từ chối vận đơn!");
+                    setRejectOpen(false);
+                    setRejectReason("");
+                    router.push("/dashboard/shipments");
+                  } catch (err: any) {
+                    const msg = err?.response?.data?.message || err?.message;
+                    toast.error("Lỗi từ chối vận đơn: " + msg);
+                  }
                 }}
                 disabled={!rejectReason.trim()}
                 className="btn"

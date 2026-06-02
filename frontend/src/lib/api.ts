@@ -25,17 +25,28 @@ async function ensureToken(): Promise<string | null> {
     if (refreshed) return refreshed;
   }
 
-  // 2. Check cached token
+  // 2. Check cached token (set by AuthContext via setAccessToken)
   if (_tokenCache) return _tokenCache;
 
-  // 3. Initialize from session once (first call only)
+  // 3. Fallback — read directly from NextAuth session
   if (!_tokenInitPromise) {
     _tokenInitPromise = getSession().then((session: any) => {
-      _tokenCache = session?.accessToken ?? null;
-      _tokenInitPromise = null; // Allow retry on next call if failed
+      // NextAuth v5 stores extra fields differently depending on callbacks config
+      // Try multiple paths: top-level, user, and accessToken sub-key
+      const token =
+        session?.accessToken ||
+        (session as any)?.user?.accessToken ||
+        null;
+
+      if (token && !token.startsWith("mock-")) {
+        _tokenCache = token;
+      } else {
+        _tokenCache = null;
+      }
+      _tokenInitPromise = null;
     }).catch(() => {
       _tokenCache = null;
-      _tokenInitPromise = null; // Reset so we retry on next call
+      _tokenInitPromise = null;
     });
   }
   await _tokenInitPromise;

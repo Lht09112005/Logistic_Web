@@ -84,6 +84,7 @@ model User {
   staffedWarehouses Warehouse[]    @relation("WarehouseStaff")
   drivenShipments  Shipment[]      @relation("Driver")
   createdShipments Shipment[]      @relation("CreatedBy")
+  notifications    Notification[]
 
   @@map("users")
 }
@@ -301,4 +302,29 @@ model StockAlert {
   warehouse   Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
 
   @@map("stock_alerts")
+}
+
+// ==================== NOTIFICATIONS ====================
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false)
+  link      String?          // e.g. /dashboard/shipments/id
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }

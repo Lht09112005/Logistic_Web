@@ -6,6 +6,7 @@ import { useTheme } from "@/context/theme-context";
 import { useAuth } from "@/context/auth-context";
 import { Menu, Bell, Sun, Moon, Search } from "lucide-react";
 import Link from "next/link";
+import { GeneralNotificationDropdown } from "@/components/layout/notification-dropdown";
 
 interface HeaderProps {
   title?: string;
@@ -14,12 +15,11 @@ interface HeaderProps {
 export function Header({ title }: HeaderProps) {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const unreadAlertCount = useAppStore((s) => s.unreadAlertCount);
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
+  const isDriver = user?.role === "DRIVER";
 
   // Detect desktop (>= lg breakpoint: 1024px) for header positioning
-  // On mobile, sidebar is overlay, so header spans full width (left: 0)
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
@@ -29,41 +29,10 @@ export function Header({ title }: HeaderProps) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  // DRIVER — mobile-only header with hamburger + avatar
-  if (user?.role === 'DRIVER') {
-    return (
-      <header className="fixed top-0 left-0 right-0 z-10 h-12 flex items-center justify-between px-4 border-b lg:hidden"
-        style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}>
-        <button
-          onClick={toggleSidebar}
-          className="btn-icon"
-          aria-label="Mở menu"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        </button>
-        <div className="flex items-center gap-2">
-          {/* Theme toggle — mobile driver */}
-          <button
-            onClick={toggleTheme}
-            className="btn-icon"
-            title={theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
-          >
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-          {/* Avatar → Settings */}
-          <Link href="/admin/settings">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold cursor-pointer"
-              style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
-              title={user?.name}
-            >
-              {user?.name?.charAt(0) || "U"}
-            </div>
-          </Link>
-        </div>
-      </header>
-    );
-  }
+  // Avatar gradient — Driver màu xanh, các role khác màu cam
+  const avatarGradient = isDriver
+    ? "linear-gradient(135deg, #10b981, #059669)"
+    : "linear-gradient(135deg, #f97316, #ea580c)";
 
   return (
     <header
@@ -93,22 +62,24 @@ export function Header({ title }: HeaderProps) {
         </h1>
       )}
 
-      {/* Search */}
-      <div className="flex-1 max-w-md hidden md:block">
-        <div className="relative">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2"
-            style={{ color: "var(--text-muted)" }}
-          />
-          <input
-            type="search"
-            placeholder="Tìm kiếm vận đơn, sản phẩm, kho..."
-            className="input-base pl-9 py-2 text-sm"
-            style={{ height: "38px" }}
-          />
+      {/* Search — ẩn với Driver vì không cần */}
+      {!isDriver && (
+        <div className="flex-1 max-w-md hidden md:block">
+          <div className="relative">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ color: "var(--text-muted)" }}
+            />
+            <input
+              type="search"
+              placeholder="Tìm kiếm vận đơn, sản phẩm, kho..."
+              className="input-base pl-9 py-2 text-sm"
+              style={{ height: "38px" }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex items-center gap-1 ml-auto">
         {/* Theme toggle */}
@@ -121,24 +92,14 @@ export function Header({ title }: HeaderProps) {
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
-        {/* Alerts */}
-        <Link href="/dashboard/alerts" className="btn-icon relative" id="header-alerts">
-          <Bell size={18} />
-          {unreadAlertCount > 0 && (
-            <span
-              className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full text-xs font-bold flex items-center justify-center"
-              style={{ background: "#ef4444", color: "white", fontSize: "10px" }}
-            >
-              {unreadAlertCount > 9 ? "9+" : unreadAlertCount}
-            </span>
-          )}
-        </Link>
+        {/* General Notifications Dropdown */}
+        <GeneralNotificationDropdown />
 
         {/* Avatar → Settings */}
         <Link href="/admin/settings">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ml-1 cursor-pointer"
-            style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+            style={{ background: avatarGradient }}
             title={user?.name}
           >
             {user?.name?.charAt(0) || "U"}
