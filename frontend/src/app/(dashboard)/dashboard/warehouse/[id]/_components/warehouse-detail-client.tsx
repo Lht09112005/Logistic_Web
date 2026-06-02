@@ -134,34 +134,50 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-wrap">
-        <button onClick={() => router.back()} className="btn btn-secondary btn-sm px-2 sm:px-3" title="Quay lại">
-          <ArrowLeft size={16} /> <span className="hidden sm:inline">Quay lại</span>
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <h1 className="text-lg sm:text-2xl font-bold truncate max-w-full" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+      {/* Header — redesigned for mobile-first */}
+      <div className="card overflow-hidden">
+        {/* Top row: back button + live status + time */}
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-1">
+          <button onClick={() => router.back()} className="btn btn-ghost btn-sm -ml-1.5" title="Quay lại">
+            <ArrowLeft size={16} /> <span className="hidden sm:inline">Quay lại</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-2 h-2 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+              <span className="text-[11px] sm:text-xs font-medium hidden sm:inline" style={{ color: socketConnected ? "var(--color-success)" : "var(--text-muted)" }}>
+                {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+              </span>
+            </div>
+            <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }}>
+              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
+          </div>
+        </div>
+
+        {/* Title + description */}
+        <div className="px-4 sm:px-6 pb-3">
+          <div className="flex items-center gap-2 flex-wrap mt-1">
+            <h1 className="text-lg sm:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
               {warehouse.name}
             </h1>
             <span className={`badge text-[10px] sm:text-xs ${statusBadgeMap[warehouse.status]}`}>
               {statusLabelMap[warehouse.status]}
             </span>
-            <div className="flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium" style={{ background: socketConnected ? "var(--color-success-bg)" : "var(--bg-input)", color: socketConnected ? "var(--color-success)" : "var(--text-muted)" }}>
-              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "animate-pulse" : ""}`} style={{ background: socketConnected ? "var(--color-success)" : "var(--text-muted)" }} />
-              <span className="hidden sm:inline">{socketConnected ? "Trực tiếp" : "Đang kết nối..."}</span>
-            </div>
-            <span className="text-[10px] hidden sm:inline" style={{ color: "var(--text-muted)" }}>
-              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
           </div>
-          <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
             Mã kho: {warehouse.code} • Hoạt động từ {formatDate(warehouse.createdAt, "dd/MM/yyyy")}
           </p>
         </div>
-        <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm px-2 sm:px-3">
-          <Activity size={14} className={refreshing ? "animate-spin" : ""} /> <span className="hidden sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
-        </button>
+
+        {/* Action buttons row */}
+        <div className="px-4 sm:px-6 pb-4 sm:pb-5" style={{ borderTop: "1px solid var(--border-light)" }}>
+          <div className="pt-3 flex gap-2 w-full sm:w-auto">
+            <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
+              <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+              <span>{refreshing ? "Đang tải..." : "Làm mới"}</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Grid Overview */}
@@ -207,27 +223,27 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
                 <p className="text-sm mt-2">Kho này chưa được chia phân khu.</p>
               </div>
             ) : (
-              <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:snap-none">
+              <div className="flex overflow-x-auto gap-2 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:snap-none">
                 {warehouse.zones.map((zone, i) => (
-                  <div key={zone.id} className="card-hover p-3 sm:p-4 rounded-xl border transition-all duration-200 hover:shadow-md animate-fade-in snap-start shrink-0 min-w-[220px] sm:min-w-0"
+                  <div key={zone.id} className="card-hover p-2.5 sm:p-4 rounded-xl border transition-all duration-200 hover:shadow-md animate-fade-in snap-start shrink-0 min-w-[175px] sm:min-w-0"
                     style={{
                       borderColor: "var(--border-color)",
                       background: "var(--bg-input)",
                       animationDelay: `${i * 60}ms`,
                     }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--color-info-bg)" }}>
-                        <Layers size={15} style={{ color: "var(--color-info)" }} />
+                    <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--color-info-bg)" }}>
+                        <Layers size={12} style={{ color: "var(--color-info)" }} />
                       </div>
-                      <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+                      <span className="font-bold text-xs sm:text-sm" style={{ color: "var(--text-primary)" }}>
                         {zone.name}
                       </span>
                     </div>
                     {zone.description && (
-                      <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>{zone.description}</p>
+                      <p className="text-[10px] sm:text-xs mb-2 sm:mb-3 leading-tight" style={{ color: "var(--text-secondary)" }}>{zone.description}</p>
                     )}
-                    <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs" style={{ color: "var(--text-muted)" }}>
                       <span className="font-semibold">Sức chứa:</span>
                       <span style={{ color: "var(--text-primary)" }}>{zone.capacity} kiện</span>
                     </div>
@@ -297,7 +313,7 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
                 <tr>
                   <th>Sản phẩm</th>
                   <th className="hidden sm:table-cell">SKU</th>
-                  <th>Số lượng</th>
+                  <th>SL</th>
                   <th>Vị trí</th>
                 </tr>
               </thead>
@@ -305,10 +321,10 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
                 {warehouse.inventory.map((item) => (
                   <tr key={item.id}>
                     <td className="font-medium text-xs sm:text-sm">
-                      <span className="line-clamp-1">{item.product.name}</span>
+                      <span className="line-clamp-1 max-w-[100px] sm:max-w-none">{item.product.name}</span>
                     </td>
                     <td className="hidden sm:table-cell"><code className="text-xs">{item.product.sku}</code></td>
-                    <td className="text-xs sm:text-sm whitespace-nowrap">{item.quantity} {item.product.unit}</td>
+                    <td className="text-[11px] sm:text-sm whitespace-nowrap">{item.quantity} {item.product.unit}</td>
                     <td className="text-[11px] sm:text-xs">
                       {item.zone?.name ? `Khu ${item.zone.name}` : "—"}
                       {item.rack ? <span className="hidden sm:inline"> / Kệ {item.rack}-{item.shelf}</span> : ""}

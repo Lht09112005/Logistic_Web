@@ -92,34 +92,44 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-              Kho hàng
-            </h1>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: socketConnected ? "var(--color-success-bg)" : "var(--bg-input)", color: socketConnected ? "var(--color-success)" : "var(--text-muted)" }}>
-              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "animate-pulse" : ""}`} style={{ background: socketConnected ? "var(--color-success)" : "var(--text-muted)" }} />
+      {/* Header — redesigned for mobile-first */}
+      <div className="card overflow-hidden">
+        {/* Top row: live status + time */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-1 sm:px-6">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+            <span className="text-[11px] sm:text-xs font-medium" style={{ color: socketConnected ? "var(--color-success)" : "var(--text-muted)" }}>
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
-            </div>
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
           </div>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+          <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }}>
+            {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+        </div>
+
+        {/* Title + description */}
+        <div className="px-5 sm:px-6 pb-3">
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+            Kho hàng
+          </h1>
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             {!isAdmin ? "Tổng quan kho hàng được phân công" : "Quản lý mạng lưới kho phân phối toàn quốc"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
-          </button>
-          {isAdmin || isManager ? (
-            <Link href="/dashboard/warehouse/new" className="btn btn-primary btn-sm whitespace-nowrap">
-              <Plus size={14} /> <span className="hidden sm:inline">Thêm </span>kho mới
-            </Link>
-          ) : null}
+
+        {/* Action buttons row */}
+        <div className="px-5 sm:px-6 pb-4 sm:pb-5" style={{ borderTop: "1px solid var(--border-light)" }}>
+          <div className="pt-3 flex gap-2 w-full sm:w-auto">
+            <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
+              <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+              <span>{refreshing ? "Đang tải..." : "Làm mới"}</span>
+            </button>
+            {isAdmin || isManager ? (
+              <Link href="/dashboard/warehouse/new" className="btn btn-primary btn-sm flex-1 sm:flex-none justify-center whitespace-nowrap">
+                <Plus size={14} /> Thêm kho mới
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -416,52 +426,48 @@ function WarehouseOverview({
               )}
             </div>
           </div>
-        </div>
-
-        {/* Quick stats row */}
-        <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:snap-none">
+        </div>        {/* Quick stats row */}
+      <div className="flex overflow-x-auto gap-2 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:snap-none">
           {metrics.map((m, i) => (
             <div
               key={m.label}
-              className="card card-hover p-5 flex items-center gap-4 snap-start shrink-0 min-w-[200px] sm:min-w-0 animate-fade-in"
+              className="card p-4 sm:p-5 flex items-center gap-3 snap-start shrink-0 min-w-[150px] sm:min-w-0 animate-fade-in"
               style={{ animationDelay: `${i * 80}ms` }}
             >
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: m.bg }}
               >
-                <m.icon size={22} style={{ color: m.color }} />
+                <m.icon size={18} style={{ color: m.color }} />
               </div>
-              <div>
-                <div className="text-2xl font-bold" style={{ color: m.color }}>{m.value}</div>
-                <div className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{m.label}</div>
-                <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{m.sub}</div>
+              <div className="min-w-0">
+                <div className="text-xl sm:text-2xl font-bold" style={{ color: m.color }}>{m.value}</div>
+                <div className="text-[10px] sm:text-xs font-medium" style={{ color: "var(--text-muted)" }}>{m.label}</div>
+                <div className="text-[9px] sm:text-[10px] truncate" style={{ color: "var(--text-secondary)" }}>{m.sub}</div>
               </div>
             </div>
           ))}
         </div>
 
         {/* Quick actions */}
-        <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>Thao tác nhanh</p>
-        <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-4 sm:gap-4 sm:overflow-visible sm:snap-none">
+        <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>Thao tác nhanh</p>          <div className="flex overflow-x-auto gap-2 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-4 sm:gap-4 sm:overflow-visible sm:snap-none">
           {quickActions.map((action, i) => (
             <Link
               key={action.label}
               href={action.href}
-              className="card card-hover p-5 group snap-start shrink-0 min-w-[220px] sm:min-w-0 animate-fade-in transition-all duration-200 hover:-translate-y-0.5"
+              className="card card-hover p-3 sm:p-5 group snap-start shrink-0 min-w-[170px] sm:min-w-0 animate-fade-in transition-all duration-200 hover:-translate-y-0.5"
               style={{ animationDelay: `${(i + 3) * 80}ms` }}
             >
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start justify-between mb-2 sm:mb-3">
                 <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
+                  className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
                   style={{ background: action.bg }}
                 >
-                  <action.icon size={22} style={{ color: action.color }} />
+                  <action.icon size={16} style={{ color: action.color }} />
                 </div>
                 <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" style={{ color: "var(--text-muted)" }} />
-              </div>
-              <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{action.label}</div>
-              <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{action.desc}</div>
+              </div>                  <div className="font-semibold text-xs sm:text-sm" style={{ color: "var(--text-primary)" }}>{action.label}</div>
+                  <div className="text-[10px] sm:text-xs mt-0.5 leading-tight" style={{ color: "var(--text-muted)" }}>{action.desc}</div>
             </Link>
           ))}
         </div>

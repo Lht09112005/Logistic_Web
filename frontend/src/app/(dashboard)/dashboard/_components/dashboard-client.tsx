@@ -469,34 +469,46 @@ export default function DashboardClient(props: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Tổng quan
-            </h1>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${socketConnected ? "bg-success text-success" : ""}`} style={{ background: socketConnected ? undefined : "var(--bg-input)", color: socketConnected ? undefined : "var(--text-muted)" }}>
-              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+      {/* Unified: same layout for ALL roles — only data differs based on permissions */}
+
+      {/* Page header — redesigned for mobile-first */}
+      <div className="card overflow-hidden">
+        {/* Top row: live status + time */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-1 sm:px-6">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+            <span className="text-[11px] sm:text-xs font-medium" style={{ color: socketConnected ? "var(--color-success)" : "var(--text-muted)" }}>
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
-            </div>
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
           </div>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+          <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }}>
+            {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+        </div>
+
+        {/* Title + description */}
+        <div className="px-5 sm:px-6 pb-3">
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            Tổng quan
+          </h1>
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             Theo dõi hoạt động logistics thời gian thực
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
-          </button>
-          {isAdmin || isManager ? (
-            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm whitespace-nowrap">
-              <Truck size={15} /> <span className="hidden sm:inline">Tạo </span>vận đơn
-            </Link>
-          ) : null}
+
+        {/* Action buttons row */}
+        <div className="px-5 sm:px-6 pb-4 sm:pb-5" style={{ borderTop: "1px solid var(--border-light)" }}>
+          <div className="pt-3 flex gap-2 w-full sm:w-auto">
+            <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
+              <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+              <span className="sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
+            </button>
+            {isAdmin || isManager ? (
+              <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm flex-1 sm:flex-none justify-center whitespace-nowrap">
+                <Truck size={15} /> Tạo vận đơn
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -506,7 +518,7 @@ export default function DashboardClient(props: Props) {
           <Link
             key={card.label}
             href={card.link}
-            className="card card-hover stat-card flex items-start gap-4 animate-fade-in snap-start shrink-0 min-w-[260px] sm:min-w-0"
+            className="card card-hover stat-card flex items-start gap-4 animate-fade-in snap-start shrink-0 min-w-[190px] sm:min-w-0"
             style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: card.bg }}>
@@ -602,17 +614,19 @@ export default function DashboardClient(props: Props) {
 
       {/* Quick actions */}
       <div className="card p-5">
-        <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--text-muted)' }}>THAO TÁC NHANH</h3>
-        <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:flex-wrap sm:snap-none">
+        <h3 className="font-bold text-sm mb-4" style={{ color: 'var(--text-muted)' }}>THAO TÁC NHANH</h3>              <div className="flex overflow-x-auto gap-2 snap-x snap-mandatory no-scrollbar sm:flex-wrap sm:snap-none">
           {[
             { href: '/dashboard/inventory', label: 'Xem tồn kho', icon: Package, color: '#6366f1', bg: 'var(--color-info-bg)' },
             { href: '/dashboard/qr-scan', label: 'Kiểm kho QR', icon: QrCode, color: '#10b981', bg: 'var(--color-success-bg)' },
             { href: '/dashboard/inventory/new', label: 'Nhập hàng mới', icon: Plus, color: '#f97316', bg: 'var(--color-warning-bg)' },
-            { href: '/dashboard/shipments', label: 'Danh sách vận đơn', icon: ClipboardList, color: '#ef4444', bg: 'var(--color-error-bg)' },
+            { href: '/dashboard/shipments', label: 'DS vận đơn', icon: ClipboardList, color: '#ef4444', bg: 'var(--color-error-bg)' },
           ].map((action) => (
-            <Link key={action.href} href={action.href}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all hover:shadow-md hover:-translate-y-0.5 snap-start shrink-0 sm:flex-1"
-              style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
+            <Link
+              key={action.href}
+              href={action.href}
+              className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border transition-all hover:shadow-md hover:-translate-y-0.5 snap-start shrink-0 sm:flex-1"
+              style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}
+            >
               <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: action.bg }}>
                 <action.icon size={18} style={{ color: action.color }} />
               </div>
@@ -734,15 +748,14 @@ export default function DashboardClient(props: Props) {
         </div>
       ) : null}
 
-      {/* Quick stats bar */}
-      <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:snap-none">
+      {/* Quick stats bar — horizontal scroll on mobile */}              <div className="flex overflow-x-auto gap-2 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:snap-none">
         {[
           { label: "Chờ xác nhận", value: stats.pending, icon: Clock, color: "#6366f1" },
           { label: "Đang bốc xếp", value: stats.inTransit, icon: TrendingUp, color: "#f97316" },
           { label: "Hoàn thành", value: stats.delivered, icon: CheckCircle, color: "#10b981" },
           { label: "Thất bại / Hủy", value: stats.failed, icon: XCircle, color: "#ef4444" },
         ].map((item) => (
-          <div key={item.label} className="card p-4 flex items-center gap-3 snap-start shrink-0 min-w-[160px] md:min-w-0">
+          <div key={item.label} className="card p-3 sm:p-4 flex items-center gap-2 sm:gap-3 snap-start shrink-0 min-w-[130px] sm:min-w-0">
             <item.icon size={20} style={{ color: item.color }} />
             <div>
               <div className="font-bold text-lg" style={{ color: item.color }}>{item.value}</div>

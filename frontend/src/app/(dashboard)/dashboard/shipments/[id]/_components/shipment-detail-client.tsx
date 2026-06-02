@@ -93,13 +93,25 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
       socket.on("location:updated", (data: { shipmentId: string; latitude: number; longitude: number; speed?: number; status?: string }) => {
         if (data.shipmentId === shipment.id) {
           setShipment((prev) => ({ ...prev, currentLat: data.latitude, currentLng: data.longitude, status: data.status || prev.status }));
-
+        }
+      });
+      // Realtime checkpoint sync — driver ticks from xa, admin/manager/staff thay đổi ngay lập tức
+      socket.on("checkpoint:completed", (data: { shipmentId: string; checkpointId: string }) => {
+        if (data.shipmentId === shipment.id) {
+          setShipment((prev) => ({
+            ...prev,
+            checkpoints: prev.checkpoints.map((cp) =>
+              cp.id === data.checkpointId
+                ? { ...cp, isCompleted: true, arrivedAt: new Date().toISOString() }
+                : cp
+            ),
+          }));
         }
       });
       return socket;
     };
     const cleanup = initSocket();
-    return () => { cleanup.then((s) => { s?.off("connect"); s?.off("disconnect"); s?.off("location:updated"); s?.disconnect(); }); };
+    return () => { cleanup.then((s) => { s?.off("connect"); s?.off("disconnect"); s?.off("location:updated"); s?.off("checkpoint:completed"); s?.disconnect(); }); };
   }, [shipment.id]);
 
   const handleStatusUpdate = async (newStatus: string) => {
