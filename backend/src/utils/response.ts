@@ -9,6 +9,7 @@ export interface ApiResponse<T = unknown> {
     page?: number
     limit?: number
     totalPages?: number
+    unreadCount?: number
   }
 }
 

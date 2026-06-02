@@ -13,6 +13,7 @@ import {
 } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 const STATUS_TABS = [
   { label: "Tất cả", value: "" },
@@ -130,8 +131,11 @@ export default function ShipmentsClient({ status, page, search }: Props) {
     try {
       await shipmentsApi.approve(id);
       await refresh();
+      toast.success("Đã duyệt vận đơn thành công!");
     } catch (err: any) {
-      console.warn("Lỗi duyệt vận đơn:", err?.response?.data?.message || err?.message);
+      const msg = err?.response?.data?.message || err?.message;
+      console.warn("Lỗi duyệt vận đơn:", msg);
+      toast.error("Lỗi duyệt vận đơn: " + msg);
     }
     setApprovingId(null);
   };

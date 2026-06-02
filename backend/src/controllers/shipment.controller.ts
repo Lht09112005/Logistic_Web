@@ -143,6 +143,17 @@ export const createShipment = async (req: AuthRequest, res: Response): Promise<v
       estimatedArrival, items = [], checkpoints = [], notes,
     } = req.body
 
+    const missingFields: string[] = []
+    if (!driverId) missingFields.push('Tài xế')
+    if (!vehicleType) missingFields.push('Loại phương tiện')
+    if (!vehicleNumber) missingFields.push('Biển số xe')
+    if (!estimatedArrival) missingFields.push('Ngày giao dự kiến')
+
+    if (missingFields.length > 0) {
+      sendError(res, `Vui lòng nhập các thông tin bắt buộc: ${missingFields.join(', ')}.`, 400)
+      return
+    }
+
     // Generate shipment code
     const count = await prisma.shipment.count()
     const shipmentCode = `SHP-${String(count + 1).padStart(6, '0')}`
@@ -191,6 +202,27 @@ export const createShipment = async (req: AuthRequest, res: Response): Promise<v
         checkpoints: { orderBy: { sequence: 'asc' } },
       },
     })
+
+    // --- CREATE NOTIFICATIONS ---
+    // Notify all ADMIN users
+    const admins = await prisma.user.findMany({ where: { role: 'ADMIN' } })
+    for (const admin of admins) {
+      const notif = await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: 'Vận đơn mới cần duyệt',
+          message: `Vận đơn ${shipmentCode} vừa được tạo và đang chờ duyệt.`,
+          type: 'INFO',
+          link: `/dashboard/shipments/${shipment.id}`,
+        }
+      })
+      // Emit socket event to the specific user
+      import('../index').then(({ io }) => {
+        io.emit(`notification:${admin.id}`, notif)
+      })
+    }
+    
+
 
     sendSuccess(res, shipment, 'Tạo vận đơn thành công', 201)
   } catch (error) {
@@ -424,6 +456,18 @@ export const approveShipment = async (req: AuthRequest, res: Response): Promise<
       return
     }
 
+    // Validate required fields before approving
+    const missingFields: string[] = []
+    if (!shipment.driverId) missingFields.push('Tài xế')
+    if (!shipment.vehicleType) missingFields.push('Loại phương tiện')
+    if (!shipment.vehicleNumber) missingFields.push('Biển số xe')
+    if (!shipment.estimatedArrival) missingFields.push('Ngày giao dự kiến')
+
+    if (missingFields.length > 0) {
+      sendError(res, `Vui lòng cập nhật các thông tin bắt buộc trước khi duyệt: ${missingFields.join(', ')}.`, 400)
+      return
+    }
+
     // Only the manager of the source warehouse can approve
     const userId = req.user!.userId
     const userRole = req.user!.role
@@ -437,26 +481,30 @@ export const approveShipment = async (req: AuthRequest, res: Response): Promise<
     // Reserve inventory from source warehouse
     if (shipment.originWarehouseId && shipment.items.length > 0) {
       for (const item of shipment.items) {
+        // Calculate available quantity by subtracting reserved quantity
         const inventoryItems = await prisma.inventoryItem.findMany({
           where: {
             productId: item.productId,
             warehouseId: shipment.originWarehouseId,
-            quantity: { gte: item.quantity },
+            quantity: { gt: 0 },
           },
           orderBy: { quantity: 'desc' },
         })
 
-        const totalAvailable = inventoryItems.reduce((sum, inv) => sum + inv.quantity, 0)
+        const totalAvailable = inventoryItems.reduce((sum, inv) => sum + (inv.quantity - inv.reservedQty), 0)
         if (totalAvailable < item.quantity) {
-          sendError(res, `Kho nguồn không đủ hàng: ${item.productId}. Yêu cầu ${item.quantity}, chỉ còn ${totalAvailable}`, 400)
+          sendError(res, `Kho nguồn không đủ hàng hoặc đã được giữ chỗ cho đơn khác. Yêu cầu ${item.quantity}, khả dụng ${totalAvailable}`, 400)
           return
         }
 
-        // Reserve from the first matching inventory item
+        // Reserve from the matching inventory items (only considering available = qty - reserved)
         let remaining = item.quantity
         for (const inv of inventoryItems) {
           if (remaining <= 0) break
-          const toReserve = Math.min(remaining, inv.quantity)
+          const availableInInv = inv.quantity - inv.reservedQty
+          if (availableInInv <= 0) continue
+
+          const toReserve = Math.min(remaining, availableInInv)
           await prisma.inventoryItem.update({
             where: { id: inv.id },
             data: { reservedQty: inv.reservedQty + toReserve },
@@ -474,6 +522,39 @@ export const approveShipment = async (req: AuthRequest, res: Response): Promise<
         checkpoints: { orderBy: { sequence: 'asc' } },
       },
     })
+
+    // --- CREATE NOTIFICATION ---
+    // Notify the creator that the shipment was approved
+    if (shipment.createdById !== req.user!.userId) {
+      const notif = await prisma.notification.create({
+        data: {
+          userId: shipment.createdById,
+          title: 'Vận đơn đã được duyệt',
+          message: `Vận đơn ${shipment.shipmentCode} đã được duyệt và chuyển sang trạng thái chờ xếp hàng.`,
+          type: 'SUCCESS',
+          link: `/dashboard/shipments/${shipment.id}`,
+        }
+      })
+      import('../index').then(({ io }) => {
+        io.emit(`notification:${shipment.createdById}`, notif)
+      })
+    }
+
+    // Notify Driver that the shipment is approved and they are assigned
+    if (shipment.driverId) {
+      const notif = await prisma.notification.create({
+        data: {
+          userId: shipment.driverId,
+          title: 'Được phân công chuyến xe mới',
+          message: `Bạn được phân công vận chuyển mã ${shipment.shipmentCode}.`,
+          type: 'INFO',
+          link: `/dashboard/shipments/${shipment.id}`,
+        }
+      })
+      import('../index').then(({ io }) => {
+        io.emit(`notification:${shipment.driverId}`, notif)
+      })
+    }
 
     sendSuccess(res, updated, 'Đã duyệt vận đơn thành công')
   } catch (error) {
@@ -525,6 +606,22 @@ export const rejectShipment = async (req: AuthRequest, res: Response): Promise<v
         checkpoints: { orderBy: { sequence: 'asc' } },
       },
     })
+
+    // --- CREATE NOTIFICATION ---
+    if (shipment.createdById !== req.user!.userId) {
+      const notif = await prisma.notification.create({
+        data: {
+          userId: shipment.createdById,
+          title: 'Vận đơn bị từ chối',
+          message: `Vận đơn ${shipment.shipmentCode} đã bị từ chối. Lý do: ${reason}`,
+          type: 'ERROR',
+          link: `/dashboard/shipments/${shipment.id}`,
+        }
+      })
+      import('../index').then(({ io }) => {
+        io.emit(`notification:${shipment.createdById}`, notif)
+      })
+    }
 
     sendSuccess(res, updated, 'Đã từ chối vận đơn')
   } catch (error) {

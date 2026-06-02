@@ -1,6 +1,8 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { authApi } from "@/lib/api";
+
+// Dùng NEXT_PUBLIC_ hoặc server-side env, fallback localhost
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://127.0.0.1:5000/api";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -12,11 +14,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         try {
-          const res = await authApi.login(
-            credentials.email as string,
-            credentials.password as string
-          );
-          const { user, accessToken, refreshToken } = res.data.data;
+          // Dùng fetch thay vì axios để tương thích server-side NextAuth
+          const res = await fetch(`${API_BASE}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password,
+            }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json = await res.json();
+          const { user, accessToken, refreshToken } = json.data;
           return { ...user, accessToken, refreshToken };
         } catch (error: any) {
           console.error("====== MOCK LOGIN FALLBACK ERROR ======");

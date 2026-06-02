@@ -12,6 +12,7 @@ import productRoutes from './routes/product.routes'
 import inventoryRoutes from './routes/inventory.routes'
 import shipmentRoutes from './routes/shipment.routes'
 import warehouseRoutes from './routes/warehouse.routes'
+import notificationRoutes from './routes/notification.routes'
 
 dotenv.config()
 
@@ -43,6 +44,7 @@ app.use('/api/products', productRoutes)
 app.use('/api/inventory', inventoryRoutes)
 app.use('/api/shipments', shipmentRoutes)
 app.use('/api/warehouses', warehouseRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 // Health check
 app.get('/health', (_req, res) => {
