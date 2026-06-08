@@ -1,0 +1,209 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import {
+  Truck, Plus, Search, Filter, MapPin, Clock,
+  CheckCircle, Eye, RefreshCw,
+} from "lucide-react";
+import {
+  formatDate, formatRelative,
+  getShipmentStatusLabel, getShipmentStatusBadge,
+} from "@/lib/utils";
+
+const STATUS_TABS = [
+  { label: "Tất cả", value: "" },
+  { label: "Chờ xác nhận", value: "PENDING" },
+  { label: "Đang vận chuyển", value: "IN_TRANSIT" },
+  { label: "Đã giao", value: "DELIVERED" },
+  { label: "Đã hủy", value: "CANCELLED" },
+];
+
+interface Props {
+  shipments: unknown[];
+  total: number;
+}
+
+export default function ShipmentsClient({ shipments, total }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const activeStatus = searchParams.get("status") || "";
+
+  const updateParams = useCallback(
+    (updates: Record<string, string>) => {
+      const sp = new URLSearchParams(searchParams.toString());
+      Object.entries(updates).forEach(([k, v]) => {
+        if (v) sp.set(k, v); else sp.delete(k);
+      });
+      sp.delete("page");
+      router.push(`/dashboard/shipments?${sp.toString()}`);
+    },
+    [router, searchParams]
+  );
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateParams({ search });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+            Quản lý vận đơn
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+            {total} vận đơn trong hệ thống
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => router.refresh()} className="btn btn-secondary btn-sm">
+            <RefreshCw size={14} /> Làm mới
+          </button>
+          <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
+            <Plus size={14} /> Tạo vận đơn
+          </Link>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="card p-4 space-y-4">
+        {/* Status tabs */}
+        <div className="flex gap-1 flex-wrap">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => updateParams({ status: tab.value })}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                activeStatus === tab.value
+                  ? "text-white shadow-sm"
+                  : "hover:bg-[var(--bg-input)]"
+              }`}
+              style={
+                activeStatus === tab.value
+                  ? { background: "linear-gradient(135deg,#f97316,#ea580c)", color: "white" }
+                  : { color: "var(--text-secondary)" }
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo mã, địa chỉ..."
+              className="input-base pl-9 py-2 text-sm"
+              style={{ height: "38px" }}
+            />
+          </div>
+          <button type="submit" className="btn btn-secondary btn-sm">
+            <Filter size={14} /> Lọc
+          </button>
+        </form>
+      </div>
+
+      {/* Table */}
+      <div className="card overflow-hidden">
+        {shipments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: "var(--text-muted)" }}>
+            <Truck size={48} style={{ opacity: 0.2 }} />
+            <p className="font-medium">Không tìm thấy vận đơn</p>
+            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
+              <Plus size={14} /> Tạo vận đơn mới
+            </Link>
+          </div>
+        ) : (
+          <div className="table-wrapper">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Mã vận đơn</th>
+                  <th>Tài xế / Xe</th>
+                  <th>Điểm đến</th>
+                  <th>Trạng thái</th>
+                  <th>Dự kiến giao</th>
+                  <th>Tạo lúc</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {(shipments as Record<string, unknown>[]).map((s) => (
+                  <tr key={s.id as string}>
+                    <td>
+                      <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                        {s.shipmentCode as string}
+                      </div>
+                      <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                        {s.vehicleType as string} • {s.vehicleNumber as string}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="text-sm" style={{ color: "var(--text-primary)" }}>
+                        {(s.driver as Record<string,string> | null)?.name || "—"}
+                      </div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {(s.driver as Record<string,string> | null)?.phone || ""}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                        <MapPin size={12} className="flex-shrink-0" />
+                        <span className="truncate max-w-48">{s.destinationAddress as string}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge ${getShipmentStatusBadge(s.status as string)}`}>
+                        {getShipmentStatusLabel(s.status as string)}
+                      </span>
+                    </td>
+                    <td>
+                      {s.estimatedArrival ? (
+                        <div className="flex items-center gap-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                          <Clock size={11} />
+                          {formatRelative(s.estimatedArrival as string)}
+                        </div>
+                      ) : "—"}
+                    </td>
+                    <td>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {formatDate(s.createdAt as string)}
+                      </div>
+                    </td>
+                    <td>
+                      <Link
+                        href={`/dashboard/shipments/${s.id}`}
+                        className="btn btn-ghost btn-sm"
+                      >
+                        <Eye size={14} /> Xem
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Active shipments summary */}
+      {shipments.filter((s) => (s as Record<string, unknown>).status === "IN_TRANSIT").length > 0 && (
+        <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <CheckCircle size={16} style={{ color: "#10b981" }} />
+          <span>
+            {shipments.filter((s) => (s as Record<string, unknown>).status === "IN_TRANSIT").length} vận đơn đang trên đường
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
