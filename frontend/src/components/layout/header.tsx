@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/app-store";
 import { useTheme } from "@/context/theme-context";
 import { useAuth } from "@/context/auth-context";
-import { Menu, Bell, Sun, Moon, Search } from "lucide-react";
+import { Menu, Sun, Moon, Search } from "lucide-react";
 import Link from "next/link";
-import { GeneralNotificationDropdown } from "@/components/layout/notification-dropdown";
 
 interface HeaderProps {
   title?: string;
@@ -91,9 +90,6 @@ export function Header({ title }: HeaderProps) {
         >
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-
-        {/* General Notifications Dropdown */}
-        <GeneralNotificationDropdown />
 
         {/* Avatar → Settings */}
         <Link href="/admin/settings">

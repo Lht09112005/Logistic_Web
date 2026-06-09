@@ -655,6 +655,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Sidebar nav */
 .nav-item {
   display: flex;
+  position: relative;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;

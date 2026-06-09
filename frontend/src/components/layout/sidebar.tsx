@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/store/app-store";
+import { useNotificationStore } from "@/store/notification-store";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { useAuth } from "@/context/auth-context";
 import { useTheme } from "@/context/theme-context";
@@ -539,6 +540,7 @@ export function Sidebar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const unreadAlertCount = useAppStore((s) => s.unreadAlertCount);
+  const notifUnreadCount = useNotificationStore((s) => s.unreadCount);
   const { user, logout, isDriver } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
@@ -567,6 +569,9 @@ export function Sidebar() {
   const accent = ROLE_ACCENT[role] || ROLE_ACCENT.STAFF;
   const isAdmin = role === "ADMIN";
   const isStaff = role === "STAFF";
+  // Combined unread count: system notifications + inventory alerts
+  const totalUnread = unreadAlertCount + notifUnreadCount;
+
   // Granular selectors to avoid full re-render on every shared store update
   const pendingForCurrentUser = useSharedDataStore((s) => s.shipmentStats?.pendingForCurrentUser ?? 0);
 
@@ -675,12 +680,22 @@ export function Sidebar() {
                       {sidebarOpen && (
                         <span className="flex-1 truncate">{item.label}</span>
                       )}
-                      {sidebarOpen && (item as any).badge === "alerts" && unreadAlertCount > 0 && (
+                      {/* Expanded: show combined badge on 'Cảnh báo' */}
+                      {sidebarOpen && (item as any).badge === "alerts" && totalUnread > 0 && (
                         <span
                           className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0"
                           style={{ background: "#ef4444", color: "white" }}
                         >
-                          {unreadAlertCount > 99 ? "99+" : unreadAlertCount}
+                          {totalUnread > 99 ? "99+" : totalUnread}
+                        </span>
+                      )}
+                      {/* Collapsed: small dot badge on Bell icon */}
+                      {!sidebarOpen && (item as any).badge === "alerts" && totalUnread > 0 && (
+                        <span
+                          className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center"
+                          style={{ background: "#ef4444", color: "white" }}
+                        >
+                          {totalUnread > 9 ? "9+" : totalUnread}
                         </span>
                       )}
                       {sidebarOpen && (item as any).badge === "pending" && pendingForCurrentUser > 0 && (
