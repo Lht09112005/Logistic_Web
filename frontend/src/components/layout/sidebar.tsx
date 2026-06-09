@@ -109,8 +109,7 @@ const staffNav = [
     group: "Kho hàng",
     items: [
       { href: "/dashboard/warehouse", icon: Warehouse, label: "Kho" },
-      { href: "/dashboard/inventory", icon: ClipboardList, label: "Hàng tồn" },
-      { href: "/dashboard/qr-scan", icon: QrCode, label: "QR Scan" },
+      { href: "/dashboard/qr-scan", icon: QrCode, label: "Kiểm kho" },
     ],
   },
   {
@@ -508,7 +507,7 @@ function DriverActiveTrip({ collapsed, onNavClick }: { collapsed: boolean; onNav
               </div>
             )}
             {trip.checkpoints && trip.checkpoints.length > 0 && (
-              <div className="px-3 pb-2 flex gap-1 flex-wrap max-h-[40px] overflow-y-auto driver-cp-scroll">
+              <div className="px-3 pb-2 flex gap-1 flex-wrap max-h-10 overflow-y-auto driver-cp-scroll">
                 {trip.checkpoints.slice(0, 5).map((cp) => (
                   <div key={cp.id}
                     className="flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[7px] leading-none"

@@ -130,9 +130,25 @@ export const createWarehouse = async (req: Request, res: Response): Promise<void
 }
 
 // PUT /api/warehouses/:id
-export const updateWarehouse = async (req: Request, res: Response): Promise<void> => {
+export const updateWarehouse = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const warehouse = await prisma.warehouse.update({
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, managerId: true },
+    })
+
+    if (!warehouse) {
+      sendError(res, 'Không tìm thấy kho', 404)
+      return
+    }
+
+    // MANAGER can only update their own managed warehouse
+    if (req.user?.role === 'MANAGER' && warehouse.managerId !== req.user.userId) {
+      sendError(res, 'Bạn không có quyền cập nhật kho này', 403)
+      return
+    }
+
+    const updated = await prisma.warehouse.update({
       where: { id: req.params.id },
       data: req.body,
       include: {
@@ -141,7 +157,7 @@ export const updateWarehouse = async (req: Request, res: Response): Promise<void
         _count: { select: { inventory: true, zones: true } },
       },
     })
-    sendSuccess(res, warehouse, 'Cập nhật kho thành công')
+    sendSuccess(res, updated, 'Cập nhật kho thành công')
   } catch (error: unknown) {
     if ((error as { code?: string }).code === 'P2025') {
       sendError(res, 'Không tìm thấy kho', 404)

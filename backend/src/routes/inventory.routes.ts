@@ -13,8 +13,8 @@ router.use(authenticate)
 router.get('/', authorize('ADMIN', 'MANAGER', 'STAFF'), getInventory)
 router.get('/alerts', authorize('ADMIN', 'MANAGER', 'STAFF'), getAlerts)
 router.get('/:id', authorize('ADMIN', 'MANAGER', 'STAFF'), getInventoryById)
-router.post('/', authorize('ADMIN', 'MANAGER', 'STAFF'), createInventory)
-router.put('/alerts/:id/resolve', authorize('ADMIN', 'MANAGER', 'STAFF'), resolveAlert)
-router.put('/:id', authorize('ADMIN', 'MANAGER', 'STAFF'), updateInventory)
+router.post('/', authorize('ADMIN', 'MANAGER'), createInventory)
+router.put('/alerts/:id/resolve', authorize('ADMIN', 'MANAGER'), resolveAlert)
+router.put('/:id', authorize('ADMIN', 'MANAGER'), updateInventory)
 
 export default router

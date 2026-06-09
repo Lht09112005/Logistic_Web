@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { inventoryApi } from "@/lib/api";
+import { RoleGuard } from "@/components/auth/role-guard";
 import InventoryClient from "./_components/inventory-client";
 
 function InventoryContent() {
@@ -63,6 +64,7 @@ function InventoryContent() {
 
 export default function InventoryPage() {
   return (
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]} fallback="denied">
     <Suspense fallback={
       <div className="space-y-6 animate-pulse">
         <div className="skeleton h-10 w-48 rounded-xl" />
@@ -80,5 +82,6 @@ export default function InventoryPage() {
         <InventoryContent />
       </Suspense>
     </Suspense>
+    </RoleGuard>
   );
 }

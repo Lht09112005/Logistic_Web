@@ -32,6 +32,9 @@ interface AuthContextType {
   isStaffOnly: boolean;
   isDriver: boolean;
   managedWarehouse: ManagedWarehouse | null;
+  managedWarehouses: ManagedWarehouse[];
+  staffedWarehouses: ManagedWarehouse[];
+  assignedWarehouses: ManagedWarehouse[];
   logout: () => Promise<void>;
 }
 
@@ -44,6 +47,9 @@ const AuthContext = createContext<AuthContextType>({
   isStaffOnly: false,
   isDriver: false,
   managedWarehouse: null,
+  managedWarehouses: [],
+  staffedWarehouses: [],
+  assignedWarehouses: [],
   logout: async () => {},
 });
 
@@ -85,6 +91,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut({ callbackUrl: "/auth/login" });
   }, []);
 
+  const managedWarehouses = (session?.user as any)?.managedWarehouses || [];
+  const staffedWarehouses = (session?.user as any)?.staffedWarehouses || [];
+  const assignedWarehouses = [...managedWarehouses, ...staffedWarehouses];
+
   const managedWarehouse = user?.managedWarehouses && user.managedWarehouses.length > 0
     ? user.managedWarehouses[0]
     : null;
@@ -100,6 +110,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isStaffOnly: user?.role === "STAFF",
         isDriver: user?.role === "DRIVER",
         managedWarehouse,
+        managedWarehouses,
+        staffedWarehouses,
+        assignedWarehouses,
         logout,
       }}
     >

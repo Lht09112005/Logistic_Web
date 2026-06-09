@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Warehouse, Plus, Search, MapPin, Layers, Activity, Package, QrCode, Truck, ArrowUpRight, User } from "lucide-react";
-import { getStockPercent } from "@/lib/utils";
+import { Warehouse, Plus, Search, MapPin, Layers, Activity, Package, QrCode, Truck, ArrowUpRight, User, Eye, AlertTriangle, Filter } from "lucide-react";
+import { getStockPercent, formatDate, getCategoryLabel } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import { useSharedDataStore } from "@/store/shared-data-store";
+import { inventoryApi } from "@/lib/api";
 
 interface WarehouseItem {
   id: string;
@@ -78,7 +79,12 @@ function useRealtimeWarehouses(initial: unknown[]) {
 
 export default function WarehouseClient({ warehouses: initial }: Props) {
   const { items, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeWarehouses(initial);
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, isStaffOnly, user, assignedWarehouses } = useAuth();
+
+  // STAFF: show inventory items inside their assigned warehouse, not warehouse cards
+  if (isStaffOnly) {
+    return <StaffWarehouseInventory assignedWarehouses={assignedWarehouses} />;
+  }
   const [search, setSearch] = useState("");
   const list = items as WarehouseItem[];
 
@@ -135,7 +141,8 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
       {!isAdmin ? (
         <WarehouseOverview
           warehouses={list}
-          managedIds={user?.managedWarehouses?.map((mw) => mw.id) || []}
+          managedIds={assignedWarehouses.map((mw) => mw.id)}
+          assignedWarehouses={assignedWarehouses}
           role={user?.role || 'STAFF'}
         />
       ) : (
@@ -254,10 +261,12 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
 function WarehouseOverview({
   warehouses,
   managedIds,
+  assignedWarehouses,
   role,
 }: {
   warehouses: WarehouseItem[];
   managedIds: string[];
+  assignedWarehouses: { id: string; name: string; code: string; address: string; city: string; province: string }[];
   role: string;
 }) {
   const [search, setSearch] = useState("");
@@ -266,8 +275,32 @@ function WarehouseOverview({
     ? 'linear-gradient(135deg, #2563eb, #1d4ed8)'
     : 'linear-gradient(135deg, #f97316, #ea580c)';
 
-  // Only show warehouses assigned to this user
-  const myWarehouses = warehouses.filter((w) => managedIds.includes(w.id));
+  // Use API data directly (backend already filters by role).
+  // Only filter by managedIds if the API returned more warehouses than expected.
+  // Fallback: if no matching warehouses from API, use auth context data.
+  let myWarehouses = warehouses.filter((w) => managedIds.includes(w.id));
+  
+  // If the API returned warehouses but the IDs don't match auth context,
+  // use the API data directly (backend guarantees correct filtering)
+  if (myWarehouses.length === 0 && warehouses.length > 0) {
+    myWarehouses = warehouses;
+  }
+  
+  // If still empty, use auth context data as fallback
+  if (myWarehouses.length === 0 && assignedWarehouses.length > 0) {
+    myWarehouses = assignedWarehouses.map((aw) => ({
+      id: aw.id,
+      name: aw.name,
+      code: aw.code,
+      address: aw.address,
+      city: aw.city,
+      province: aw.province,
+      totalArea: 0,
+      usedArea: 0,
+      capacity: 0,
+      status: 'ACTIVE' as const,
+    }));
+  }
 
   // If exactly one warehouse, show focused overview
   if (myWarehouses.length === 1) {
@@ -474,7 +507,7 @@ function WarehouseOverview({
     );
   }
 
-  // If multiple warehouses assigned (less common), show compact grid
+  // If multiple warehouses, show compact grid
   if (myWarehouses.length > 1) {
     const filtered = myWarehouses.filter(
       (w) =>
@@ -575,6 +608,236 @@ function WarehouseOverview({
         <p className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Chưa được phân công kho</p>
         <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Vui lòng liên hệ Admin để được gán quyền quản lý kho</p>
       </div>
+    </div>
+  );
+}
+
+// ─── STAFF: Show inventory items inside their assigned warehouse ───
+interface InventoryItem {
+  id: string; quantity: number; reservedQty: number;
+  rack?: string; shelf?: string; lastAuditAt?: string;
+  product: { id: string; name: string; sku: string; category: string; unit: string; minStockLevel: number };
+  warehouse: { id: string; name: string; code: string; city: string };
+  zone?: { name: string };
+}
+
+function StaffWarehouseInventory({ assignedWarehouses }: { assignedWarehouses: { id: string; name: string; code: string; address: string; city: string; province: string }[] }) {
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  const wh = assignedWarehouses.length > 0 ? assignedWarehouses[0] : null;
+
+  const fetchInventory = useCallback(async () => {
+    try {
+      const res = await inventoryApi.getAll({ limit: "100" });
+      const data = (res.data.data || []) as InventoryItem[];
+      setItems(data);
+    } catch {}
+    setLastUpdated(new Date());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchInventory();
+    const interval = setInterval(fetchInventory, 15_000);
+    return () => clearInterval(interval);
+  }, [fetchInventory]);
+
+  useEffect(() => {
+    const initSocket = async () => {
+      const { io } = await import("socket.io-client");
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
+      socket.on("connect", () => setSocketConnected(true));
+      socket.on("disconnect", () => setSocketConnected(false));
+      socket.on("alert:new", () => fetchInventory());
+      return socket;
+    };
+    const cleanup = initSocket();
+    return () => { cleanup.then((s) => { s?.off("alert:new"); s?.disconnect(); }); };
+  }, [fetchInventory]);
+
+  const filtered = items.filter((item) => {
+    const matchSearch = !search ||
+      item.product.name.toLowerCase().includes(search.toLowerCase()) ||
+      item.product.sku.toLowerCase().includes(search.toLowerCase());
+    const matchFilter = filter === "all" ||
+      (filter === "low" && item.quantity < item.product.minStockLevel && item.quantity > 0) ||
+      (filter === "out" && item.quantity === 0);
+    return matchSearch && matchFilter;
+  });
+
+  const lowCount = items.filter((i) => i.quantity < i.product.minStockLevel && i.quantity > 0).length;
+  const outCount = items.filter((i) => i.quantity === 0).length;
+
+  if (!wh) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 animate-fade-in">
+        <Warehouse size={56} style={{ opacity: 0.2, color: "var(--text-muted)" }} />
+        <div className="text-center">
+          <p className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Chưa được phân công kho</p>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Vui lòng liên hệ Admin để được gán quyền quản lý kho</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="card overflow-hidden">
+        <div className="flex items-center justify-between px-5 pt-4 pb-1 sm:px-6">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+            <span className="text-[11px] sm:text-xs font-medium" style={{ color: socketConnected ? "var(--color-success)" : "var(--text-muted)" }}>
+              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+            </span>
+          </div>
+          <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }}>
+            {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+        </div>
+        <div className="px-5 sm:px-6 pb-3">
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+            {wh.name}
+          </h1>
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+            {wh.address}, {wh.city} · {items.length} mặt hàng trong kho
+          </p>
+        </div>
+        <div className="px-5 sm:px-6 pb-4 sm:pb-5" style={{ borderTop: "1px solid var(--border-light)" }}>
+          <div className="pt-3 flex gap-2 w-full sm:w-auto">
+            <button onClick={fetchInventory} disabled={loading} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
+              <Activity size={14} className={loading ? "animate-spin" : ""} />
+              <span>{loading ? "Đang tải..." : "Làm mới"}</span>
+            </button>
+            <Link href={`/dashboard/warehouse/${wh.id}`} className="btn btn-secondary btn-sm flex-1 sm:flex-none justify-center">
+              <Warehouse size={14} /> Chi tiết kho
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className="card p-4 flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm sản phẩm, SKU..."
+            className="input-base pl-9 py-2 text-sm"
+            style={{ height: "38px" }}
+          />
+        </div>
+        <div className="flex gap-1">
+          {[
+            { v: "all" as const, label: "Tất cả" },
+            { v: "low" as const, label: `Sắp hết (${lowCount})` },
+            { v: "out" as const, label: `Hết hàng (${outCount})` },
+          ].map((tab) => (
+            <button
+              key={tab.v}
+              onClick={() => setFilter(tab.v)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === tab.v ? "text-white" : "hover:bg-[var(--bg-input)]"}`}
+              style={filter === tab.v ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Inventory cards */}
+      {loading && items.length === 0 ? (
+        <div className="animate-pulse space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton h-32 rounded-2xl" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: "var(--text-muted)" }}>
+          <Package size={48} style={{ opacity: 0.2 }} />
+          <p className="text-sm">Không tìm thấy sản phẩm nào</p>
+        </div>
+      ) : (
+        <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-4 md:overflow-visible md:snap-none">
+          {filtered.map((item, i) => {
+            const pct = getStockPercent(item.quantity, item.product.minStockLevel);
+            const isLow = item.quantity < item.product.minStockLevel;
+            const isOut = item.quantity === 0;
+
+            return (
+              <div
+                key={item.id}
+                className={`card card-hover p-5 animate-fade-in snap-start shrink-0 min-w-[280px] md:min-w-0 ${isOut ? "border-error" : isLow ? "border-warning" : ""}`}
+                style={{ animationDelay: `${i * 40}ms` }}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
+                    >
+                      <Package size={18} style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-secondary)" }} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm line-clamp-1" style={{ color: "var(--text-primary)" }}>{item.product.name}</p>
+                      <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                        {item.product.sku} · {getCategoryLabel(item.product.category)}
+                      </div>
+                    </div>
+                  </div>
+                  {isOut ? (
+                    <span className="badge badge-danger shrink-0">Hết hàng</span>
+                  ) : isLow ? (
+                    <span className="badge badge-warning shrink-0">Sắp hết</span>
+                  ) : (
+                    <span className="badge badge-success shrink-0">Còn hàng</span>
+                  )}
+                </div>
+
+                <div className="mb-3">
+                  <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+                    <span>Tồn kho</span>
+                    <span className="font-bold" style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-primary)" }}>
+                      {item.quantity} {item.product.unit}
+                    </span>
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${pct}%`, background: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--color-success)" }} />
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    Tối thiểu: {item.product.minStockLevel} {item.product.unit}
+                  </div>
+                </div>
+
+                <div className="flex items-center text-xs" style={{ color: "var(--text-muted)" }}>
+                  <MapPin size={11} className="mr-1 shrink-0" />
+                  {item.zone && <span>{item.zone.name} / </span>}
+                  {item.rack ? (
+                    <span>Kệ {item.rack}{item.shelf ? `-${item.shelf}` : ""}</span>
+                  ) : (
+                    <span>Chưa có vị trí</span>
+                  )}
+                </div>
+
+                <div className="flex gap-2 mt-3 pt-3 border-t" style={{ borderColor: "var(--border-light)" }}>
+                  <Link href={`/dashboard/warehouse/${wh.id}`} className="btn btn-ghost btn-sm flex-1 justify-center">
+                    <Eye size={13} /> Xem kho
+                  </Link>
+                  <Link href={`/dashboard/qr-scan?productId=${item.product.id}`} className="btn btn-secondary btn-sm flex-1 justify-center">
+                    <QrCode size={13} /> Kiểm kho
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   ArrowLeft, MapPin, Layers, Package,
   Mail, Phone, Maximize, AlertCircle, Activity
@@ -290,16 +289,13 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
         </div>
       </div>
 
-      {/* Warehouse Inventory items */}
+      {/* Warehouse Inventory items — cards organized by zone */}
       <div className="card overflow-hidden">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex items-center justify-between" style={{ borderColor: "var(--border-color)" }}>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
           <h3 className="font-bold text-sm sm:text-base flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
             <Package size={16} style={{ color: "var(--color-warning)" }} className="flex-shrink-0" />
             <span className="truncate">Mặt hàng ({warehouse.inventory.length})</span>
           </h3>
-          <Link href={`/dashboard/inventory?warehouseId=${warehouse.id}`} className="text-xs sm:text-sm font-semibold hover:underline whitespace-nowrap" style={{ color: "var(--color-warning)" }}>
-            Quản lý tồn kho
-          </Link>
         </div>
 
         {warehouse.inventory.length === 0 ? (
@@ -307,32 +303,154 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
             Kho trống. Chưa có mặt hàng nào được lưu trữ.
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Sản phẩm</th>
-                  <th className="hidden sm:table-cell">SKU</th>
-                  <th>SL</th>
-                  <th>Vị trí</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="p-4 sm:p-6 space-y-6">
+            {warehouse.zones.length > 0 ? (
+              /* Group inventory by zone */
+              warehouse.zones.map((zone) => {
+                const zoneItems = warehouse.inventory.filter(
+                  (item) => item.zone?.name === zone.name
+                );
+                if (zoneItems.length === 0) return null;
+                return (
+                  <div key={zone.id} className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Layers size={16} style={{ color: "var(--color-info)" }} />
+                      <h4 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+                        {zone.name}
+                      </h4>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
+                        {zoneItems.length} mặt hàng
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {zoneItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-xl border p-4 transition-all hover:shadow-md"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            background: "var(--bg-card)",
+                          }}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                                {item.product.name}
+                              </p>
+                              <code className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                                {item.product.sku}
+                              </code>
+                            </div>
+                            <span className="badge badge-info text-[10px] shrink-0 ml-2">
+                              {item.quantity} {item.product.unit}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                            <MapPin size={11} />
+                            {item.rack ? (
+                              <span>Kệ {item.rack}{item.shelf ? ` - Ngăn ${item.shelf}` : ""}</span>
+                            ) : (
+                              <span>Chưa có vị trí</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              /* No zones — flat grid of all items */
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {warehouse.inventory.map((item) => (
-                  <tr key={item.id}>
-                    <td className="font-medium text-xs sm:text-sm">
-                      <span className="line-clamp-1 max-w-[100px] sm:max-w-none">{item.product.name}</span>
-                    </td>
-                    <td className="hidden sm:table-cell"><code className="text-xs">{item.product.sku}</code></td>
-                    <td className="text-[11px] sm:text-sm whitespace-nowrap">{item.quantity} {item.product.unit}</td>
-                    <td className="text-[11px] sm:text-xs">
-                      {item.zone?.name ? `Khu ${item.zone.name}` : "—"}
-                      {item.rack ? <span className="hidden sm:inline"> / Kệ {item.rack}-{item.shelf}</span> : ""}
-                    </td>
-                  </tr>
+                  <div
+                    key={item.id}
+                    className="rounded-xl border p-4 transition-all hover:shadow-md"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      background: "var(--bg-card)",
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                          {item.product.name}
+                        </p>
+                        <code className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                          {item.product.sku}
+                        </code>
+                      </div>
+                      <span className="badge badge-info text-[10px] shrink-0 ml-2">
+                        {item.quantity} {item.product.unit}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                      <MapPin size={11} />
+                      {item.rack ? (
+                        <span>Kệ {item.rack}{item.shelf ? ` - Ngăn ${item.shelf}` : ""}</span>
+                      ) : (
+                        <span>Chưa có vị trí</span>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
+
+            {/* Items not assigned to any zone */}
+            {warehouse.zones.length > 0 && (() => {
+              const unassignedItems = warehouse.inventory.filter(
+                (item) => !item.zone?.name
+              );
+              if (unassignedItems.length === 0) return null;
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={16} style={{ color: "var(--text-muted)" }} />
+                    <h4 className="font-bold text-sm" style={{ color: "var(--text-muted)" }}>
+                      Chưa phân khu
+                    </h4>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
+                      {unassignedItems.length} mặt hàng
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {unassignedItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-dashed p-4 transition-all hover:shadow-md"
+                        style={{
+                          borderColor: "var(--border-color)",
+                          background: "var(--bg-card)",
+                        }}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                              {item.product.name}
+                            </p>
+                            <code className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                              {item.product.sku}
+                            </code>
+                          </div>
+                          <span className="badge badge-info text-[10px] shrink-0 ml-2">
+                            {item.quantity} {item.product.unit}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                          <MapPin size={11} />
+                          {item.rack ? (
+                            <span>Kệ {item.rack}{item.shelf ? ` - Ngăn ${item.shelf}` : ""}</span>
+                          ) : (
+                            <span>Chưa có vị trí</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

@@ -54,6 +54,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               phone: "0912345678",
               accessToken: "mock-access-token",
               refreshToken: "mock-refresh-token",
+              managedWarehouses: [],
+              staffedWarehouses: [{
+                id: "mock-wh-hcm-id",
+                name: "Kho Trung Tâm HCM",
+                code: "WH-HCM-01",
+                address: "123 Đường Nguyễn Văn Linh, Quận 7",
+                city: "Hồ Chí Minh",
+                province: "TP. Hồ Chí Minh",
+              }],
             };
           }
           if (email === "manager.hcm@logistiq.vn" && password === "staff123") {
@@ -138,6 +147,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accessToken = (user as any).accessToken;
         token.refreshToken = (user as any).refreshToken;
         token.managedWarehouses = (user as any).managedWarehouses;
+        token.staffedWarehouses = (user as any).staffedWarehouses;
       }
       return token;
     },
@@ -149,6 +159,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session as any).accessToken = token.accessToken;
         (session as any).refreshToken = token.refreshToken;
         (session.user as any).managedWarehouses = token.managedWarehouses;
+        (session.user as any).staffedWarehouses = token.staffedWarehouses;
       }
       return session;
     },

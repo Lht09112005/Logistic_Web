@@ -230,11 +230,10 @@ function AlertsPage() {
   );
 }
 
-// Wrap page with RoleGuard — ADMIN, MANAGER & STAFF can view alerts
-// STAFF only sees alerts from their assigned warehouse (filtered by backend)
+// Wrap page with RoleGuard — only ADMIN & MANAGER can view alerts
 export default function AlertsPageWrapper() {
   return (
-    <RoleGuard allowedRoles={["ADMIN", "MANAGER", "STAFF"]} fallback="denied">
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]} fallback="denied">
       <AlertsPage />
     </RoleGuard>
   );

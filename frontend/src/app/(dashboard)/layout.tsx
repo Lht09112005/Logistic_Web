@@ -11,19 +11,44 @@ import { useRouter, usePathname } from "next/navigation";
 import { CheckCircle, X } from "lucide-react";
 import Link from "next/link";
 
+// ─── Centralized route guard ─────────────────────────────────────
+const BLOCKED_PREFIXES: Record<string, string[]> = {
+  STAFF: [
+    '/dashboard/analytics',
+    '/dashboard/inventory',
+    '/dashboard/alerts',
+    '/admin/users',
+  ],
+  MANAGER: [
+    '/admin/users',
+  ],
+  DRIVER: [
+    '/dashboard/warehouse',
+    '/dashboard/inventory',
+    '/dashboard/analytics',
+    '/dashboard/alerts',
+    '/dashboard/qr-scan',
+    '/admin/users',
+  ],
+};
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const sidebarOpen = useAppStore((state) => state.sidebarOpen);
-  const { user, managedWarehouse } = useAuth();
-  const isDriver = user?.role === 'DRIVER';
+  const { user, managedWarehouse, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  // Route Guard for DRIVER
+  // Route Guard — blocks unauthorized URL access for all roles
   useEffect(() => {
-    if (isDriver && (pathname.startsWith('/dashboard/warehouse') || pathname.startsWith('/dashboard/inventory'))) {
+    if (isLoading || !user) return;
+    const blockedPrefixes = BLOCKED_PREFIXES[user.role] || [];
+    const isBlocked = blockedPrefixes.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + '/')
+    );
+    if (isBlocked) {
       router.replace('/dashboard');
     }
-  }, [isDriver, pathname, router]);
+  }, [user, isLoading, pathname, router]);
 
   // Centralized polling for shared data (stats, alerts, warehouses)
   // This single polling loop replaces 5+ independent polling intervals in child components

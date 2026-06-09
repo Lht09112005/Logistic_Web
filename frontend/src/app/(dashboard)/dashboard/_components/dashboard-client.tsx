@@ -446,7 +446,7 @@ function useRealtimeDashboard(initial: Props) {
 // ─────────────────────────────────────────────
 export default function DashboardClient(props: Props) {
   const auth = useAuth();
-  const { isAdmin, isManager, isDriver } = auth;
+  const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
 
   // Driver gets their own dedicated dashboard
   if (isDriver) return <DriverDashboard />;
@@ -465,7 +465,9 @@ export default function DashboardClient(props: Props) {
 
   const pendingLoadingCount = pendingLoading.length;
   const pendingReceivingCount = pendingReceiving.length;
-  const cards = statCards(stats, alerts.count, whCount);
+  const cards = statCards(stats, alerts.count, whCount).filter(
+    (card) => !(isStaffOnly && card.link === "/dashboard/alerts")
+  );
 
   return (
     <div className="space-y-6">
@@ -513,7 +515,7 @@ export default function DashboardClient(props: Props) {
       </div>
 
       {/* Stat cards */}
-      <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-2 xl:grid-cols-4 sm:gap-4 sm:overflow-visible sm:snap-none">
+      <div className={`flex overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:snap-none ${cards.length === 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-4'}`}>
         {cards.map((card, i) => (
           <Link
             key={card.label}
@@ -620,7 +622,7 @@ export default function DashboardClient(props: Props) {
             { href: '/dashboard/qr-scan', label: 'Kiểm kho QR', icon: QrCode, color: '#10b981', bg: 'var(--color-success-bg)' },
             { href: '/dashboard/inventory/new', label: 'Nhập hàng mới', icon: Plus, color: '#f97316', bg: 'var(--color-warning-bg)' },
             { href: '/dashboard/shipments', label: 'DS vận đơn', icon: ClipboardList, color: '#ef4444', bg: 'var(--color-error-bg)' },
-          ].map((action) => (
+          ].filter((action) => !isStaffOnly || (action.href !== '/dashboard/inventory' && action.href !== '/dashboard/inventory/new')).map((action) => (
             <Link
               key={action.href}
               href={action.href}
@@ -638,7 +640,7 @@ export default function DashboardClient(props: Props) {
 
       {/* Main grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 card overflow-hidden">
+        <div className={`card overflow-hidden ${isStaffOnly ? 'xl:col-span-3' : 'xl:col-span-2'}`}>
           <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
             <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vận đơn đang vận chuyển</h2>
             <Link href="/dashboard/shipments" className="flex items-center gap-1 text-sm font-medium" style={{ color: "#f97316" }}>
@@ -683,38 +685,40 @@ export default function DashboardClient(props: Props) {
           )}
         </div>
 
-        <div className="card overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
-            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Cảnh báo tồn kho</h2>
-            <Link href="/dashboard/alerts" className="flex items-center gap-1 text-sm font-medium" style={{ color: "#f97316" }}>
-              Xem tất cả <ArrowRight size={14} />
-            </Link>
-          </div>
-          {alerts.list.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-2" style={{ color: "var(--text-muted)" }}>
-              <CheckCircle size={36} style={{ color: "#10b981", opacity: 0.5 }} />
-              <p className="text-sm">Không có cảnh báo nào</p>
+        {!isStaffOnly && (
+          <div className="card overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
+              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Cảnh báo tồn kho</h2>
+              <Link href="/dashboard/alerts" className="flex items-center gap-1 text-sm font-medium" style={{ color: "#f97316" }}>
+                Xem tất cả <ArrowRight size={14} />
+              </Link>
             </div>
-          ) : (
-            <div className="divide-y overflow-y-auto max-h-80" style={{ borderColor: "var(--border-light)" }}>
-              {alerts.list.slice(0, 5).map((alert) => {
-                const severityColor: Record<string, string> = {
-                  CRITICAL: "#ef4444", HIGH: "#f97316", MEDIUM: "#f59e0b", LOW: "#6366f1",
-                };
-                const SevIcon = alert.severity === "CRITICAL" ? XCircle : AlertTriangle;
-                return (
-                  <div key={alert.id} className="px-6 py-3 flex items-start gap-3">
-                    <SevIcon size={16} className="flex-shrink-0 mt-0.5" style={{ color: severityColor[alert.severity] || "#6b7280" }} />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium leading-snug" style={{ color: "var(--text-primary)" }}>{alert.product?.name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{alert.message}</p>
+            {alerts.list.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2" style={{ color: "var(--text-muted)" }}>
+                <CheckCircle size={36} style={{ color: "#10b981", opacity: 0.5 }} />
+                <p className="text-sm">Không có cảnh báo nào</p>
+              </div>
+            ) : (
+              <div className="divide-y overflow-y-auto max-h-80" style={{ borderColor: "var(--border-light)" }}>
+                {alerts.list.slice(0, 5).map((alert) => {
+                  const severityColor: Record<string, string> = {
+                    CRITICAL: "#ef4444", HIGH: "#f97316", MEDIUM: "#f59e0b", LOW: "#6366f1",
+                  };
+                  const SevIcon = alert.severity === "CRITICAL" ? XCircle : AlertTriangle;
+                  return (
+                    <div key={alert.id} className="px-6 py-3 flex items-start gap-3">
+                      <SevIcon size={16} className="flex-shrink-0 mt-0.5" style={{ color: severityColor[alert.severity] || "#6b7280" }} />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium leading-snug" style={{ color: "var(--text-primary)" }}>{alert.product?.name}</p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{alert.message}</p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Manager pending */}

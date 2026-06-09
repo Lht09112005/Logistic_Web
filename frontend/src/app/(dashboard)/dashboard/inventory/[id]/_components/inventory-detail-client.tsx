@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Package, ArrowLeft, Save, MapPin, AlertTriangle, CheckCircle, Info, Activity
+  Package, ArrowLeft, Save, MapPin, AlertTriangle, CheckCircle, Info, Activity, ShieldBan
 } from "lucide-react";
 import { updateInventoryAction } from "@/app/actions/inventory";
 import { getStockPercent, getCategoryLabel, formatDate } from "@/lib/utils";
 import { inventoryApi } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
 interface Product {
   id: string; name: string; sku: string; category: string; unit: string; minStockLevel: number;
@@ -97,7 +98,23 @@ function useRealtimeInventoryDetail(initial: InventoryItem) {
 
 export default function InventoryDetailClient({ item: initialItem, zones }: Props) {
   const router = useRouter();
+  const { user, isLoading } = useAuth();
   const { liveItem, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeInventoryDetail(initialItem);
+
+  // Route guard — only ADMIN & MANAGER
+  if (isLoading) return null;
+  if (!user || !['ADMIN', 'MANAGER'].includes(user.role)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+        <ShieldBan size={64} style={{ color: "var(--text-muted)", opacity: 0.3 }} />
+        <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>Truy cập bị từ chối</h2>
+        <p className="text-sm max-w-md" style={{ color: "var(--text-secondary)" }}>
+          Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên nếu cần hỗ trợ.
+        </p>
+      </div>
+    );
+  }
+
   // Use live item for display but keep form state stable
   const item = liveItem;
   const [loading, setLoading] = useState(false);

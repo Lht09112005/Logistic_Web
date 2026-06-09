@@ -71,7 +71,7 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
   };
 
   return (
-    <RoleGuard allowedRoles={["ADMIN", "MANAGER", "STAFF"]} fallback="redirect">
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]} fallback="redirect">
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
