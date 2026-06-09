@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Package, ArrowLeft, Plus, MapPin, Clipboard, Tag, AlertCircle, RefreshCw
+  ArrowLeft, Plus, MapPin, Clipboard, Tag, AlertCircle
 } from "lucide-react";
 import { createInventoryAction } from "@/app/actions/inventory";
 import { RoleGuard } from "@/components/auth/role-guard";

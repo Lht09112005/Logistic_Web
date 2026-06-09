@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Warehouse, Plus, Search, MapPin, Layers, Activity, Package, QrCode, Truck, ArrowUpRight, User } from "lucide-react";
 import { getStockPercent } from "@/lib/utils";
-import { warehousesApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { useSharedDataStore } from "@/store/shared-data-store";
 
@@ -37,7 +36,7 @@ function useRealtimeWarehouses(initial: unknown[]) {
   // Granular selector for warehouses only
   const sharedWarehouses = useSharedDataStore((s) => s.warehouses);
   const [items, setItems] = useState<unknown[]>(initial);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [lastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
   // Sync shared store data to local state when it updates

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, Search, Filter, AlertTriangle, QrCode, Plus, Eye, Activity, Warehouse } from "lucide-react";
+import { Package, Search, Filter, AlertTriangle, QrCode, Plus, Eye, Activity } from "lucide-react";
 import { formatDate, getCategoryLabel, getAlertSeverityBadge, getStockPercent } from "@/lib/utils";
 import { inventoryApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
@@ -142,7 +142,6 @@ export default function InventoryClient(props: Props) {
   const lowCount = items.filter((i) => i.quantity < i.product.minStockLevel && i.quantity > 0).length;
   const outCount = items.filter((i) => i.quantity === 0).length;
 
-  const whName = items.length > 0 ? items[0]?.warehouse?.name || "" : "";
 
   return (
     <div className="space-y-6">

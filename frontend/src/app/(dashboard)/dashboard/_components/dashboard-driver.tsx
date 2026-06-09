@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Truck, MapPin, CheckCircle, Circle, Clock,
@@ -28,7 +28,6 @@ export default function DashboardDriver() {
   const { user } = useAuth();
   const [shipments, setShipments] = useState<DriverShipment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
   const fetchAll = useCallback(async () => {
@@ -43,7 +42,6 @@ export default function DashboardDriver() {
     } catch {
       // keep existing
     }
-    setLastUpdated(new Date());
   }, [user]);
 
   useEffect(() => {
@@ -91,8 +89,6 @@ export default function DashboardDriver() {
   const activeStatuses = ["PENDING", "LOADING", "IN_TRANSIT", "DELIVERING"];
   const activeShipments = shipments.filter((s) => activeStatuses.includes(s.status));
   const completedShipments = shipments.filter((s) => s.status === "DELIVERED");
-  const pendingCount = shipments.filter((s) => s.status === "PENDING").length;
-  const inTransitCount = shipments.filter((s) => activeStatuses.includes(s.status)).length;
 
   return (
     <div className="space-y-5 sm:space-y-6 driver-dashboard">

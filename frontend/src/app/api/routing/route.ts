@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
     );
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
       return new NextResponse(
         `ORS API error ${response.status}: ${response.statusText}`,
         { status: 502 }

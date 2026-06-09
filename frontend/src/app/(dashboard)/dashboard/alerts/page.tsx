@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/app-store";
-import { resolveAlertAction, fetchAlertsAction } from "./actions";import { 
+import { fetchAlertsAction } from "./actions";import { 
   AlertTriangle, CheckCircle, RefreshCw, ArrowLeft,
   Clock, XCircle, Truck
 } from "lucide-react";
@@ -39,7 +39,7 @@ interface Alert {
 
 function AlertsPage() {
   const router = useRouter();
-  const { setAlerts, resolveAlert: resolveAlertStore } = useAppStore();
+  const { setAlerts } = useAppStore();
   const { isAdmin, isManager } = useAuth();
   const [alerts, setLocalAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);

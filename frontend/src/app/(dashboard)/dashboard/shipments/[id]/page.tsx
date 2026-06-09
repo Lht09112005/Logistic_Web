@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, notFound } from "next/navigation";
 import { shipmentsApi } from "@/lib/api";
 import ShipmentDetailClient from "./_components/shipment-detail-client";

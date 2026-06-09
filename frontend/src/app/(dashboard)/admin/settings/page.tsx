@@ -5,7 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { authApi } from "@/lib/api";
 import {
   Settings, User, Lock, Bell, Monitor,
-  Save, X, AlertTriangle, CheckCircle,
+  Save, AlertTriangle, CheckCircle,
   Eye, EyeOff, RefreshCw,
 } from "lucide-react";
 
@@ -171,7 +171,7 @@ export default function AdminSettingsPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all snap-start shrink-0 whitespace-nowrap ${
-                activeTab === tab.key ? "text-white shadow-sm" : "hover:bg-[var(--bg-input)]"
+                activeTab === tab.key ? "text-white shadow-sm" : "hover:bg-(--bg-input)"
               }`}
               style={activeTab === tab.key ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}
             >
@@ -375,15 +375,15 @@ export default function AdminSettingsPage() {
             ].map((item) => (
               <label
                 key={item.key}
-                className="flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all hover:bg-[var(--bg-input)]"
+                className="flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all hover:bg-(--bg-input)"
               >
                 <div>
                   <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{item.label}</div>
                   <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{item.desc}</div>
                 </div>
                 <div
-                  className={`relative w-11 h-6 rounded-full transition-all cursor-pointer flex-shrink-0 ${
-                    prefs[item.key] ? "bg-[#f97316]" : "bg-[var(--border-color)]"
+                  className={`relative w-11 h-6 rounded-full transition-all cursor-pointer shrink-0 ${
+                    prefs[item.key] ? "bg-[#f97316]" : "bg-(--border-color)"
                   }`}
                   onClick={() => {
                     const next = { ...prefs, [item.key]: !prefs[item.key] };

@@ -13,7 +13,7 @@ import Link from "next/link";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const sidebarOpen = useAppStore((state) => state.sidebarOpen);
-  const { user, managedWarehouse, isManager, isStaffOnly, isAdmin } = useAuth();
+  const { user, managedWarehouse } = useAuth();
   const isDriver = user?.role === 'DRIVER';
   const router = useRouter();
   const pathname = usePathname();

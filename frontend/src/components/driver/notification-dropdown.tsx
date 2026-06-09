@@ -33,7 +33,7 @@ function NotifItem({ notif, onRead }: { notif: DriverNotification; onRead: (id: 
     <Link
       href={`/dashboard/shipments/${notif.shipmentId}`}
       onClick={() => onRead(notif.id)}
-      className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-input)] relative"
+      className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-(--bg-input) relative"
       style={{ borderBottom: "1px solid var(--border-light)" }}
     >
       {/* Unread dot */}
@@ -79,7 +79,7 @@ export function DriverNotificationDropdown() {
     useDriverNotificationStore();
 
   const [open, setOpen] = useState(false);
-  const [prevShipmentStatuses, setPrevShipmentStatuses] = useState<Record<string, string>>({});
+  const [, setPrevShipmentStatuses] = useState<Record<string, string>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<import("socket.io-client").Socket | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);

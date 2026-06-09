@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Package, CheckCircle2, Loader2, ClipboardList,
-  Warehouse, ArrowLeftToLine, CheckCircle, XCircle,
+  Warehouse, ArrowLeftToLine,
   MapPin, PlusCircle,
 } from "lucide-react";
 import { shipmentsApi } from "@/lib/api";

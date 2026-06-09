@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   BarChart3, TrendingUp, Download, CheckCircle, Package,
   AlertTriangle, Truck, Layers, Activity
 } from "lucide-react";
-import { shipmentsApi, inventoryApi } from "@/lib/api";
+import { inventoryApi } from "@/lib/api";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { RoleGuard } from "@/components/auth/role-guard";
 

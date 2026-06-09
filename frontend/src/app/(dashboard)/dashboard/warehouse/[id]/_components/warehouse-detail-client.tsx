@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Warehouse, MapPin, Layers, Package,
-  User, Mail, Phone, Maximize, AlertCircle, Activity
+  ArrowLeft, MapPin, Layers, Package,
+  Mail, Phone, Maximize, AlertCircle, Activity
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { warehousesApi } from "@/lib/api";

@@ -29,7 +29,7 @@ interface Props {
 
 export default function NewShipmentClient({ warehouses, products, drivers }: Props) {
   const router = useRouter();
-  const { managedWarehouse, isAdmin, user } = useAuth();
+  const { managedWarehouse, isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
