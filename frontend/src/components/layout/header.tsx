@@ -18,6 +18,10 @@ export function Header({ title }: HeaderProps) {
   const { user } = useAuth();
   const isDriver = user?.role === "DRIVER";
 
+  // Hydration safety: theme-specific content only renders after mount
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   // Detect desktop (>= lg breakpoint: 1024px) for header positioning
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
@@ -81,14 +85,14 @@ export function Header({ title }: HeaderProps) {
       )}
 
       <div className="flex items-center gap-1 ml-auto">
-        {/* Theme toggle */}
+        {/* Theme toggle — only render themed content after mount to avoid hydration mismatch */}
         <button
           id="theme-toggle"
           onClick={toggleTheme}
           className="btn-icon"
           title={theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
         >
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          {mounted ? (theme === "dark" ? <Sun size={18} /> : <Moon size={18} />) : <Sun size={18} />}
         </button>
 
         {/* Avatar → Settings */}
