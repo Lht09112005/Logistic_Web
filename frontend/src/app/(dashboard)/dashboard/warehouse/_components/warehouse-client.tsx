@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Warehouse, Plus, Search, MapPin, Layers, Activity, Package, QrCode, Truck, ArrowUpRight, User, Eye, AlertTriangle, Filter } from "lucide-react";
+import { Warehouse, Plus, Search, MapPin, Layers, RefreshCw, Package, QrCode, Truck, ArrowUpRight, User, Eye, AlertTriangle, Filter } from "lucide-react";
 import { getStockPercent, formatDate, getCategoryLabel } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import { useSharedDataStore } from "@/store/shared-data-store";
@@ -125,8 +125,7 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
         {/* Action buttons row */}
         <div className="px-5 sm:px-6 pb-4 sm:pb-5" style={{ borderTop: "1px solid var(--border-light)" }}>
           <div className="pt-3 flex gap-2 w-full sm:w-auto">
-            <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
-              <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+            <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               <span>{refreshing ? "Đang tải..." : "Làm mới"}</span>
             </button>
             {isAdmin || isManager ? (
@@ -179,33 +178,33 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
               return (
                 <div
                   key={w.id}
-                  className="card card-hover p-6 flex flex-col justify-between animate-fade-in group transition-all duration-200 snap-start shrink-0 min-w-[280px] md:min-w-0"
+                  className="card card-hover p-4 lg:p-6 flex flex-col justify-between animate-fade-in group transition-all duration-200 snap-start shrink-0 min-w-[260px] md:min-w-0"
                   style={{ animationDelay: `${i * 50}ms` }}
                 >
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between">
+                  <div className="space-y-3 lg:space-y-4">
+                    <div className="flex items-start justify-between gap-2">
                       <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105"
+                        className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
                         style={{ background: "var(--color-info-bg)" }}
                       >
-                        <Warehouse size={22} style={{ color: "var(--color-info)" }} />
+                        <Warehouse size={18} style={{ color: "var(--color-info)" }} />
                       </div>
-                      <span className={`badge ${statusBadgeMap[w.status]}`}>
+                      <span className={`badge shrink-0 ${statusBadgeMap[w.status]}`}>
                         {statusLabelMap[w.status]}
                       </span>
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg group-hover:text-[var(--color-primary)] transition-colors" style={{ color: "var(--text-primary)" }}>
+                      <h3 className="font-bold text-sm lg:text-lg truncate group-hover:text-[var(--color-primary)] transition-colors" style={{ color: "var(--text-primary)" }}>
                         <Link href={`/dashboard/warehouse/${w.id}`}>{w.name}</Link>
                       </h3>
                       <code className="text-xs" style={{ color: "var(--text-muted)" }}>{w.code}</code>
-                      <p className="text-sm mt-2 flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-                        <MapPin size={14} className="flex-shrink-0" />
+                      <p className="text-xs lg:text-sm mt-1.5 flex items-center gap-1.5 truncate" style={{ color: "var(--text-secondary)" }}>
+                        <MapPin size={12} className="flex-shrink-0" />
                         {w.address}, {w.city}
                       </p>
                     </div>
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] lg:text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
                         <span>Công suất chứa</span>
                         <span>{w.usedArea || 0} / {w.totalArea} m\u00b2</span>
                       </div>
@@ -219,24 +218,24 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 pt-2 text-center border-t" style={{ borderColor: "var(--border-light)" }}>
+                    <div className="grid grid-cols-3 gap-1.5 pt-1.5 text-center border-t" style={{ borderColor: "var(--border-light)" }}>
                       <div className="space-y-0.5 transition-transform group-hover:scale-105">
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>Phân khu</div>
-                        <div className="font-bold text-sm flex items-center justify-center gap-1" style={{ color: "var(--text-primary)" }}>
-                          <Layers size={13} style={{ color: "var(--color-info)" }} />
+                        <div className="text-[10px] lg:text-xs" style={{ color: "var(--text-muted)" }}>Phân khu</div>
+                        <div className="font-bold text-xs lg:text-sm flex items-center justify-center gap-1" style={{ color: "var(--text-primary)" }}>
+                          <Layers size={11} style={{ color: "var(--color-info)" }} />
                           {w._count?.zones || 0}
                         </div>
                       </div>
                       <div className="space-y-0.5 transition-transform group-hover:scale-105">
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>Mặt hàng</div>
-                        <div className="font-bold text-sm flex items-center justify-center gap-1" style={{ color: "var(--text-primary)" }}>
-                          <Layers size={13} style={{ color: "var(--color-success)" }} />
+                        <div className="text-[10px] lg:text-xs" style={{ color: "var(--text-muted)" }}>Mặt hàng</div>
+                        <div className="font-bold text-xs lg:text-sm flex items-center justify-center gap-1" style={{ color: "var(--text-primary)" }}>
+                          <Package size={11} style={{ color: "var(--color-success)" }} />
                           {w._count?.inventory || 0}
                         </div>
                       </div>
                       <div className="space-y-0.5">
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>Trưởng kho</div>
-                        <div className="font-semibold text-xs truncate max-w-full" style={{ color: "var(--text-primary)" }}>
+                        <div className="text-[10px] lg:text-xs" style={{ color: "var(--text-muted)" }}>Trưởng kho</div>
+                        <div className="font-semibold text-[11px] lg:text-xs truncate max-w-full" style={{ color: "var(--text-primary)" }}>
                           {w.manager?.name || "\u2014"}
                         </div>
                       </div>
@@ -244,7 +243,7 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
                   </div>
                   <Link
                     href={`/dashboard/warehouse/${w.id}`}
-                    className="btn btn-secondary btn-sm w-full mt-5 transition-all group-hover:!bg-[var(--color-warning)] group-hover:text-white group-hover:border-transparent"
+                    className="btn btn-secondary btn-xs lg:btn-sm w-full mt-3 lg:mt-5 justify-center transition-all group-hover:!bg-[var(--color-warning)] group-hover:text-white group-hover:border-transparent"
                   >
                     Chi tiết kho
                   </Link>
@@ -549,31 +548,31 @@ function WarehouseOverview({
             return (
               <div
                 key={w.id}
-                className="card card-hover p-4 sm:p-5 flex flex-col justify-between animate-fade-in group transition-all duration-200 snap-start shrink-0 min-w-[270px] md:min-w-0"
+                className="card card-hover p-3 lg:p-5 flex flex-col justify-between animate-fade-in group transition-all duration-200 snap-start shrink-0 min-w-[250px] md:min-w-0"
                 style={{ animationDelay: `${i * 40}ms` }}
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
+                <div className="space-y-2 lg:space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center shrink-0"
                         style={{ background: "var(--color-info-bg)" }}
                       >
-                        <Warehouse size={18} style={{ color: "var(--color-info)" }} />
+                        <Warehouse size={14} style={{ color: "var(--color-info)" }} />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-bold text-sm truncate group-hover:text-[var(--color-warning)] transition-colors" style={{ color: "var(--text-primary)" }}>
+                        <h3 className="font-bold text-xs lg:text-sm truncate group-hover:text-[var(--color-warning)] transition-colors" style={{ color: "var(--text-primary)" }}>
                           <Link href={`/dashboard/warehouse/${w.id}`}>{w.name}</Link>
                         </h3>
-                        <code className="text-[11px]" style={{ color: "var(--text-muted)" }}>{w.code}</code>
+                        <code className="text-[10px]" style={{ color: "var(--text-muted)" }}>{w.code}</code>
                       </div>
                     </div>
-                    <span className={`badge text-[10px] ${statusBadgeMap[w.status]}`}>
+                    <span className={`badge text-[10px] shrink-0 ${statusBadgeMap[w.status]}`}>
                       {statusLabelMap[w.status]}
                     </span>
                   </div>
-                  <p className="text-xs flex items-center gap-1 truncate" style={{ color: "var(--text-secondary)" }}>
-                    <MapPin size={12} style={{ color: "var(--color-warning)" }} className="shrink-0" />
+                  <p className="text-[11px] flex items-center gap-1 truncate" style={{ color: "var(--text-secondary)" }}>
+                    <MapPin size={10} style={{ color: "var(--color-warning)" }} className="shrink-0" />
                     {w.city}
                   </p>
                   <div className="space-y-1">
@@ -585,13 +584,13 @@ function WarehouseOverview({
                       <div className="progress-fill" style={{ width: `${occupancyPct}%`, background: occupancyPct > 85 ? "var(--color-error)" : "linear-gradient(90deg,var(--color-success),var(--color-success))" }} />
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span style={{ color: "var(--text-muted)" }}><Layers size={11} className="inline mr-0.5" style={{ color: "var(--color-info)" }} />{w._count?.zones || 0} khu</span>
-                    <span style={{ color: "var(--text-muted)" }}><Package size={11} className="inline mr-0.5" style={{ color: "var(--color-success)" }} />{w._count?.inventory || 0} mặt hàng</span>
-                    <span style={{ color: "var(--text-muted)" }}><User size={11} className="inline mr-0.5" style={{ color: "var(--color-warning)" }} />{w.manager?.name?.split(" ").pop() || "—"}</span>
+                  <div className="flex items-center justify-between text-[10px] gap-1">
+                    <span style={{ color: "var(--text-muted)" }}><Layers size={10} className="inline mr-0.5" style={{ color: "var(--color-info)" }} />{w._count?.zones || 0}</span>
+                    <span style={{ color: "var(--text-muted)" }}><Package size={10} className="inline mr-0.5" style={{ color: "var(--color-success)" }} />{w._count?.inventory || 0}</span>
+                    <span style={{ color: "var(--text-muted)" }}><User size={10} className="inline mr-0.5" style={{ color: "var(--color-warning)" }} />{w.manager?.name?.split(" ").pop() || "—"}</span>
                   </div>
                 </div>
-                <Link href={`/dashboard/warehouse/${w.id}`} className="btn btn-secondary btn-xs sm:btn-sm w-full mt-3 justify-center">Chi tiết kho</Link>
+                <Link href={`/dashboard/warehouse/${w.id}`} className="btn btn-secondary btn-xs w-full mt-2 lg:mt-3 justify-center">Chi tiết kho</Link>
               </div>
             );
           })}
@@ -710,8 +709,7 @@ function StaffWarehouseInventory({ assignedWarehouses }: { assignedWarehouses: {
         </div>
         <div className="px-5 sm:px-6 pb-4 sm:pb-5" style={{ borderTop: "1px solid var(--border-light)" }}>
           <div className="pt-3 flex gap-2 w-full sm:w-auto">
-            <button onClick={fetchInventory} disabled={loading} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
-              <Activity size={14} className={loading ? "animate-spin" : ""} />
+            <button onClick={fetchInventory} disabled={loading} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
               <span>{loading ? "Đang tải..." : "Làm mới"}</span>
             </button>
             <Link href={`/dashboard/warehouse/${wh.id}`} className="btn btn-secondary btn-sm flex-1 sm:flex-none justify-center">

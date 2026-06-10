@@ -291,22 +291,41 @@ function AdminUsersContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-3">
-        <div className="min-w-0 w-full sm:w-auto">
-          <h1 className="text-lg sm:text-2xl font-bold truncate max-w-full" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-            Quản lý người dùng
-          </h1>
-          <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
-            {total} người dùng trong hệ thống
-          </p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <button onClick={fetchUsers} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
-            <RefreshCw size={14} /> <span className="hidden sm:inline">Làm mới</span>
-          </button>
-          <button onClick={openCreate} className="btn btn-primary btn-sm flex-1 sm:flex-none justify-center whitespace-nowrap">
-            <Plus size={14} /> <span className="hidden sm:inline">Thêm người dùng</span>
-          </button>
+      <div>
+        <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-3">
+          <div className="min-w-0 w-full sm:w-auto">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h1 className="text-lg sm:text-2xl font-bold truncate max-w-full" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+                Quản lý người dùng
+              </h1>
+              {/* Mobile refresh — top-right inside title row */}
+              <button
+                onClick={fetchUsers}
+                className="sm:hidden ml-auto btn btn-ghost btn-sm"
+                title="Làm mới"
+              >
+                <RefreshCw size={14} />
+              </button>
+            </div>
+            <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
+              {total} người dùng trong hệ thống
+            </p>
+            {/* Mobile: full-width "Thêm người dùng" */}
+            <div className="sm:hidden mt-2">
+              <button onClick={openCreate} className="btn btn-primary btn-sm w-full justify-center whitespace-nowrap">
+                <Plus size={14} /> Thêm người dùng
+              </button>
+            </div>
+          </div>
+          {/* Desktop buttons — unchanged layout */}
+          <div className="hidden sm:flex gap-2">
+            <button onClick={fetchUsers} className="btn btn-ghost btn-sm">
+              <RefreshCw size={14} /> Làm mới
+            </button>
+            <button onClick={openCreate} className="btn btn-primary btn-sm whitespace-nowrap">
+              <Plus size={14} /> Thêm người dùng
+            </button>
+          </div>
         </div>
       </div>
 
@@ -395,16 +414,18 @@ function AdminUsersContent() {
                       </div>
                     </td>
                     <td>
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-                        style={{ background: ROLE_BG[user.role], color: ROLE_COLORS[user.role] }}
-                      >
-                        {user.role === "ADMIN" ? <ShieldAlert size={12} /> :
-                         user.role === "MANAGER" ? <ShieldCheck size={12} /> :
-                         user.role === "STAFF" ? <ShieldCheck size={12} /> :
-                         <Shield size={12} />}
-                        {ROLE_LABELS[user.role]}
-                      </span>
+                      <div className="overflow-x-auto sm:overflow-visible scrollbar-thin">
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+                          style={{ background: ROLE_BG[user.role], color: ROLE_COLORS[user.role] }}
+                        >
+                          {user.role === "ADMIN" ? <ShieldAlert size={12} /> :
+                           user.role === "MANAGER" ? <ShieldCheck size={12} /> :
+                           user.role === "STAFF" ? <ShieldCheck size={12} /> :
+                           <Shield size={12} />}
+                          {ROLE_LABELS[user.role]}
+                        </span>
+                      </div>
                     </td>
                     <td className="hidden sm:table-cell">
                       <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -413,9 +434,9 @@ function AdminUsersContent() {
                     </td>
                     <td>
                       {user.isActive ? (
-                        <span className="badge badge-success shrink-0 inline-flex">Hoạt động</span>
+                        <span className="inline-flex w-3 h-3 rounded-full bg-emerald-500" title="Hoạt động" />
                       ) : (
-                        <span className="badge badge-danger shrink-0 inline-flex">Đã khóa</span>
+                        <span className="inline-flex w-3 h-3 rounded-full bg-red-500" title="Đã khóa" />
                       )}
                     </td>
                     <td className="hidden sm:table-cell">

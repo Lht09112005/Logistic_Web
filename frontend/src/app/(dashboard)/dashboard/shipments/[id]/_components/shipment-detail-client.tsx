@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MapPin, Clock, Truck, User, Phone,
   CheckCircle, Circle, Package, Navigation,
-  Gauge, Activity, ThumbsUp, Flag, AlertCircle, Info
+  Gauge, RefreshCw, ThumbsUp, Flag, AlertCircle, Info
 } from "lucide-react";
 import {
   formatDate, formatRelative, getShipmentStatusLabel, getShipmentStatusBadge,
@@ -171,7 +171,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
         </div>
         <div className="flex gap-1.5 items-center flex-wrap w-full lg:w-auto">
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
           {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: any) => mw.id === shipment.originWarehouse?.id))) &&
             shipment.status === "PENDING" && (

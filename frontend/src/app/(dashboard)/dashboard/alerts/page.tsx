@@ -45,6 +45,16 @@ function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unresolved" | "resolved">("unresolved");
   const [resolvingAlert, setResolvingAlert] = useState<Alert | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const fetchAlerts = async () => {
     setLoading(true);
@@ -90,7 +100,7 @@ function AlertsPage() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex gap-2 shrink-0">
           <button onClick={fetchAlerts} className="btn btn-secondary btn-sm">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
           </button>
@@ -145,72 +155,163 @@ function AlertsPage() {
               return (
                 <div
                   key={alert.id}
-                  className="p-4 lg:p-6 flex items-start gap-4 hover:bg-[var(--bg-input)] transition-all duration-200 animate-fade-in border-l-4"
+                  onClick={() => toggleExpand(alert.id)}
+                  className="p-4 lg:p-6 lg:flex lg:items-start lg:gap-4 hover:bg-(--bg-input) transition-all duration-200 animate-fade-in border-l-4 cursor-pointer select-none"
                   style={{
                     animationDelay: `${i * 40}ms`,
                     borderLeftColor: `var(${severityColor[alert.severity]})`,
                     background: alert.isResolved ? undefined : severityBgVar[alert.severity],
                   }}
                 >
+                  {/* Desktop-only icon */}
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                    className="hidden lg:flex w-10 h-10 rounded-xl items-center justify-center shrink-0 shadow-sm"
                     style={{ background: severityBgVar[alert.severity] }}
                   >
                     <AlertIcon size={20} style={{ color: `var(${severityColor[alert.severity]})` }} />
                   </div>
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-                        {alert.product?.name}
-                      </span>
-                      <code className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>{alert.product?.sku}</code>
-                      <span className={`badge ${getAlertSeverityBadge(alert.severity)}`}>
-                        {alert.severity}
-                      </span>
-                    </div>
-                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                      {alert.message}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: "var(--text-muted)" }}>
-                      {alert.warehouse && (
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border"
-                          style={{ background: "var(--color-info-bg)", color: "var(--color-info)", borderColor: "var(--color-info-border)" }}
-                        >
-                          {alert.warehouse.name} ({alert.warehouse.code})
+                  <div className="flex-1 min-w-0">
+                    {/* ── Mobile layout (< lg): grid — icon + title on row 1, content full-width below ── */}
+                    <div className="lg:hidden grid grid-cols-[auto_1fr] gap-x-3 gap-y-2">
+                      {/* Mobile icon — col 1, row 1 */}
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm row-span-1"
+                        style={{ background: severityBgVar[alert.severity] }}
+                      >
+                        <AlertIcon size={20} style={{ color: `var(${severityColor[alert.severity]})` }} />
+                      </div>
+
+                      {/* Name + badges — col 2, row 1 */}
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                          {alert.product?.name}
                         </span>
-                      )}
-                      <span className="opacity-40">•</span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={11} />
-                        {formatDate(alert.createdAt)}
-                      </span>
-                      <span className="opacity-40">•</span>
-                      <span>Tối thiểu: {alert.threshold}</span>
-                      <span className="opacity-40">•</span>
-                      <span>
-                        Hiện tại: <b style={{ color: alert.currentQty === 0 ? "var(--color-error)" : "var(--color-warning)" }}>{alert.currentQty}</b>
-                      </span>
+                        <code className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
+                          {alert.product?.sku}
+                        </code>
+                        <span className={`badge whitespace-nowrap ${getAlertSeverityBadge(alert.severity)}`}>
+                          {alert.severity}
+                        </span>
+                        {/* Expand indicator */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleExpand(alert.id); }}
+                          className="ml-auto p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-transform"
+                        >
+                        </button>
+                      </div>
+
+                      {/* Message — col span 2, collapsed to 1 line unless expanded */}
+                      <div className="col-span-2">
+                        <p className={`text-sm ${expandedIds.has(alert.id) ? '' : 'line-clamp-1'}`} style={{ color: "var(--text-secondary)" }}>
+                          {alert.message}
+                        </p>
+                      </div>
+
+                      {/* Meta — col span 2 */}
+                      <div className="col-span-2">
+                        <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: "var(--text-muted)" }}>
+                          {alert.warehouse && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border"
+                              style={{ background: "var(--color-info-bg)", color: "var(--color-info)", borderColor: "var(--color-info-border)" }}
+                            >
+                              {alert.warehouse.name} ({alert.warehouse.code})
+                            </span>
+                          )}
+                          <span className="opacity-40">•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock size={11} />
+                            {formatDate(alert.createdAt)}
+                          </span>
+                          <span className="opacity-40">•</span>
+                          <span>Tối thiểu: {alert.threshold}</span>
+                          <span className="opacity-40">•</span>
+                          <span>
+                            Hiện tại: <b style={{ color: alert.currentQty === 0 ? "var(--color-error)" : "var(--color-warning)" }}>{alert.currentQty}</b>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Button — col span 2, full-width at bottom */}
+                      <div className="col-span-2 pt-1">
+                        {!alert.isResolved ? (
+                          isAdmin || isManager ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setResolvingAlert(alert); }}
+                              className="w-full btn btn-primary btn-sm justify-center gap-1.5"
+                            >
+                              <Truck size={13} /> Giải quyết
+                            </button>
+                          ) : null
+                        ) : (
+                          <span className="inline-flex w-full badge badge-success text-xs font-semibold py-1.5 items-center justify-center gap-1 whitespace-nowrap">
+                            <CheckCircle size={11} /> Đã giải quyết
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-2 shrink-0">
-                    {!alert.isResolved ? (
-                      <>
-                        {isAdmin || isManager ? (
+
+                    {/* ── Desktop layout (>= lg): inline, button on right ── */}
+                    <div className="hidden lg:flex lg:items-start lg:gap-4">
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        {/* Title row: name + badges inline */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                            {alert.product?.name}
+                          </span>
+                          <code className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>{alert.product?.sku}</code>
+                          <span className={`badge ${getAlertSeverityBadge(alert.severity)}`}>
+                            {alert.severity}
+                          </span>
+                          {/* Expand indicator */}
                           <button
-                            onClick={() => setResolvingAlert(alert)}
-                            className="btn btn-primary btn-sm justify-center gap-1.5 whitespace-nowrap"
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(alert.id); }}
+                            className="ml-auto p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-transform"
                           >
-                            <Truck size={13} />
-                            Giải quyết
                           </button>
-                        ) : null}
-                      </>
-                    ) : (
-                      <span className="badge badge-success text-xs font-semibold py-1.5 inline-flex items-center gap-1 whitespace-nowrap">
-                        <CheckCircle size={11} /> Đã giải quyết
-                      </span>
-                    )}
+                        </div>
+                        <p className={`text-sm ${expandedIds.has(alert.id) ? '' : 'line-clamp-1'}`} style={{ color: "var(--text-secondary)" }}>
+                          {alert.message}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: "var(--text-muted)" }}>
+                          {alert.warehouse && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border"
+                              style={{ background: "var(--color-info-bg)", color: "var(--color-info)", borderColor: "var(--color-info-border)" }}
+                            >
+                              {alert.warehouse.name} ({alert.warehouse.code})
+                            </span>
+                          )}
+                          <span className="opacity-40">•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock size={11} />
+                            {formatDate(alert.createdAt)}
+                          </span>
+                          <span className="opacity-40">•</span>
+                          <span>Tối thiểu: {alert.threshold}</span>
+                          <span className="opacity-40">•</span>
+                          <span>
+                            Hiện tại: <b style={{ color: alert.currentQty === 0 ? "var(--color-error)" : "var(--color-warning)" }}>{alert.currentQty}</b>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        {!alert.isResolved ? (
+                          isAdmin || isManager ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setResolvingAlert(alert); }}
+                              className="btn btn-primary btn-sm justify-center gap-1.5 whitespace-nowrap"
+                            >
+                              <Truck size={13} /> Giải quyết
+                            </button>
+                          ) : null
+                        ) : (
+                          <span className="badge badge-success text-xs font-semibold py-1.5 inline-flex items-center gap-1 whitespace-nowrap">
+                            <CheckCircle size={11} /> Đã giải quyết
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               );

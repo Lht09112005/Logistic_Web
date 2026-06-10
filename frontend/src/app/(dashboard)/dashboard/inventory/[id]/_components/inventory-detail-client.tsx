@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Package, ArrowLeft, Save, MapPin, AlertTriangle, CheckCircle, Info, Activity, ShieldBan
+  Package, ArrowLeft, Save, MapPin, AlertTriangle, CheckCircle, Info, RefreshCw, ShieldBan
 } from "lucide-react";
 import { updateInventoryAction } from "@/app/actions/inventory";
 import { getStockPercent, getCategoryLabel, formatDate } from "@/lib/utils";
@@ -187,7 +187,7 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm px-2 sm:px-3">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> <span className="hidden sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> <span className="hidden sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
           </button>
           <span className={`badge text-[10px] sm:text-sm py-1 sm:py-1.5 px-2 sm:px-4 ${
             isOut ? "badge-danger" : isLow ? "badge-warning" : "badge-success"

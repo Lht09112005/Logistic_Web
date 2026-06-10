@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Truck, Plus, Search, Filter, MapPin, Clock,
-  CheckCircle, Eye, Activity, ThumbsUp,
+  CheckCircle, Eye, RefreshCw, ThumbsUp,
   Navigation, Zap, Flag, Package, ChevronRight,
   AlertTriangle,
 } from "lucide-react";
@@ -221,7 +221,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
           </div>
           <button type="submit" className="btn btn-secondary btn-sm"><Filter size={14} /></button>
           <button type="button" onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
           </button>
         </form>
 
@@ -322,35 +322,54 @@ export default function ShipmentsClient({ status, page, search }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-2 sm:gap-3">
-        <div className="w-full sm:w-auto">
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <h1 className="text-lg sm:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
-              Quản lý vận đơn
-            </h1>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium shrink-0" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
-              <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
-              {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+      <div>
+        <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-2 sm:gap-3">
+          <div className="w-full sm:w-auto">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h1 className="text-lg sm:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", color: "var(--text-primary)" }}>
+                Quản lý vận đơn
+              </h1>
+              {/* Mobile refresh — top-right inside title row */}
+              <button
+                onClick={refresh}
+                disabled={refreshing}
+                className="sm:hidden ml-auto btn btn-ghost btn-sm"
+                title="Làm mới"
+              >
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              </button>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium shrink-0" style={{ background: socketConnected ? "#dcfce7" : "#f1f5f9", color: socketConnected ? "#15803d" : "var(--text-muted)" }}>
+                <div className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-500 animate-pulse" : "bg-gray-300"}`} />
+                {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
+              </div>
+              <span className="text-[9px] sm:text-[10px] hidden sm:inline" style={{ color: "var(--text-muted)" }}>
+                {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
             </div>
-            <span className="text-[9px] sm:text-[10px] hidden sm:inline" style={{ color: "var(--text-muted)" }}>
-              {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
+            <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+              {total} vận đơn trong hệ thống
+            </p>
+            {/* Mobile: full-width "Tạo vận đơn" */}
+            {isAdmin || isManager ? (
+              <div className="sm:hidden mt-2">
+                <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm w-full justify-center">
+                  <Plus size={14} /> Tạo vận đơn
+                </Link>
+              </div>
+            ) : null}
           </div>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-            {total} vận đơn trong hệ thống
-          </p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
-          </button>
-          {isAdmin || isManager ? (
-            <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm flex-1 sm:flex-none justify-center">
-              <Plus size={14} />
-              <span className="hidden sm:inline"> Tạo vận đơn</span>
-            </Link>
-          ) : null}
+          {/* Desktop buttons — unchanged layout */}
+          <div className="hidden sm:flex gap-2">
+            <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              <span>{refreshing ? "Đang tải..." : "Làm mới"}</span>
+            </button>
+            {isAdmin || isManager ? (
+              <Link href="/dashboard/shipments/new" className="btn btn-primary btn-sm">
+                <Plus size={14} /> Tạo vận đơn
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
 

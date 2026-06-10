@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MapPin, Layers, Package,
-  Mail, Phone, Maximize, AlertCircle, Activity
+  Mail, Phone, Maximize, AlertCircle, RefreshCw
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { warehousesApi } from "@/lib/api";
@@ -171,8 +171,7 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
         {/* Action buttons row */}
         <div className="px-4 sm:px-6 pb-4 sm:pb-5" style={{ borderTop: "1px solid var(--border-light)" }}>
           <div className="pt-3 flex gap-2 w-full sm:w-auto">
-            <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
-              <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+            <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               <span>{refreshing ? "Đang tải..." : "Làm mới"}</span>
             </button>
           </div>

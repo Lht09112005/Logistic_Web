@@ -579,7 +579,7 @@ export default function DashboardClient(props: Props) {
         <div className="px-5 sm:px-6 pb-4 sm:pb-5" style={{ borderTop: "1px solid var(--border-light)" }}>
           <div className="pt-3 flex gap-2 w-full sm:w-auto">
             <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
-              <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               <span className="sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
             </button>
             {isAdmin || isManager ? (

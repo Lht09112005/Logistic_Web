@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   BarChart3, TrendingUp, Download, CheckCircle, Package,
-  AlertTriangle, Truck, Layers, Activity
+  AlertTriangle, Truck, Layers, Activity, RefreshCw
 } from "lucide-react";
 import { inventoryApi } from "@/lib/api";
 import { useSharedDataStore } from "@/store/shared-data-store";
@@ -272,7 +272,7 @@ function AnalyticsContent() {
         </div>
         <div className="flex gap-2">
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
           <button onClick={handleExportExcel} className="btn btn-secondary btn-sm">
             <Download size={14} /> Xuất Excel

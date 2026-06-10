@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, Search, Filter, AlertTriangle, QrCode, Plus, Eye, Activity } from "lucide-react";
+import { Package, Search, Filter, AlertTriangle, QrCode, Plus, Eye, RefreshCw } from "lucide-react";
 import { formatDate, getCategoryLabel, getAlertSeverityBadge, getStockPercent } from "@/lib/utils";
 import { inventoryApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
@@ -166,7 +166,7 @@ export default function InventoryClient(props: Props) {
         </div>
         <div className="flex gap-2">
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
           {isAdmin || isManager || isStaff ? (
             <Link href="/dashboard/inventory/new" className="btn btn-primary btn-sm whitespace-nowrap">

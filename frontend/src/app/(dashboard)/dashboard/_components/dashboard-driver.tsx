@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Truck, MapPin, CheckCircle, Circle, Clock,
-  Package, Activity, ChevronRight, WifiOff,
+  Package, RefreshCw, ChevronRight, WifiOff,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
@@ -140,7 +140,7 @@ export default function DashboardDriver() {
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <button onClick={handleRefresh} disabled={refreshing} className="btn btn-ghost btn-sm flex-1 sm:flex-none justify-center">
-            <Activity size={14} className={refreshing ? "animate-spin" : ""} />
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             <span className="hidden sm:inline">{refreshing ? "Đang tải..." : "Làm mới"}</span>
           </button>
         </div>
