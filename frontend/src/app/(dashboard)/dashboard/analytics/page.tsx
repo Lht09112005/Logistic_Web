@@ -8,6 +8,7 @@ import {
 import { inventoryApi } from "@/lib/api";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { RoleGuard } from "@/components/auth/role-guard";
+import { exportAnalyticsPDF, exportAnalyticsExcel } from "@/lib/pdf-export";
 
 // ─── SVG Donut Chart ────────────────────────────────────────────────
 function DonutChart({
@@ -175,39 +176,29 @@ function AnalyticsContent() {
   } = useRealtimeAnalytics();
 
   const handleExportPDF = async () => {
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text("LOGISTIQ SYSTEM REPORT", 20, 20);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    doc.text(`Export date: ${new Date().toLocaleString()}`, 20, 30);
-    doc.text("----------------------------------------------------------------", 20, 35);
-    doc.text(`Total Shipments: ${stats.total}`, 20, 45);
-    doc.text(`Delivered Shipments: ${stats.delivered}`, 20, 55);
-    doc.text(`In-transit Shipments: ${stats.inTransit}`, 20, 65);
-    doc.text(`Unresolved Inventory Alerts: ${alertsCount}`, 20, 75);
-    doc.text(`Total Warehouses Active: ${warehouseCount}`, 20, 85);
-    doc.save(`logistiq_report_${Date.now()}.pdf`);
+    await exportAnalyticsPDF({
+      total: stats.total,
+      inTransit: stats.inTransit,
+      delivered: stats.delivered,
+      pending: stats.pending,
+      failed: stats.failed,
+      inventoryCount,
+      alertsCount,
+      warehouseCount,
+    });
   };
 
   const handleExportExcel = async () => {
-    const xlsx = await import("xlsx");
-    const data = [
-      { Metric: "Total Shipments", Value: stats.total },
-      { Metric: "Delivered", Value: stats.delivered },
-      { Metric: "In Transit", Value: stats.inTransit },
-      { Metric: "Pending", Value: stats.pending },
-      { Metric: "Failed", Value: stats.failed },
-      { Metric: "Active Inventory Items", Value: inventoryCount },
-      { Metric: "Unresolved Stock Alerts", Value: alertsCount },
-      { Metric: "Active Warehouses", Value: warehouseCount },
-    ];
-    const ws = xlsx.utils.json_to_sheet(data);
-    const wb = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(wb, ws, "Logistics Summary");
-    xlsx.writeFile(wb, `logistiq_data_${Date.now()}.xlsx`);
+    await exportAnalyticsExcel({
+      total: stats.total,
+      inTransit: stats.inTransit,
+      delivered: stats.delivered,
+      pending: stats.pending,
+      failed: stats.failed,
+      inventoryCount,
+      alertsCount,
+      warehouseCount,
+    });
   };
 
   if (loading) {
@@ -321,7 +312,7 @@ function AnalyticsContent() {
               <div className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>{deliveryRate}%</div>
               <div className="text-xs font-semibold uppercase tracking-wider mt-1" style={{ color: "var(--text-muted)" }}>Tỷ lệ giao đúng hẹn</div>
               <div className="text-xs font-semibold mt-1" style={{ color: deliveryRate >= 80 ? "#10b981" : "#f59e0b" }}>
-                {deliveryRate >= 80 ? "✅ Mức tối ưu" : "⚠ Cần cải thiện"}
+                {deliveryRate >= 80 ? "Mức tối ưu" : "Cần cải thiện"}
               </div>
             </div>
           </div>

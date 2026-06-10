@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Truck, MapPin, CheckCircle, Circle, Clock,
-  Package, Activity, ChevronRight,
+  Package, Activity, ChevronRight, WifiOff,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
+import { offlineDB } from "@/lib/offline-db";
 
 interface DriverShipment {
   id: string;
@@ -29,6 +30,18 @@ export default function DashboardDriver() {
   const [shipments, setShipments] = useState<DriverShipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const handler = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", handler);
+    window.addEventListener("offline", handler);
+    return () => {
+      window.removeEventListener("online", handler);
+      window.removeEventListener("offline", handler);
+    };
+  }, []);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -39,8 +52,18 @@ export default function DashboardDriver() {
       const res = await shipmentsApi.getAll(params);
       const data = (res.data.data || []) as DriverShipment[];
       setShipments(data);
+      // Cache for offline use
+      if (user?.id && Array.isArray(data)) {
+        offlineDB.cacheShipments(user.id, data).catch(() => {});
+      }
     } catch {
-      // keep existing
+      // Try to load from offline cache
+      if (user?.id) {
+        const cached = await offlineDB.getCachedShipments(user.id);
+        if (cached.length > 0) {
+          setShipments(cached.map((c) => c.data as DriverShipment));
+        }
+      }
     }
   }, [user]);
 
@@ -108,6 +131,11 @@ export default function DashboardDriver() {
           </div>
           <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             {activeShipments.length} chuyến đang hoạt động
+            {!isOnline && (
+              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                <WifiOff size={10} /> Ngoại tuyến
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Truck, Package, Warehouse, Bell, TrendingUp,
   ArrowRight, MapPin, Clock, CheckCircle, AlertTriangle,
   XCircle, Activity, QrCode, Plus, ClipboardList,
   Navigation, Zap, Flag, BarChart3, Star, Calendar,
-  ChevronRight, CircleDot,
+  ChevronRight, CircleDot, WifiOff, RefreshCw,
 } from "lucide-react";
 import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
@@ -93,8 +93,7 @@ const POLL_INTERVAL = 15_000;
 // ─────────────────────────────────────────────
 // DRIVER DASHBOARD COMPONENT
 // ─────────────────────────────────────────────
-function DriverDashboard() {
-  const { user } = useAuth();
+function DriverDashboardContent({ user }: { user: NonNullable<ReturnType<typeof useAuth>["user"]> }) {
   const [activeTrip, setActiveTrip] = useState<RecentShipment | null>(null);
   const [upcomingTrips, setUpcomingTrips] = useState<RecentShipment[]>([]);
   const [recentHistory, setRecentHistory] = useState<RecentShipment[]>([]);
@@ -171,7 +170,7 @@ function DriverDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            Xin chào, {user?.name?.split(" ").slice(-1)[0]} 👋
+            Xin chào, {user?.name?.split(" ").slice(-1)[0]}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
             {activeTrip ? "Bạn đang có chuyến đang chạy" : upcomingTrips.length > 0 ? `${upcomingTrips.length} chuyến sắp tới` : "Không có chuyến nào hôm nay"}
@@ -381,11 +380,12 @@ function DriverDashboard() {
 // ─────────────────────────────────────────────
 // REALTIME HOOK (for non-driver roles)
 // ─────────────────────────────────────────────
-function useRealtimeDashboard(initial: Props) {
+function useRealtimeDashboard(initial: Props, assignedWarehouseIds?: string[]) {
   const shipmentStats = useSharedDataStore((s) => s.shipmentStats);
   const alertList = useSharedDataStore((s) => s.alerts);
   const warehouseList = useSharedDataStore((s) => s.warehouses);
   const sharedLastUpdated = useSharedDataStore((s) => s.lastUpdated);
+  const sharedError = useSharedDataStore((s) => s.error);
 
   const stats = shipmentStats ?? initial.shipmentStats;
   const alerts: ActiveAlert[] = (alertList.length > 0 ? alertList : initial.activeAlerts) as ActiveAlert[];
@@ -394,12 +394,16 @@ function useRealtimeDashboard(initial: Props) {
   const [shipments, setShipments] = useState<RecentShipment[]>(initial.recentShipments);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
+  const [fetchFailed, setFetchFailed] = useState(false);
 
   const fetchShipments = useCallback(async () => {
     try {
       const r = await shipmentsApi.getAll({ limit: 5, status: "IN_TRANSIT" });
       setShipments(r.data.data ?? []);
-    } catch {}
+      setFetchFailed(false);
+    } catch {
+      setFetchFailed(true);
+    }
     setLastUpdated(new Date());
   }, []);
 
@@ -421,23 +425,59 @@ function useRealtimeDashboard(initial: Props) {
     setRefreshing(false);
   }, [fetchShipments]);
 
+  // Determine offline/error state
+  const isOffline = useMemo(() => {
+    // Fetch failed (even if socket is connected, token could be invalid)
+    // OR shared data store reported errors
+    return fetchFailed || sharedError;
+  }, [fetchFailed, sharedError]);
+
   useEffect(() => {
     const initSocket = async () => {
       const { io } = await import("socket.io-client");
       const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
-      socket.on("connect", () => setSocketConnected(true));
+      
+      // Join warehouse rooms for role-based socket filtering
+      socket.on("connect", () => {
+        setSocketConnected(true);
+        if (assignedWarehouseIds && assignedWarehouseIds.length > 0) {
+          socket.emit("join:warehouse", assignedWarehouseIds);
+        }
+      });
       socket.on("disconnect", () => setSocketConnected(false));
+      
+      // Realtime alerts
       socket.on("alert:new", () => { useSharedDataStore.getState().refresh(); });
+      
+      // Realtime shipment position update — refresh list instantly
+      socket.on("shipment:position", () => {
+        fetchShipments();
+        useSharedDataStore.getState().refresh();
+      });
+      
+      // Realtime checkpoint completion — refresh data instantly
+      socket.on("shipment:checkpoint_update", () => {
+        fetchShipments();
+        useSharedDataStore.getState().refresh();
+      });
+
       return socket;
     };
     const cleanup = initSocket();
-    return () => { cleanup.then((s) => { s?.off("alert:new"); s?.disconnect(); }); };
-  }, []);
+    return () => { 
+      cleanup.then((s) => { 
+        s?.off("alert:new");
+        s?.off("shipment:position");
+        s?.off("shipment:checkpoint_update");
+        s?.disconnect(); 
+      });
+    };
+  }, [fetchShipments, assignedWarehouseIds]);
 
   return {
     stats, alerts: { list: alerts, count: alerts.length },
     whCount, shipments, lastUpdated, socketConnected,
-    refresh: handleRefresh, refreshing,
+    refresh: handleRefresh, refreshing, isOffline,
   };
 }
 
@@ -448,11 +488,17 @@ export default function DashboardClient(props: Props) {
   const auth = useAuth();
   const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
 
-  // Driver gets their own dedicated dashboard
-  if (isDriver) return <DriverDashboard />;
+  // Driver gets their own dedicated dashboard — return early BEFORE all other hooks
+  if (isDriver) {
+    return <DriverDashboardContent user={auth.user!} />;
+  }
 
   // Non-driver roles: unchanged dashboard
-  const { stats, alerts, whCount, shipments, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeDashboard(props);
+  const assignedWarehouseIds = useMemo(() => 
+    [...(auth.managedWarehouses || []), ...(auth.staffedWarehouses || [])].map(w => w.id), 
+    [auth.managedWarehouses, auth.staffedWarehouses]
+  );
+  const { stats, alerts, whCount, shipments, lastUpdated, socketConnected, refresh, refreshing, isOffline } = useRealtimeDashboard(props, assignedWarehouseIds);
   const pendingForCurrentUser = useSharedDataStore((s) => s.shipmentStats?.pendingForCurrentUser ?? 0);
 
   const [pendingLoading, setPendingLoading] = useState<RecentShipment[]>([]);
@@ -472,6 +518,37 @@ export default function DashboardClient(props: Props) {
   return (
     <div className="space-y-6">
       {/* Unified: same layout for ALL roles — only data differs based on permissions */}
+
+      {/* Offline / data-loading warning banner */}
+      {isOffline && (
+        <div
+          className="flex items-start gap-3 px-4 py-3.5 rounded-xl text-sm"
+          style={{
+            background: 'rgba(239,68,68,0.08)',
+            border: '1px solid rgba(239,68,68,0.25)',
+            color: 'var(--color-error, #ef4444)',
+          }}
+        >
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(239,68,68,0.15)' }}>
+            <WifiOff size={18} style={{ color: '#ef4444' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm">Không thể tải dữ liệu</p>
+            <p className="text-xs mt-0.5" style={{ opacity: 0.8 }}>
+              Backend chưa kết nối hoặc token không hợp lệ. Vui lòng kiểm tra backend server đã chạy chưa và thử làm mới trang.
+            </p>
+          </div>
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            className="btn btn-sm shrink-0"
+            style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: 'none' }}
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            Thử lại
+          </button>
+        </div>
+      )}
 
       {/* Page header — redesigned for mobile-first */}
       <div className="card overflow-hidden">
