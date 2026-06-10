@@ -87,7 +87,14 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
       const { io } = await import("socket.io-client");
       const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000");
       socketRef.current = socket;
+      
+      // Join relevant rooms
       socket.emit("join:shipment", shipment.id);
+      const whIds: string[] = [];
+      if (shipment.originWarehouse?.id) whIds.push(shipment.originWarehouse.id);
+      if (shipment.destinationWarehouse?.id) whIds.push(shipment.destinationWarehouse.id);
+      if (whIds.length > 0) socket.emit("join:warehouse", whIds);
+
       socket.on("connect", () => setSocketConnected(true));
       socket.on("disconnect", () => setSocketConnected(false));
       socket.on("location:updated", (data: { shipmentId: string; latitude: number; longitude: number; speed?: number; status?: string }) => {
@@ -95,7 +102,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           setShipment((prev) => ({ ...prev, currentLat: data.latitude, currentLng: data.longitude, status: data.status || prev.status }));
         }
       });
-      // Realtime checkpoint sync — driver ticks from xa, admin/manager/staff thay đổi ngay lập tức
+      // Realtime checkpoint sync — emitted solely from HTTP controller (no double emission)
       socket.on("checkpoint:completed", (data: { shipmentId: string; checkpointId: string }) => {
         if (data.shipmentId === shipment.id) {
           setShipment((prev) => ({
@@ -112,7 +119,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
     };
     const cleanup = initSocket();
     return () => { cleanup.then((s) => { s?.off("connect"); s?.off("disconnect"); s?.off("location:updated"); s?.off("checkpoint:completed"); s?.disconnect(); }); };
-  }, [shipment.id]);
+  }, [shipment.id, shipment.originWarehouse?.id, shipment.destinationWarehouse?.id]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     try { await shipmentsApi.update(shipment.id, { status: newStatus }); setShipment((prev) => ({ ...prev, status: newStatus })); }
@@ -126,11 +133,8 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
         cp.id === cpId ? { ...cp, isCompleted: true, arrivedAt: new Date().toISOString() } : cp
       ),
     }));
-    // Emit socket event so manager can see in realtime
-    if (socketRef.current) {
-      socketRef.current.emit("checkpoint:arrived", { shipmentId: shipment.id, checkpointId: cpId });
-    }
-  }, [shipment.id]);
+    // No need to emit socket event — HTTP controller already broadcasts checkpoint:completed
+  }, []);
 
 
   const completedCount = shipment.checkpoints.filter((c) => c.isCompleted).length;

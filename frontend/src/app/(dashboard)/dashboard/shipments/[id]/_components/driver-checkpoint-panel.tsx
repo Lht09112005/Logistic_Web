@@ -6,9 +6,11 @@ import {
   MapPin, Navigation, Flag, Loader2,
   CheckCircle, Clock, ArrowRightFromLine, ArrowLeftToLine,
   PartyPopper, X, AlertTriangle, Zap, ChevronDown, ChevronUp,
+  WifiOff,
 } from "lucide-react";
 import { getShipmentStatusLabel } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
+import { offlineDB } from "@/lib/offline-db";
 
 interface Checkpoint {
   id: string; name: string; address: string;
@@ -146,11 +148,11 @@ function SuccessToast({
 
 // ─── Incident Report Modal ───
 const INCIDENT_TYPES = [
-  { id: "traffic", label: "🚧 Kẹt xe / Tắc đường", description: "Ùn tắc giao thông, chậm tiến độ" },
-  { id: "accident", label: "🚨 Tai nạn / Hỏng xe", description: "Xe bị hỏng, tai nạn trên đường" },
-  { id: "cargo", label: "📦 Hàng hóa bị hư", description: "Hàng bị vỡ, ướt, hư hỏng" },
-  { id: "delay", label: "⏰ Trễ giờ dự kiến", description: "Sẽ đến muộn hơn kế hoạch" },
-  { id: "other", label: "📝 Vấn đề khác", description: "Ghi chú sự cố khác" },
+  { id: "traffic", label: "Kẹt xe / Tắc đường", description: "Ùn tắc giao thông, chậm tiến độ", emoji: "traffic" },
+  { id: "accident", label: "Tai nạn / Hỏng xe", description: "Xe bị hỏng, tai nạn trên đường", emoji: "accident" },
+  { id: "cargo", label: "Hàng hóa bị hư", description: "Hàng bị vỡ, ướt, hư hỏng", emoji: "cargo" },
+  { id: "delay", label: "Trễ giờ dự kiến", description: "Sẽ đến muộn hơn kế hoạch", emoji: "delay" },
+  { id: "other", label: "Vấn đề khác", description: "Ghi chú sự cố khác", emoji: "other" },
 ];
 
 function IncidentModal({
@@ -219,10 +221,16 @@ function IncidentModal({
                   background: selectedType === t.id ? "#fef2f2" : "var(--bg-input)",
                 }}
               >
-                <span className="text-base">{t.label.split(" ")[0]}</span>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)" }}>
+                  {t.emoji === "traffic" ? <AlertTriangle size={13} style={{ color: "#ef4444" }} /> :
+                   t.emoji === "accident" ? <AlertTriangle size={13} style={{ color: "#ef4444" }} /> :
+                   t.emoji === "cargo" ? <Package size={13} style={{ color: "#ef4444" }} /> :
+                   t.emoji === "delay" ? <Clock size={13} style={{ color: "#ef4444" }} /> :
+                   <Flag size={13} style={{ color: "#ef4444" }} />}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold" style={{ color: selectedType === t.id ? "#b91c1c" : "var(--text-primary)" }}>
-                    {t.label.split(" ").slice(1).join(" ")}
+                    {t.label}
                   </p>
                   <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t.description}</p>
                 </div>
@@ -349,7 +357,11 @@ function RouteVisualizer({
                     )}
                     {isDotCompleted && <CheckCircle size={7} className="text-white" />}
                     {(node as any).justCompleted && (
-                      <div className="absolute -top-1.5 -right-1.5 text-emerald-400 animate-sparkle text-[8px]">✨</div>
+                      <div className="absolute -top-1.5 -right-1.5 animate-sparkle">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                        </svg>
+                      </div>
                     )}
                   </button>
                   <span className={`text-[7px] font-semibold whitespace-nowrap px-1 py-0.5 rounded transition-all duration-300
@@ -426,12 +438,23 @@ export default function DriverCheckpointPanel({
   const handleRouteCheckpointClick = (cpId: string) => {
     const cp = checkpoints.find((c) => c.id === cpId);
     if (!cp || cp.isCompleted || actionLoading !== null) return;
+
+    const updatedCheckpoints = checkpoints.map((c) =>
+      c.id === cpId ? { ...c, isCompleted: true, arrivedAt: new Date().toISOString() } : c
+    );
+
     handleAction(`cp-${cpId}`, async () => {
-      await shipmentsApi.update(shipmentId, {
-        checkpoints: checkpoints.map((c) =>
-          c.id === cpId ? { ...c, isCompleted: true, arrivedAt: new Date().toISOString() } : c
-        ),
-      });
+      try {
+        await shipmentsApi.update(shipmentId, { checkpoints: updatedCheckpoints });
+      } catch {
+        // Offline: queue mutation for later sync
+        await offlineDB.queueMutation(
+          `/api/shipments/${shipmentId}`,
+          "PUT",
+          { checkpoints: updatedCheckpoints },
+          { "Content-Type": "application/json" }
+        );
+      }
       onCheckpointUpdate(cpId);
       triggerSuccess(cp.name, cpId);
     });
@@ -510,6 +533,11 @@ export default function DriverCheckpointPanel({
                   Bảng điều khiển tài xế
                 </h3>
                 <p className="text-[10px]" style={{ color: "var(--color-warning)" }}>
+                  {typeof window !== 'undefined' && !navigator.onLine && (
+                    <span className="inline-flex items-center gap-0.5 mr-1 text-rose-400">
+                      <WifiOff size={10} />
+                    </span>
+                  )}
                   {shipmentCode} • {getShipmentStatusLabel(status)}
                 </p>
               </div>

@@ -311,8 +311,7 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#8b5cf6" }}>
-                      <span>📍</span> Hàng sẽ được nhập vào kho bạn đang quản lý
+                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#8b5cf6" }}>                        <MapPin size={12} /> Hàng sẽ được nhập vào kho bạn đang quản lý
                     </p>
                   </>
                 ) : (

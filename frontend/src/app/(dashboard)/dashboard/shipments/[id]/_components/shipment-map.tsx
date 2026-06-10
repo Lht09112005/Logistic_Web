@@ -264,7 +264,7 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
             <MarkerPopup>
               <div className="text-xs">{cp.name}</div>
               <div className="text-[10px] text-muted-foreground">
-                {cp.isCompleted ? "✅ Đã trạm qua" : "⏳ Đang chờ"}
+                {cp.isCompleted ? "Đã đi qua" : "Đang chờ"}
               </div>
             </MarkerPopup>
           </MapMarker>
@@ -278,7 +278,7 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
             <div dangerouslySetInnerHTML={{ __html: RADAR_MARKER_HTML }} />
           </MarkerContent>
           <MarkerPopup>
-            <div className="text-xs font-semibold">🚛 Vị trí xe thời gian thực</div>
+            <div className="text-xs font-semibold">Vị trí xe thời gian thực</div>
           </MarkerPopup>
         </MapMarker>
       )}
