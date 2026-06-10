@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
-import { Eye, EyeOff, Loader2, Truck } from "lucide-react";
+import { Eye, EyeOff, Loader2, Truck, Shield, User, ClipboardList } from "lucide-react";
 
 const schema = z.object({
   email: z.string().email("Email không hợp lệ"),
@@ -89,7 +89,7 @@ export default function LoginPage() {
             color: "#ef4444",
             bg: "#fef2f2",
             darkBg: "#7f1d1d40",
-            icon: "🛡️",
+            icon: Shield,
           },
           {
             role: "MANAGER",
@@ -100,7 +100,7 @@ export default function LoginPage() {
             color: "#8b5cf6",
             bg: "#f5f3ff",
             darkBg: "#4c1d9540",
-            icon: "📋",
+            icon: ClipboardList,
           },
           {
             role: "STAFF",
@@ -111,7 +111,7 @@ export default function LoginPage() {
             color: "#4f46e5",
             bg: "#eef2ff",
             darkBg: "#312e8140",
-            icon: "👤",
+            icon: User,
           },
           {
             role: "DRIVER",
@@ -122,7 +122,7 @@ export default function LoginPage() {
             color: "#f97316",
             bg: "#fff7ed",
             darkBg: "#7c2d1240",
-            icon: "🚚",
+            icon: Truck,
           },
         ].map((item) => (
           <button
@@ -152,7 +152,7 @@ export default function LoginPage() {
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0 transition-transform duration-200 group-hover:scale-110"
                 style={{ background: `${item.color}15` }}
               >
-                {item.icon}
+                <item.icon size={20} style={{ color: item.color }} />
               </div>
 
               {/* Info */}
@@ -240,6 +240,17 @@ export default function LoginPage() {
               {errors.password.message}
             </p>
           )}
+
+          {/* Forgot password link */}
+          <div className="flex justify-end -mt-1">
+            <Link
+              href="/auth/forgot-password"
+              className="text-xs font-medium hover:underline transition-all"
+              style={{ color: "#f97316" }}
+            >
+              Quên mật khẩu?
+            </Link>
+          </div>
         </div>
 
         {serverError && (

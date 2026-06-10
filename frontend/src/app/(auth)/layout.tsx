@@ -60,18 +60,30 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           {/* Feature highlights */}
           <div className="space-y-4">
             {[
-              { icon: "📦", label: "Quản lý kho thông minh với QR Code" },
-              { icon: "🗺️", label: "Bản đồ theo dõi vận chuyển real-time" },
-              { icon: "🔔", label: "Cảnh báo tồn kho thấp tự động" },
+              { icon: "warehouse", label: "Quản lý kho thông minh với QR Code" },
+              { icon: "map", label: "Bản đồ theo dõi vận chuyển real-time" },
+              { icon: "bell", label: "Cảnh báo tồn kho thấp tự động" },
             ].map((item) => (
               <div key={item.label} className="flex items-center gap-3">
                 <div
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
                   style={{ background: "rgba(249,115,22,0.15)" }}
                 >
-                  {item.icon}
-                </div>
-                <span className="text-gray-300 text-sm">{item.label}</span>
+                {item.icon === 'warehouse' ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35" /><path d="M22 8.35 12 2 2 8.35" /><path d="M6 12h3v4H6z" /><path d="M10 12h3v4h-3z" /><path d="M14 12h4v4h-4z" />
+                  </svg>
+                ) : item.icon === 'map' ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 6v12l4-3 4 3 4-3 4 3 4-3V6l-4 3-4-3-4 3-4-3Z" /><path d="M9.5 21V10" /><path d="M14.5 21V10" />
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-gray-300 text-sm">{item.label}</span>
               </div>
             ))}
           </div>
