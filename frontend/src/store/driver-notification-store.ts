@@ -35,32 +35,32 @@ export function buildNotification(
   const map: Record<string, { type: DriverNotifType; title: string; body: string }> = {
     PENDING: {
       type: "ASSIGNED",
-      title: "🚚 Chuyến mới được phân công",
+      title: "Chuyến mới được phân công",
       body: `Bạn vừa được giao vận đơn ${shipmentCode}. Hãy chuẩn bị xuất phát!`,
     },
     CONFIRMED: {
       type: "CONFIRMED",
-      title: "✅ Vận đơn đã được xác nhận",
+      title: "Vận đơn đã được xác nhận",
       body: `Vận đơn ${shipmentCode} đã được xác nhận. Sẵn sàng bốc hàng!`,
     },
     LOADING: {
       type: "LOADING",
-      title: "📦 Bắt đầu bốc hàng",
+      title: "Bắt đầu bốc hàng",
       body: `Vận đơn ${shipmentCode} đang trong quá trình bốc xếp hàng hóa.`,
     },
     IN_TRANSIT: {
       type: "IN_TRANSIT",
-      title: "🛣️ Đang vận chuyển",
+      title: "Đang vận chuyển",
       body: `Vận đơn ${shipmentCode} đã xuất phát. Chúc bạn lái xe an toàn!`,
     },
     CANCELLED: {
       type: "CANCELLED",
-      title: "❌ Vận đơn bị hủy",
+      title: "Vận đơn bị hủy",
       body: `Vận đơn ${shipmentCode} đã bị hủy.${extra ? ` Lý do: ${extra}` : ""}`,
     },
     UPDATED: {
       type: "UPDATED",
-      title: "🔄 Cập nhật vận đơn",
+      title: "Cập nhật vận đơn",
       body: `Vận đơn ${shipmentCode} vừa được cập nhật thông tin.`,
     },
   };

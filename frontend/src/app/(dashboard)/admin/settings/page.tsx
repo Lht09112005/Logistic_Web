@@ -36,19 +36,23 @@ const PREFS_KEY = "logistiq_notification_prefs";
 
 export default function AdminSettingsPage() {
   const { user } = useAuth();
-  const isDriver = user?.role === 'DRIVER';
+  const isAdmin = user?.role === 'ADMIN';
 
-  // Tài xế: chỉ cần Hồ sơ + Mật khẩu
-  const visibleTabs = isDriver
-    ? TABS.filter((t) => t.key === 'profile' || t.key === 'password')
-    : TABS;
+  // Chỉ ADMIN mới thấy tab Thông báo + Hệ thống (notifications/settings chỉ lưu localStorage, không có real functionality)
+  const visibleTabs = TABS.filter((t) => {
+    if (t.key === 'profile' || t.key === 'password') return true; // Mọi role đều cần
+    return isAdmin; // Notifications + System chỉ dành cho ADMIN
+  });
 
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   // Safety: nếu activeTab không còn trong danh sách tab cho phép, về mặc định
-  if (isDriver && activeTab !== 'profile' && activeTab !== 'password') {
-    setActiveTab('profile');
-  }
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.key === activeTab)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveTab('profile');
+    }
+  }, [visibleTabs, activeTab]);
 
   // Profile state
   const [profile, setProfile] = useState({ name: "", email: "", phone: "" });
@@ -100,8 +104,9 @@ export default function AdminSettingsPage() {
         setProfileSuccess("");
         window.location.reload();
       }, 1500);
-    } catch (err: any) {
-      setProfileError(err?.response?.data?.message || "Có lỗi xảy ra");
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      setProfileError(apiErr?.response?.data?.message || "Có lỗi xảy ra");
     } finally {
       setProfileSaving(false);
     }
@@ -128,8 +133,9 @@ export default function AdminSettingsPage() {
       setPwSuccess("Đổi mật khẩu thành công");
       setPasswords({ newPass: "", confirm: "" });
       setTimeout(() => setPwSuccess(""), 3000);
-    } catch (err: any) {
-      setPwError(err?.response?.data?.message || "Có lỗi xảy ra");
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      setPwError(apiErr?.response?.data?.message || "Có lỗi xảy ra");
     } finally {
       setPwSaving(false);
     }

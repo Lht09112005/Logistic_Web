@@ -21,6 +21,7 @@ export function setAccessToken(token: string | null) {
 async function ensureToken(): Promise<string | null> {
   // 1. Check refreshed token (in-memory, from refresh logic below)
   if (typeof window !== "undefined") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const refreshed = (window as any).__newAccessToken;
     if (refreshed) return refreshed;
   }
@@ -30,6 +31,7 @@ async function ensureToken(): Promise<string | null> {
 
   // 3. Fallback — read directly from NextAuth session
   if (!_tokenInitPromise) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     _tokenInitPromise = getSession().then((session: any) => {
       // NextAuth v5 stores extra fields differently depending on callbacks config
       // Try multiple paths: top-level, user, and accessToken sub-key
@@ -90,6 +92,7 @@ api.interceptors.response.use(
     }
 
     // Get session to check if token is real or mock
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session: any = await getSession();
     const accessToken = session?.accessToken as string | undefined;
     const refreshToken = session?.refreshToken as string | undefined;
@@ -129,6 +132,7 @@ api.interceptors.response.use(
       // Update NextAuth session via update (next-auth v5)
       // Since next-auth doesn't expose update client-side easily,
       // store in memory for this session lifetime
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__newAccessToken = newAccessToken;
 
       // Patch future requests
@@ -161,6 +165,10 @@ export const authApi = {
   me: () => api.get("/auth/me"),
   updateMe: (data: Record<string, unknown>) => api.put("/auth/me", data),
   getDrivers: () => api.get("/auth/drivers"),
+  forgotPassword: (email: string) =>
+    api.post("/auth/forgot-password", { email }),
+  resetPassword: (token: string, password: string) =>
+    api.post("/auth/reset-password", { token, password }),
 };
 
 export const productsApi = {

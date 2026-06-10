@@ -42,7 +42,7 @@ export const useNotificationStore = create<NotificationState>()(
           state.unreadCount = unreadCount;
           state.loading = false;
         });
-      } catch (error) {
+      } catch {
         set((state) => { state.loading = false; });
       }
     },
@@ -68,7 +68,7 @@ export const useNotificationStore = create<NotificationState>()(
 
       try {
         await api.put(`/notifications/${id}/read`);
-      } catch (error) {
+      } catch {
         // Revert on failure
         set((state) => {
           const n = state.notifications.find((x) => x.id === id);
@@ -87,7 +87,7 @@ export const useNotificationStore = create<NotificationState>()(
 
       try {
         await api.put("/notifications/read-all");
-      } catch (error) {
+      } catch {
         get().fetchNotifications(); // refetch to sync on error
       }
     },

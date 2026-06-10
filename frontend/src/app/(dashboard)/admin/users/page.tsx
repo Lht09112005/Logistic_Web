@@ -216,8 +216,9 @@ function AdminUsersContent() {
 
       setModalOpen(false);
       fetchUsers();
-    } catch (err: any) {
-      setFormError(err?.response?.data?.message || "Có lỗi xảy ra");
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      setFormError(apiErr?.response?.data?.message || "Có lỗi xảy ra");
     } finally {
       setSaving(false);
     }

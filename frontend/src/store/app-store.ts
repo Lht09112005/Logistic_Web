@@ -66,7 +66,7 @@ export const useAppStore = create<AppState>()(
         state.shipmentPositions[data.shipmentId] = data;
       }),
 
-    sidebarOpen: true,
+    sidebarOpen: false,
     toggleSidebar: () =>
       set((state) => {
         state.sidebarOpen = !state.sidebarOpen;
