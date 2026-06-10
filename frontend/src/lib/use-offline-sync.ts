@@ -21,21 +21,31 @@ export interface OfflineState {
 const STORAGE_KEY = "logistiq-offline-last-sync";
 
 export function useOfflineSync() {
+  // SAFE default state — no browser APIs that crash during SSR
   const [state, setState] = useState<OfflineState>({
-    isOnline: navigator.onLine,
+    isOnline: true,
     queueCount: 0,
-    lastSyncAt: (() => {
-      try {
-        const v = localStorage.getItem(STORAGE_KEY);
-        return v ? Number(v) : null;
-      } catch {
-        return null;
-      }
-    })(),
+    lastSyncAt: null,
     syncing: false,
     isInstalled: false,
     swRegistered: false,
   });
+
+  // Read browser-only values after mount (SSR-safe)
+  useEffect(() => {
+    setState((prev) => ({
+      ...prev,
+      isOnline: navigator.onLine,
+      lastSyncAt: (() => {
+        try {
+          const v = localStorage.getItem(STORAGE_KEY);
+          return v ? Number(v) : null;
+        } catch {
+          return null;
+        }
+      })(),
+    }));
+  }, []);
 
   const syncInProgress = useRef(false);
   const flushFn = useRef<(() => Promise<void>) | null>(null);
