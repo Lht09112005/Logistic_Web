@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: "Kiểm kho QR | LogistiQ",
 };
 
+// ISR: Revalidate mỗi 60 giây — trang này không gọi auth() nên an toàn để cache
+// Giảm tải cho backend, dữ liệu giao diện QR scan (form, cấu hình) ít thay đổi
+export const revalidate = 60;
+
 export default function QRScanPage() {
   return (
     <Suspense fallback={

@@ -500,9 +500,11 @@ function DriverActiveTrip({ collapsed, onNavClick }: { collapsed: boolean; onNav
               <span className="truncate leading-tight">{trip.originAddress} → {trip.destinationAddress}</span>
             </div>
             {/* ETA */}
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {(trip as any).estimatedArrival && (
               <div className="px-3 pb-1 flex items-center gap-1 text-[7px]" style={{ color: "#047857" }}>
                 <Clock size={7} />
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <span>ETA: <strong>{new Date((trip as any).estimatedArrival).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</strong></span>
               </div>
             )}
@@ -680,6 +682,7 @@ export function Sidebar() {
                         <span className="flex-1 truncate">{item.label}</span>
                       )}
                       {/* Expanded: show combined badge on 'Cảnh báo' */}
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       {sidebarOpen && (item as any).badge === "alerts" && totalUnread > 0 && (
                         <span
                           className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0"
@@ -689,6 +692,7 @@ export function Sidebar() {
                         </span>
                       )}
                       {/* Collapsed: small dot badge on Bell icon */}
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       {!sidebarOpen && (item as any).badge === "alerts" && totalUnread > 0 && (
                         <span
                           className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center"
@@ -697,6 +701,7 @@ export function Sidebar() {
                           {totalUnread > 9 ? "9+" : totalUnread}
                         </span>
                       )}
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       {sidebarOpen && (item as any).badge === "pending" && pendingForCurrentUser > 0 && (
                         <span
                           className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0 animate-pulse"

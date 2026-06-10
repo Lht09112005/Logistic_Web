@@ -178,8 +178,9 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
       }
 
       setStep("success");
-    } catch (err: any) {
-      setError(err.message || "Có lỗi xảy ra. Vui lòng thử lại.");
+    } catch (err: unknown) {
+      const msg = (err as Error)?.message || "Có lỗi xảy ra. Vui lòng thử lại.";
+      setError(msg);
       setStep("form");
     }
   };
@@ -321,7 +322,7 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
                         </div>
                       </div>
                       <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#8b5cf6" }}>
-                        <span>📍</span> Hàng sẽ được nhập vào kho bạn đang quản lý
+                        <MapPin size={12} /> Hàng sẽ được nhập vào kho bạn đang quản lý
                       </p>
                     </>
                   ) : (
@@ -375,7 +376,7 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
                         const qty = inv.totalQuantity || inv.quantity;
                         return (
                           <option key={inv.id} value={inv.warehouse.id}>
-                            🟢 {inv.warehouse.name} ({inv.warehouse.code}) — còn {qty} sản phẩm
+                            {inv.warehouse.name} ({inv.warehouse.code}) — còn {qty} sản phẩm
                           </option>
                         );
                     })}
@@ -385,7 +386,7 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
                       .filter((wh) => !sourceInventories.some((inv) => inv.warehouse.id === wh.id))
                       .map((wh) => (
                         <option key={wh.id} value={wh.id} disabled>
-                          🔴 {wh.name} ({wh.code}) — không có hàng
+                          {wh.name} ({wh.code}) — không có hàng
                         </option>
                       ))}
                   </select>
