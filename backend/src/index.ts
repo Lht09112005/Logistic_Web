@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import { Server } from 'socket.io'
 import dotenv from 'dotenv'
+import swaggerUi from 'swagger-ui-express'
 
 import authRoutes from './routes/auth.routes'
 import userRoutes from './routes/user.routes'
@@ -13,6 +14,7 @@ import inventoryRoutes from './routes/inventory.routes'
 import shipmentRoutes from './routes/shipment.routes'
 import warehouseRoutes from './routes/warehouse.routes'
 import notificationRoutes from './routes/notification.routes'
+import { swaggerSpec } from './config/swagger'
 
 dotenv.config()
 
@@ -46,6 +48,18 @@ app.use('/api/shipments', shipmentRoutes)
 app.use('/api/warehouses', warehouseRoutes)
 app.use('/api/notifications', notificationRoutes)
 
+// Swagger API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none } .swagger-ui .info .description p { font-size: 14px }',
+  customSiteTitle: 'LogistiQ API Docs',
+  customfavIcon: '',
+}))
+
+// JSON version of swagger spec
+app.get('/api-docs.json', (_req, res) => {
+  res.json(swaggerSpec)
+})
+
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() })
@@ -78,14 +92,24 @@ io.on('connection', (socket) => {
     }
     // Broadcast to all viewers of this shipment
     io.to(`shipment:${data.shipmentId}`).emit('location:updated', payload)
-
-    // Also emit global update for dashboard live tracking
-    io.emit('shipment:position', payload)
+    io.to(`shipment:${data.shipmentId}`).emit('shipment:position', payload)
   })
 
-  // Checkpoint arrival
-  socket.on('checkpoint:arrived', (data: { shipmentId: string; checkpointId: string }) => {
-    io.to(`shipment:${data.shipmentId}`).emit('checkpoint:completed', data)
+  // Client joins warehouse room (for role-based filtering)
+  socket.on('join:warehouse', (warehouseIds: string[]) => {
+    if (!Array.isArray(warehouseIds)) return
+    for (const whId of warehouseIds) {
+      socket.join(`warehouse:${whId}`)
+      console.log(`Socket ${socket.id} joined room: warehouse:${whId}`)
+    }
+  })
+
+  // Client leaves warehouse room
+  socket.on('leave:warehouse', (warehouseIds: string[]) => {
+    if (!Array.isArray(warehouseIds)) return
+    for (const whId of warehouseIds) {
+      socket.leave(`warehouse:${whId}`)
+    }
   })
 
   // Stock alert broadcast
@@ -104,8 +128,8 @@ export { io }
 const PORT = process.env.PORT || 5000
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`)
-  console.log(`📡 Socket.io ready`)
+  console.log(`[Server] LogistiQ API running on port ${PORT}`)
+  console.log(`[Socket] Socket.io ready`)
 })
 
 export default app

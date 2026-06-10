@@ -243,6 +243,7 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
       select: {
         id: true,
         driverId: true,
+        originWarehouseId: true,
         destinationWarehouseId: true,
         shipmentCode: true,
         destinationWarehouse: { select: { id: true, name: true, managerId: true, staffId: true } },
@@ -376,19 +377,31 @@ export const updateShipment = async (req: AuthRequest, res: Response): Promise<v
         }
         // Broadcast to shipment room (anyone tracking this shipment)
         io.to(`shipment:${existing.id}`).emit('checkpoint:completed', payload)
-        // Broadcast globally so STAFF/MANAGER of destination warehouse can react
-        io.emit('shipment:checkpoint_update', payload)
+        // Broadcast to destination warehouse room (only relevant staff/manager see it)
+        if (existing.destinationWarehouseId) {
+          io.to(`warehouse:${existing.destinationWarehouseId}`).emit('shipment:checkpoint_update', payload)
+        }
       }
     }
 
-    // Also broadcast position update
+    // Also broadcast position update to relevant warehouse rooms
     if (currentLat !== undefined && currentLng !== undefined) {
-      io.emit('shipment:position', {
+      const positionPayload = {
         shipmentId: existing.id,
         latitude: currentLat,
         longitude: currentLng,
         status,
-      })
+      }
+      // Emit to shipment room (anyone tracking this shipment)
+      io.to(`shipment:${existing.id}`).emit('shipment:position', positionPayload)
+      // Emit to origin warehouse room (staff monitoring outgoing goods)
+      if (existing.originWarehouseId) {
+        io.to(`warehouse:${existing.originWarehouseId}`).emit('shipment:position', positionPayload)
+      }
+      // Emit to destination warehouse room (staff expecting incoming goods)
+      if (existing.destinationWarehouseId) {
+        io.to(`warehouse:${existing.destinationWarehouseId}`).emit('shipment:position', positionPayload)
+      }
     }
     sendSuccess(res, shipment, 'Cập nhật vận đơn thành công')
   } catch (error: unknown) {

@@ -73,10 +73,12 @@ model User {
   role           Role     @default(STAFF)
   phone          String?
   avatar         String?
-  refreshToken   String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  refreshToken    String?
+  resetToken      String?
+  resetTokenExpiry DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   auditedInventory InventoryItem[] @relation("AuditedBy")

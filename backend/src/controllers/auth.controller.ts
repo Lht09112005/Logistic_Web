@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto'
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../config/database'
@@ -202,6 +203,98 @@ export const updateMe = async (req: AuthRequest, res: Response): Promise<void> =
     sendError(res, 'Lỗi cập nhật thông tin', 500, error)
   }
 }
+
+// POST /api/auth/forgot-password
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      sendError(res, 'Vui lòng nhập email', 400);
+      return;
+    }
+
+    // Always return success to prevent email enumeration
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      sendSuccess(res, null, 'Nếu email tồn tại, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu');
+      return;
+    }
+
+    // Generate reset token (valid for 60 minutes)
+    const resetToken = randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 60 phút
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken, resetTokenExpiry },
+    });
+
+    // Send email (non-blocking — don't await to avoid timeout)
+    const { sendPasswordResetEmail } = await import('../lib/email');
+    sendPasswordResetEmail(user.email, user.name, resetToken).catch((err) => {
+      console.error('[ForgotPassword] Failed to send email:', err);
+    });
+
+    sendSuccess(res, null, 'Nếu email tồn tại, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu');
+  } catch (error) {
+    console.error('[ForgotPassword] Error:', error);
+    sendError(res, 'Có lỗi xảy ra. Vui lòng thử lại sau.', 500);
+  }
+};
+
+// POST /api/auth/reset-password
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      sendError(res, 'Vui lòng cung cấp token và mật khẩu mới', 400);
+      return;
+    }
+
+    if (password.length < 6) {
+      sendError(res, 'Mật khẩu phải có ít nhất 6 ký tự', 400);
+      return;
+    }
+
+    // Find user with valid reset token
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gte: new Date() },
+      },
+    });
+
+    if (!user) {
+      sendError(res, 'Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn', 400);
+      return;
+    }
+
+    // Hash new password and clear reset token
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null,
+      },
+    });
+
+    // Invalidate all existing sessions by clearing refresh token
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken: null },
+    });
+
+    sendSuccess(res, null, 'Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập lại.');
+  } catch (error) {
+    console.error('[ResetPassword] Error:', error);
+    sendError(res, 'Có lỗi xảy ra. Vui lòng thử lại sau.', 500);
+  }
+};
 
 // GET /api/auth/drivers
 export const getDrivers = async (req: Request, res: Response): Promise<void> => {

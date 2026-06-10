@@ -7,7 +7,7 @@ dotenv.config()
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Seeding database...')
+  console.log('[Seed] Seeding database...')
 
   // --- Users ---
   const adminPassword = await bcrypt.hash('admin123', 12)
@@ -97,7 +97,7 @@ async function main() {
     },
   })
 
-  console.log('✅ Users seeded')
+  console.log('[OK] Users seeded')
 
   // --- Warehouses ---
   const wh1 = await prisma.warehouse.upsert({
@@ -176,7 +176,7 @@ async function main() {
     },
   })
 
-  console.log('✅ Warehouses seeded')
+  console.log('[OK] Warehouses seeded')
 
   // --- Products ---
   const products = [
@@ -264,7 +264,7 @@ async function main() {
     createdProducts.push(prod)
   }
 
-  console.log('✅ Products seeded')
+  console.log('[OK] Products seeded')
 
   // --- Inventory Items ---
   const wh1Zones = await prisma.warehouseZone.findMany({ where: { warehouseId: wh1.id } })
@@ -325,7 +325,7 @@ async function main() {
     }
   }
 
-  console.log('✅ Inventory seeded')
+  console.log('[OK] Inventory seeded')
 
   // --- Stock Alerts for low stock items (idempotent: delete stale, then create fresh) ---
   // Clear all existing stock alerts to prevent duplicates from old runs (before warehouseId was added)
@@ -342,7 +342,7 @@ async function main() {
     await prisma.stockAlert.create({ data: alert })
   }
 
-  console.log('✅ Stock alerts seeded')
+  console.log('[OK] Stock alerts seeded')
 
   // --- Shipments ---
   const shipment1 = await prisma.shipment.upsert({
@@ -474,19 +474,19 @@ async function main() {
     })
   }
 
-  console.log('✅ Shipments seeded')
-  console.log('\n🎉 Database seeded successfully!')
-  console.log('📧 Admin: admin@logistiq.vn / admin123')
-  console.log('📧 Manager HCM: manager.hcm@logistiq.vn / staff123 — quản lý Kho Trung Tâm HCM')
-  console.log('📧 Manager HN: manager.hn@logistiq.vn / staff123 — quản lý Kho Hà Nội')
-  console.log('📧 Manager DN: manager.dn@logistiq.vn / staff123 — quản lý Kho Đà Nẵng')
-  console.log('📧 Staff: nam@logistiq.vn / staff123')
-  console.log('📧 Driver: driver1@logistiq.vn / staff123')
+  console.log('[OK] Shipments seeded')
+  console.log('\n[DONE] Database seeded successfully!')
+  console.log('  Admin: admin@logistiq.vn / admin123')
+  console.log('  Manager HCM: manager.hcm@logistiq.vn / staff123 — quản lý Kho Trung Tâm HCM')
+  console.log('  Manager HN: manager.hn@logistiq.vn / staff123 — quản lý Kho Hà Nội')
+  console.log('  Manager DN: manager.dn@logistiq.vn / staff123 — quản lý Kho Đà Nẵng')
+  console.log('  Staff: nam@logistiq.vn / staff123')
+  console.log('  Driver: driver1@logistiq.vn / staff123')
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e)
+    console.error('[ERR] Seed failed:', e)
     process.exit(1)
   })
   .finally(async () => {
