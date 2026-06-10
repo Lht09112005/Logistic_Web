@@ -3,7 +3,7 @@
    Version: 1.1.0
    ============================================================ */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `logistiq-static-${CACHE_VERSION}`;
 const API_CACHE = `logistiq-api-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `logistiq-dynamic-${CACHE_VERSION}`;
@@ -94,28 +94,12 @@ async function networkFirst(request, cacheName, timeoutMs = 5000) {
   }
 }
 
-// ─── Helper: Cache-first (for static assets) ─────────────────
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-  try {
-    const response = await fetch(request);
-    if (response && response.ok) {
-      const clone = response.clone();
-      caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
-    }
-    return response;
-  } catch {
-    return new Response('Offline', { status: 503 });
-  }
-}
-
-// ─── Helper: Stale-while-revalidate (for API GET) ───────────
-async function staleWhileRevalidate(request) {
+// ─── Helper: Stale-while-revalidate ───────────────────────
+async function staleWhileRevalidate(request, cacheName = API_CACHE) {
   const cached = await caches.match(request);
   const fetchPromise = fetch(request).then((response) => {
     if (response && response.ok) {
-      caches.open(API_CACHE).then((cache) => cache.put(request, response.clone()));
+      caches.open(cacheName).then((cache) => cache.put(request, response.clone()));
     }
     return response;
   }).catch(() => cached);
@@ -222,9 +206,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle static assets: cache-first
+  // Handle static assets: stale-while-revalidate
+  // Next.js generates content-hashed filenames (chunk-abc123.js),
+  // so after deploy the new chunk names won't be in cache → cache miss → fetch from network.
+  // During normal use, cached chunks serve instantly for fast loads.
   if (isStaticAsset(url)) {
-    event.respondWith(cacheFirst(request));
+    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
     return;
   }
 
