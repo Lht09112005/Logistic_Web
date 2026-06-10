@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -54,8 +55,10 @@ export default function RootLayout({
   return (
     <html lang="vi" suppressHydrationWarning data-scroll-behavior="smooth" className={cn("font-sans", geist.variable)}>
       <head>
-        {/* No-flash dark mode: set class before React hydrates */}
-        <script dangerouslySetInnerHTML={{__html: `(function(){try{var t=localStorage.getItem('theme'),d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')}catch(e){}})()`}} />
+        {/* No-flash dark mode: runs before hydration via next/script */}
+        <Script id="no-flash-dark-mode" strategy="beforeInteractive">
+          {`(function(){try{var t=localStorage.getItem('theme'),d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')}catch(e){}})()`}
+        </Script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />

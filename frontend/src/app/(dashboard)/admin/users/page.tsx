@@ -78,8 +78,10 @@ function AdminUsersContent() {
   const [form, setForm] = useState<UserForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [confirmAction, setConfirmAction] = useState<{ type: "DELETE" | "TOGGLE_ACTIVE"; user: User } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
 
   // Warehouse assignment state
   const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
@@ -115,6 +117,7 @@ function AdminUsersContent() {
     setEditingUser(null);
     setForm(emptyForm);
     setFormError("");
+    setFieldErrors({});
     setSelectedWarehouseId("");
     fetchWarehouses();
     setModalOpen(true);
@@ -130,6 +133,7 @@ function AdminUsersContent() {
       phone: user.phone || "",
     });
     setFormError("");
+    setFieldErrors({});
 
     // Fetch warehouses and pre-select the one managed by this user
     fetchWarehouses(user);
@@ -153,16 +157,49 @@ function AdminUsersContent() {
     });
   };
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Name validation
+    if (!form.name.trim()) {
+      errors.name = "Vui lòng nhập họ tên";
+    } else if (form.name.trim().length < 2) {
+      errors.name = "Họ tên phải có ít nhất 2 ký tự";
+    }
+
+    // Email validation
+    if (!form.email.trim()) {
+      errors.email = "Vui lòng nhập email";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(form.email.trim())) {
+        errors.email = "Email không hợp lệ";
+      }
+    }
+
+    // Password validation (only for new users, or when changing password)
+    if (!editingUser && !form.password.trim()) {
+      errors.password = "Vui lòng nhập mật khẩu";
+    } else if (form.password.trim() && form.password.trim().length < 6) {
+      errors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+    }
+
+    // Phone validation (optional but must be valid if provided)
+    if (form.phone.trim()) {
+      const phoneRegex = /^(0[35789])\d{8}$/;
+      if (!phoneRegex.test(form.phone.trim())) {
+        errors.phone = "Số điện thoại không hợp lệ (VD: 0912345678)";
+      }
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async () => {
     setFormError("");
-    if (!form.name.trim() || !form.email.trim()) {
-      setFormError("Vui lòng nhập họ tên và email");
-      return;
-    }
-    if (!editingUser && !form.password.trim()) {
-      setFormError("Vui lòng nhập mật khẩu");
-      return;
-    }
+
+    if (!validateForm()) return;
 
     setSaving(true);
     try {
@@ -224,8 +261,14 @@ function AdminUsersContent() {
     }
   };
 
-  const handleDeleteClick = (user: User) => setConfirmAction({ type: "DELETE", user });
-  const handleToggleActiveClick = (user: User) => setConfirmAction({ type: "TOGGLE_ACTIVE", user });
+  const handleDeleteClick = (user: User) => {
+    setConfirmName("");
+    setConfirmAction({ type: "DELETE", user });
+  };
+  const handleToggleActiveClick = (user: User) => {
+    setConfirmName("");
+    setConfirmAction({ type: "TOGGLE_ACTIVE", user });
+  };
 
   const executeConfirmAction = async () => {
     if (!confirmAction) return;
@@ -290,8 +333,8 @@ function AdminUsersContent() {
             <button
               key={tab.v}
               onClick={() => { setRoleFilter(tab.v); setPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
-                roleFilter === tab.v ? "text-white" : "hover:bg-[var(--bg-input)]"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                roleFilter === tab.v ? "text-white" : "hover:bg-(--bg-input)"
               }`}
               style={roleFilter === tab.v ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}
             >
@@ -332,11 +375,11 @@ function AdminUsersContent() {
               </thead>
               <tbody>
                 {users.map((user, i) => (
-                  <tr key={user.id} className="hover:bg-[var(--bg-input)] transition-colors animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
+                  <tr key={user.id} className="hover:bg-(--bg-input) transition-colors animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
                     <td>
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                           style={{ background: `linear-gradient(135deg, ${ROLE_COLORS[user.role]}, ${user.role === "ADMIN" ? "#dc2626" : user.role === "MANAGER" ? "#7c3aed" : user.role === "STAFF" ? "#4f46e5" : "#ea580c"})` }}
                         >
                           {user.name.charAt(0).toUpperCase()}
@@ -370,9 +413,9 @@ function AdminUsersContent() {
                     </td>
                     <td>
                       {user.isActive ? (
-                        <span className="badge badge-success flex-shrink-0 inline-flex">Hoạt động</span>
+                        <span className="badge badge-success shrink-0 inline-flex">Hoạt động</span>
                       ) : (
-                        <span className="badge badge-danger flex-shrink-0 inline-flex">Đã khóa</span>
+                        <span className="badge badge-danger shrink-0 inline-flex">Đã khóa</span>
                       )}
                     </td>
                     <td className="hidden sm:table-cell">
@@ -422,7 +465,7 @@ function AdminUsersContent() {
               key={p}
               onClick={() => setPage(p)}
               className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
-                page === p ? "text-white" : "hover:bg-[var(--bg-input)]"
+                page === p ? "text-white" : "hover:bg-(--bg-input)"
               }`}
               style={page === p ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}
             >
@@ -465,10 +508,16 @@ function AdminUsersContent() {
                 </label>
                 <input
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, name: e.target.value }); if (fieldErrors.name) setFieldErrors(prev => ({ ...prev, name: "" })); }}
                   placeholder="Nguyễn Văn A"
-                  className="input-base"
+                  className={`input-base ${fieldErrors.name ? "border-red-500" : ""}`}
                 />
+                {fieldErrors.name && (
+                  <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#ef4444" }}>
+                    <AlertTriangle size={10} />
+                    {fieldErrors.name}
+                  </p>
+                )}
               </div>
 
               {/* Email */}
@@ -479,10 +528,16 @@ function AdminUsersContent() {
                 <input
                   type="email"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, email: e.target.value }); if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: "" })); }}
                   placeholder="email@example.com"
-                  className="input-base"
+                  className={`input-base ${fieldErrors.email ? "border-red-500" : ""}`}
                 />
+                {fieldErrors.email && (
+                  <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#ef4444" }}>
+                    <AlertTriangle size={10} />
+                    {fieldErrors.email}
+                  </p>
+                )}
               </div>
 
               {/* Password */}
@@ -493,10 +548,16 @@ function AdminUsersContent() {
                 <input
                   type="password"
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, password: e.target.value }); if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: "" })); }}
                   placeholder={editingUser ? "Nhập mật khẩu mới..." : "Nhập mật khẩu..."}
-                  className="input-base"
+                  className={`input-base ${fieldErrors.password ? "border-red-500" : ""}`}
                 />
+                {fieldErrors.password && (
+                  <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#ef4444" }}>
+                    <AlertTriangle size={10} />
+                    {fieldErrors.password}
+                  </p>
+                )}
               </div>
 
               {/* Role */}
@@ -510,7 +571,7 @@ function AdminUsersContent() {
                       key={role}
                       onClick={() => setForm({ ...form, role })}
                       className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        form.role === role ? "text-white" : "hover:bg-[var(--bg-input)]"
+                        form.role === role ? "text-white" : "hover:bg-(--bg-input)"
                       }`}
                       style={form.role === role ? { background: ROLE_COLORS[role] } : { color: "var(--text-secondary)", border: "1px solid var(--border-color)" }}
                     >
@@ -527,10 +588,16 @@ function AdminUsersContent() {
                 </label>
                 <input
                   value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, phone: e.target.value }); if (fieldErrors.phone) setFieldErrors(prev => ({ ...prev, phone: "" })); }}
                   placeholder="0901234567"
-                  className="input-base"
+                  className={`input-base ${fieldErrors.phone ? "border-red-500" : ""}`}
                 />
+                {fieldErrors.phone && (
+                  <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#ef4444" }}>
+                    <AlertTriangle size={10} />
+                    {fieldErrors.phone}
+                  </p>
+                )}
               </div>
 
               {/* Warehouse assignment (only for MANAGER and STAFF) */}
@@ -626,7 +693,7 @@ function AdminUsersContent() {
       {/* Confirm Modal */}
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmAction(null)} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setConfirmAction(null); setConfirmName(""); }} />
           <div className="relative w-full max-w-sm card p-6 animate-scale-in">
             <div className="flex flex-col items-center text-center gap-4">
               <div
@@ -635,26 +702,52 @@ function AdminUsersContent() {
               >
                 <AlertTriangle size={24} />
               </div>
-              <div>
+              <div className="w-full">
                 <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
                   {confirmAction.type === "DELETE" ? "Xác nhận xóa" : confirmAction.user.isActive ? "Xác nhận khóa" : "Xác nhận kích hoạt"}
                 </h3>
                 <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
                   {confirmAction.type === "DELETE" 
-                    ? `Bạn có chắc chắn muốn xóa người dùng "${confirmAction.user.name}"? Hành động này không thể hoàn tác.`
+                    ? `Bạn có chắc chắn muốn xóa người dùng "${confirmAction.user.name}"? Hành động này sẽ xóa vĩnh viễn tài khoản và tất cả dữ liệu liên quan. Không thể hoàn tác.`
                     : `Bạn có chắc chắn muốn ${confirmAction.user.isActive ? "khóa" : "kích hoạt"} tài khoản của "${confirmAction.user.name}"?`}
                 </p>
+
+                {/* Danger zone: type name to confirm for DELETE */}
+                {confirmAction.type === "DELETE" && (
+                  <div className="mt-4 text-left">
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                      Nhập <strong className="text-red-500">{confirmAction.user.name}</strong> để xác nhận xóa
+                    </label>
+                    <input
+                      value={confirmName}
+                      onChange={(e) => setConfirmName(e.target.value)}
+                      placeholder="Nhập tên người dùng..."
+                      className="input-base text-sm w-full text-center"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && confirmName === confirmAction.user.name && !confirming) {
+                          executeConfirmAction();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-3 mt-6 pt-4 border-t" style={{ borderColor: "var(--border-light)" }}>
-              <button onClick={() => setConfirmAction(null)} className="btn btn-secondary flex-1">
+              <button onClick={() => { setConfirmAction(null); setConfirmName(""); }} className="btn btn-secondary flex-1">
                 Hủy
               </button>
               <button
                 onClick={executeConfirmAction}
-                disabled={confirming}
+                disabled={confirming || (confirmAction.type === "DELETE" && confirmName !== confirmAction.user.name)}
                 className="btn flex-1"
-                style={confirmAction.type === "DELETE" ? { background: "#ef4444", color: "white" } : { background: "#f97316", color: "white" }}
+                style={{
+                  ...(confirmAction.type === "DELETE" 
+                    ? { background: "#ef4444", color: "white" } 
+                    : { background: confirmAction.user.isActive ? "#ef4444" : "#10b981", color: "white" }),
+                  ...(confirmAction.type === "DELETE" && confirmName !== confirmAction.user.name ? { opacity: 0.5, cursor: "not-allowed" } : {}),
+                }}
               >
                 {confirming ? "Đang xử lý..." : "Xác nhận"}
               </button>

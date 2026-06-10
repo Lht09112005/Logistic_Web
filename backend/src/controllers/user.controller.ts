@@ -190,13 +190,40 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
       return
     }
 
-    // Soft delete — deactivate instead of removing
-    await prisma.user.update({
-      where: { id },
-      data: { isActive: false, refreshToken: null },
-    })
+    // Hard delete — completely remove user from database
+    // First, handle related records to avoid foreign key constraints
+    await prisma.$transaction([
+      // 1. Nullify warehouse manager reference
+      prisma.warehouse.updateMany({
+        where: { managerId: id },
+        data: { managerId: null },
+      }),
+      // 2. Nullify warehouse staff reference
+      prisma.warehouse.updateMany({
+        where: { staffId: id },
+        data: { staffId: null },
+      }),
+      // 3. Nullify inventory audit reference
+      prisma.inventoryItem.updateMany({
+        where: { auditedById: id },
+        data: { auditedById: null },
+      }),
+      // 4. Nullify shipment driver reference
+      prisma.shipment.updateMany({
+        where: { driverId: id },
+        data: { driverId: null },
+      }),
+      // 5. Reassign created shipments to the requesting admin
+      prisma.shipment.updateMany({
+        where: { createdById: id },
+        data: { createdById: req.user!.userId },
+      }),
+      // 6. Notifications will cascade-delete automatically (onDelete: Cascade)
+      // 7. Finally, delete the user
+      prisma.user.delete({ where: { id } }),
+    ])
 
-    sendSuccess(res, null, 'Đã vô hiệu hóa người dùng')
+    sendSuccess(res, null, 'Đã xóa người dùng thành công')
   } catch (error) {
     sendError(res, 'Lỗi xóa người dùng', 500, error)
   }
