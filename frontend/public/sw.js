@@ -1,9 +1,9 @@
 /* ============================================================
    LogistiQ Service Worker — PWA Offline Support
-   Version: 1.0.0
+   Version: 1.1.0
    ============================================================ */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = `logistiq-static-${CACHE_VERSION}`;
 const API_CACHE = `logistiq-api-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `logistiq-dynamic-${CACHE_VERSION}`;
@@ -18,8 +18,6 @@ const PRECACHE_URLS = [
   '/dashboard/warehouse',
   '/dashboard/alerts',
   '/dashboard/analytics',
-  '/auth/login',
-  '/auth/register',
   '/offline',
   '/manifest.json',
 ];

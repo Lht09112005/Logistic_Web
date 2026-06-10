@@ -73,6 +73,30 @@ async function main() {
     },
   })
 
+  const staff2 = await prisma.user.upsert({
+    where: { email: 'staff.hn@logistiq.vn' },
+    update: {},
+    create: {
+      name: 'Phạm Thị Hương',
+      email: 'staff.hn@logistiq.vn',
+      password: staffPassword,
+      role: 'STAFF',
+      phone: '0978901234',
+    },
+  })
+
+  const staff3 = await prisma.user.upsert({
+    where: { email: 'staff.dn@logistiq.vn' },
+    update: {},
+    create: {
+      name: 'Nguyễn Văn Đà Nẵng',
+      email: 'staff.dn@logistiq.vn',
+      password: staffPassword,
+      role: 'STAFF',
+      phone: '0989012345',
+    },
+  })
+
   const driver1 = await prisma.user.upsert({
     where: { email: 'driver1@logistiq.vn' },
     update: {},
@@ -129,7 +153,7 @@ async function main() {
 
   const wh2 = await prisma.warehouse.upsert({
     where: { code: 'WH-HN-01' },
-    update: { managerId: managerHn.id },
+    update: { managerId: managerHn.id, staffId: staff2.id },
     create: {
       name: 'Kho Hà Nội',
       code: 'WH-HN-01',
@@ -141,6 +165,7 @@ async function main() {
       totalArea: 3000,
       capacity: 6000,
       managerId: managerHn.id,
+      staffId: staff2.id,
       status: 'ACTIVE',
       description: 'Kho phân phối miền Bắc',
       zones: {
@@ -154,7 +179,7 @@ async function main() {
 
   const wh3 = await prisma.warehouse.upsert({
     where: { code: 'WH-DN-01' },
-    update: { managerId: managerDn.id },
+    update: { managerId: managerDn.id, staffId: staff3.id },
     create: {
       name: 'Kho Đà Nẵng',
       code: 'WH-DN-01',
@@ -166,6 +191,7 @@ async function main() {
       totalArea: 2000,
       capacity: 4000,
       managerId: managerDn.id,
+      staffId: staff3.id,
       status: 'ACTIVE',
       description: 'Kho phân phối miền Trung',
       zones: {
@@ -480,7 +506,9 @@ async function main() {
   console.log('  Manager HCM: manager.hcm@logistiq.vn / staff123 — quản lý Kho Trung Tâm HCM')
   console.log('  Manager HN: manager.hn@logistiq.vn / staff123 — quản lý Kho Hà Nội')
   console.log('  Manager DN: manager.dn@logistiq.vn / staff123 — quản lý Kho Đà Nẵng')
-  console.log('  Staff: nam@logistiq.vn / staff123')
+  console.log('  Staff (HCM): nam@logistiq.vn / staff123')
+  console.log('  Staff (HN): staff.hn@logistiq.vn / staff123')
+  console.log('  Staff (ĐN): staff.dn@logistiq.vn / staff123')
   console.log('  Driver: driver1@logistiq.vn / staff123')
 }
 
