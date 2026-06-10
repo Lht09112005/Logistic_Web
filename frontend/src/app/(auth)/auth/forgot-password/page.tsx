@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
           <div className="flex items-center gap-3 mb-8">
             <Link
               href="/auth/login"
-              className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-[var(--bg-input)] transition-all"
+              className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-(--bg-input) transition-all"
               style={{ border: "1px solid var(--border-color)" }}
             >
               <ArrowLeft size={16} style={{ color: "var(--text-secondary)" }} />
