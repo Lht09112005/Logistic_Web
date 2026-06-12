@@ -1,5 +1,21 @@
 import jwt from 'jsonwebtoken'
 
+if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET is missing in production!')
+  } else {
+    console.warn('Warning: JWT_SECRET is not defined, using unsafe fallback-secret!')
+  }
+}
+
+if (!process.env.JWT_REFRESH_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_REFRESH_SECRET is missing in production!')
+  } else {
+    console.warn('Warning: JWT_REFRESH_SECRET is not defined, using unsafe fallback-refresh-secret!')
+  }
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret'
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret'
 

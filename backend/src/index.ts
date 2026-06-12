@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { Request, Response, NextFunction } from 'express'
 import http from 'http'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -6,6 +6,7 @@ import morgan from 'morgan'
 import { Server } from 'socket.io'
 import dotenv from 'dotenv'
 import swaggerUi from 'swagger-ui-express'
+import { sendError } from './utils/response'
 
 import authRoutes from './routes/auth.routes'
 import userRoutes from './routes/user.routes'
@@ -63,6 +64,14 @@ app.get('/api-docs.json', (_req, res) => {
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() })
+})
+
+// Global Error Handler Middleware
+app.use((err: any, req: Request, res: Response, next: NextFunction): void => {
+  console.error('[GlobalErrorHandler]', err)
+  const status = err.status || err.statusCode || 500
+  const message = err.message || 'Đã xảy ra lỗi hệ thống!'
+  sendError(res, message, status, process.env.NODE_ENV === 'development' ? err.stack : undefined)
 })
 
 // Socket.io - Realtime tracking
