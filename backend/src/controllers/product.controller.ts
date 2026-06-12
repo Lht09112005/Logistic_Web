@@ -78,12 +78,12 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
   try {
     const {
       name, sku, barcode, category, description, unit,
-      weight, length, width, height, imageUrl,
+      weight, length, width, height, imageUrl, qrCode: bodyQrCode,
       minStockLevel, maxStockLevel, costPrice, sellPrice,
     } = req.body
 
-    // Generate QR code data
-    const qrCode = `LOGISTIQ-${uuidv4().substring(0, 8).toUpperCase()}`
+    // Dùng qrCode từ body nếu có (khi tạo từ QR scan), nếu không thì tự sinh
+    const qrCode = bodyQrCode || `LOGISTIQ-${uuidv4().substring(0, 8).toUpperCase()}`
 
     const product = await prisma.product.create({
       data: {
@@ -158,5 +158,28 @@ export const getProductByQR = async (req: Request, res: Response): Promise<void>
     sendSuccess(res, product)
   } catch (error) {
     sendError(res, 'Lỗi tìm kiếm theo QR', 500, error)
+  }
+}
+
+// GET /api/products/by-barcode/:barcode
+export const getProductByBarcode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const product = await prisma.product.findFirst({
+      where: { barcode: req.params.barcode },
+      include: {
+        inventory: {
+          include: { warehouse: { select: { id: true, name: true, code: true } } },
+        },
+      },
+    })
+
+    if (!product) {
+      sendError(res, 'Không tìm thấy sản phẩm với mã vạch này', 404)
+      return
+    }
+
+    sendSuccess(res, product)
+  } catch (error) {
+    sendError(res, 'Lỗi tìm kiếm theo mã vạch', 500, error)
   }
 }

@@ -176,6 +176,7 @@ export const productsApi = {
     api.get("/products", { params }),
   getById: (id: string) => api.get(`/products/${id}`),
   getByQR: (qrCode: string) => api.get(`/products/by-qr/${qrCode}`),
+  getByBarcode: (barcode: string) => api.get(`/products/by-barcode/${barcode}`),
   create: (data: Record<string, unknown>) => api.post("/products", data),
   update: (id: string, data: Record<string, unknown>) => api.put(`/products/${id}`, data),
   delete: (id: string) => api.delete(`/products/${id}`),
