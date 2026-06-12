@@ -7,6 +7,7 @@ import {
   updateUser,
   deleteUser,
 } from '../controllers/user.controller'
+import { validateCreateUser, validateUpdateUser } from '../middleware/validation.middleware'
 
 const router = Router()
 
@@ -18,8 +19,8 @@ router.get('/', authorize('ADMIN', 'MANAGER'), getUsers)
 router.get('/:id', authorize('ADMIN', 'MANAGER'), getUserById)
 
 // Mutations — ADMIN only
-router.post('/', authorize('ADMIN'), createUser)
-router.put('/:id', authorize('ADMIN'), updateUser)
+router.post('/', authorize('ADMIN'), validateCreateUser, createUser)
+router.put('/:id', authorize('ADMIN'), validateUpdateUser, updateUser)
 router.delete('/:id', authorize('ADMIN'), deleteUser)
 
 export default router

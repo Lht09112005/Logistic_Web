@@ -4,6 +4,7 @@ import {
   getInventory, updateInventory, createInventory,
   getAlerts, resolveAlert, getInventoryById,
 } from '../controllers/inventory.controller'
+import { validateCreateInventory, validateUpdateInventory } from '../middleware/validation.middleware'
 
 const router = Router()
 
@@ -13,8 +14,8 @@ router.use(authenticate)
 router.get('/', authorize('ADMIN', 'MANAGER', 'STAFF'), getInventory)
 router.get('/alerts', authorize('ADMIN', 'MANAGER', 'STAFF'), getAlerts)
 router.get('/:id', authorize('ADMIN', 'MANAGER', 'STAFF'), getInventoryById)
-router.post('/', authorize('ADMIN', 'MANAGER'), createInventory)
+router.post('/', authorize('ADMIN', 'MANAGER'), validateCreateInventory, createInventory)
 router.put('/alerts/:id/resolve', authorize('ADMIN', 'MANAGER'), resolveAlert)
-router.put('/:id', authorize('ADMIN', 'MANAGER'), updateInventory)
+router.put('/:id', authorize('ADMIN', 'MANAGER'), validateUpdateInventory, updateInventory)
 
 export default router

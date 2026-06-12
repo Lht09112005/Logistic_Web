@@ -5,6 +5,7 @@ import {
   updateShipment, getShipmentStats, receiveShipment,
   approveShipment, rejectShipment, startLoadingShipment,
 } from '../controllers/shipment.controller'
+import { validateCreateShipment } from '../middleware/validation.middleware'
 
 const router = Router()
 
@@ -17,7 +18,7 @@ router.get('/', getShipments)
 router.get('/:id', getShipmentById)
 
 // Only ADMIN/MANAGER can create shipments
-router.post('/', authorize('ADMIN', 'MANAGER'), createShipment)
+router.post('/', authorize('ADMIN', 'MANAGER'), validateCreateShipment, createShipment)
 
 // DRIVER can update (checkpoint ticks + status on their own shipments only — enforced in controller)
 router.put('/:id', authorize('ADMIN', 'MANAGER', 'STAFF', 'DRIVER'), updateShipment)
