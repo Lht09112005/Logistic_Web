@@ -63,7 +63,25 @@ app.get('/api-docs.json', (_req, res) => {
 
 // Health check
 app.get('/health', (_req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() })
+  const dbUrl = process.env.DATABASE_URL || '';
+  let dbHost = 'unknown';
+  let maskedDbUrl = 'none';
+  try {
+    if (dbUrl) {
+      maskedDbUrl = dbUrl.replace(/:[^:@]+@/, ':***@');
+      // Simple parse host
+      const match = dbUrl.match(/@([^/:]+)/);
+      if (match) dbHost = match[1];
+    }
+  } catch (e) {}
+
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    commit: '2f738c4-health-diagnostics',
+    databaseHost: dbHost,
+    databaseUrlMasked: maskedDbUrl
+  })
 })
 
 // Global Error Handler Middleware
