@@ -60,18 +60,18 @@ describe("Forgot & Reset Password Controllers", () => {
       );
     });
 
-    it("should return success even if user does not exist (prevent enumeration)", async () => {
+    it("should return 404 if user does not exist", async () => {
       mockRequest = { body: { email: "nonexistent@test.com" } };
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       const { forgotPassword } = await import("../controllers/auth.controller");
       await forgotPassword(mockRequest as Request, mockResponse as Response);
 
-      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(statusMock).toHaveBeenCalledWith(404);
       expect(jsonMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          success: true,
-          message: "Nếu email tồn tại, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu",
+          success: false,
+          message: "Email không tồn tại trong hệ thống",
         })
       );
     });

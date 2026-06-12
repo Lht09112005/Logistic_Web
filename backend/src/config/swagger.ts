@@ -439,14 +439,14 @@ Hầu hết API yêu cầu **Bearer token** trong header \`Authorization\`. Toke
         post: {
           tags: ["Auth"],
           summary: "Quên mật khẩu",
-          description: "Gửi email đặt lại mật khẩu. Luôn trả về success để chống email enumeration.",
+          description: "Kiểm tra email và gửi link đặt lại mật khẩu nếu email tồn tại trong hệ thống.",
           requestBody: {
             required: true,
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ForgotPasswordRequest" } },
             },
           },
-          responses: { 200: { description: "Email hướng dẫn đã được gửi (nếu email tồn tại)" } },
+          responses: { 200: { description: "Email hướng dẫn đã được gửi" }, 404: { description: "Email không tồn tại trong hệ thống" } },
         },
       },
       "/api/auth/reset-password": {

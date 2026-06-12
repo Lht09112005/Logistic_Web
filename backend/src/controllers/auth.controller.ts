@@ -214,10 +214,9 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Always return success to prevent email enumeration
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      sendSuccess(res, null, 'Nếu email tồn tại, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu');
+      sendError(res, 'Email không tồn tại trong hệ thống', 404);
       return;
     }
 

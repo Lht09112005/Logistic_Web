@@ -62,8 +62,7 @@ export default function ForgotPasswordPage() {
             Đã gửi email!
           </h2>
           <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-            Nếu email <strong style={{ color: "var(--text-primary)" }}>tồn tại trong hệ thống</strong>,
-            bạn sẽ nhận được hướng dẫn đặt lại mật khẩu. Vui lòng kiểm tra hộp thư đến (và thư mục Spam).
+            Hướng dẫn đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (và thư mục Spam).
           </p>
           <Link
             href="/auth/login"
