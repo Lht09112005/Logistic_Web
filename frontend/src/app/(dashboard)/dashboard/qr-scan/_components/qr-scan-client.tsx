@@ -174,9 +174,13 @@ export default function QRScanClient() {
       const scanner = new Html5Qrcode("qr-reader-area", { formatsToSupport, verbose: false });
       scannerRef.current = scanner;
 
+      const qrbox = scanMode === "QR_CODE"
+        ? { width: 260, height: 260 }
+        : { width: 400, height: 150 }; // Barcode cần qrbox rộng, tỷ lệ ~2.7:1
+
       await scanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
+        { fps: scanMode === "QR_CODE" ? 10 : 20, qrbox },
         (decodedText) => {
           destroyScanner();
           handleScanResult(decodedText);
@@ -328,7 +332,11 @@ export default function QRScanClient() {
 
             {scanState === "scanning" && (
               <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-56 sm:h-56">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{
+                width: scanMode === "QR_CODE" ? "12rem" : "18rem",
+                height: scanMode === "QR_CODE" ? "12rem" : "7rem",
+                maxWidth: "85vw",
+              }}>
                   <div className="absolute top-0 left-0 w-6 h-6 sm:w-8 sm:h-8 border-t-4 border-l-4 rounded-tl"
                     style={{ borderColor: scanMode === "QR_CODE" ? "#f97316" : "#6366f1" }} />
                   <div className="absolute top-0 right-0 w-6 h-6 sm:w-8 sm:h-8 border-t-4 border-r-4 rounded-tr"
