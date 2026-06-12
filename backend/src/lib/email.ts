@@ -1,8 +1,33 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "noreply@logistiq.vn";
+const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || "465", 10);
+const SMTP_USER = process.env.SMTP_USER || "";
+const SMTP_PASS = process.env.SMTP_PASS || "";
+const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "noreply@logistiq.vn";
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+
+let transporter: nodemailer.Transporter | null = null;
+
+function getTransporter(): nodemailer.Transporter | null {
+  if (transporter) return transporter;
+
+  if (!SMTP_USER || !SMTP_PASS) {
+    return null;
+  }
+
+  transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
+
+  return transporter;
+}
 
 /**
  * Send a password reset email with a reset link
@@ -12,17 +37,18 @@ export async function sendPasswordResetEmail(
   name: string,
   resetToken: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!RESEND_API_KEY) {
-    console.warn("[Email] RESEND_API_KEY not configured — skipping actual send");
+  const transport = getTransporter();
+
+  if (!transport) {
+    console.warn("[Email] SMTP not configured — skipping actual send");
     console.log(`[Email] Would send password reset to ${to} with token: ${resetToken}`);
     return { success: true }; // Graceful fallback in development
   }
 
   try {
-    const resend = new Resend(RESEND_API_KEY);
     const resetUrl = `${FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
 
-    const { error } = await resend.emails.send({
+    await transport.sendMail({
       from: FROM_EMAIL,
       to,
       subject: "Đặt lại mật khẩu — LogistiQ",
@@ -79,11 +105,6 @@ export async function sendPasswordResetEmail(
       `,
     });
 
-    if (error) {
-      console.error("[Email] Failed to send:", error);
-      return { success: false, error: error.message };
-    }
-
     return { success: true };
   } catch (error: any) {
     console.error("[Email] Error sending email:", error);
@@ -92,24 +113,24 @@ export async function sendPasswordResetEmail(
 }
 
 /**
- * Send a generic test email to verify Resend configuration
+ * Send a generic test email to verify SMTP configuration
  */
 export async function sendTestEmail(to: string): Promise<{ success: boolean; error?: string }> {
-  if (!RESEND_API_KEY) {
-    console.warn("[Email] RESEND_API_KEY not configured");
-    return { success: false, error: "RESEND_API_KEY not configured" };
+  const transport = getTransporter();
+
+  if (!transport) {
+    console.warn("[Email] SMTP not configured");
+    return { success: false, error: "SMTP not configured" };
   }
 
   try {
-    const resend = new Resend(RESEND_API_KEY);
-    const { error } = await resend.emails.send({
+    await transport.sendMail({
       from: FROM_EMAIL,
       to,
       subject: "LogistiQ — Kết nối email thành công",
       html: `<p style="color:#333;">Email này xác nhận hệ thống email của LogistiQ đã được cấu hình thành công.</p>`,
     });
 
-    if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
