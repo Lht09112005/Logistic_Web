@@ -20,8 +20,7 @@ type ScanState = "idle" | "scanning" | "found" | "notfound" | "updating" | "succ
 export default function QRScanClient() {
   const searchParams = useSearchParams();
   const preloadId = searchParams.get("productId");
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const scannerRef = useRef<any>(null);
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [product, setProduct] = useState<ScannedProduct | null>(null);
   const [selectedInventoryId, setSelectedInventoryId] = useState("");
@@ -31,6 +30,18 @@ export default function QRScanClient() {
   const [cameraError, setCameraError] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Hàm cleanup đồng bộ — dùng chung cho cả stopScanner và unmount cleanup
+  // Chỉ cleanup scannerRef, không cần streamRef/videoRef vì html5-qrcode tự quản lý
+  const destroyScanner = useCallback(() => {
+    if (scannerRef.current) {
+      scannerRef.current.stop().catch(() => {});
+      scannerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup khi unmount — synchronous, không await Promise
+  useEffect(() => () => { destroyScanner(); }, [destroyScanner]);
 
   // Pre-load from URL param
   useEffect(() => {
@@ -62,20 +73,18 @@ export default function QRScanClient() {
     setCameraError("");
     setScanState("scanning");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: 640, height: 480 },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
+      // Dừng scanner cũ nếu có trước khi khởi tạo mới
+      destroyScanner();
 
       const { Html5Qrcode } = await import("html5-qrcode");
       const scanner = new Html5Qrcode("qr-reader-area");
+      scannerRef.current = scanner;
 
       await scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 220, height: 220 } },
         (decodedText) => {
-          scanner.stop().catch(() => {});
+          destroyScanner();
           handleQRResult(decodedText);
         },
         () => {}
@@ -87,15 +96,12 @@ export default function QRScanClient() {
     }
   };
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
+  const stopCamera = async () => {
+    destroyScanner();
   };
 
   const handleReset = () => {
-    stopCamera();
+    destroyScanner();
     setProduct(null);
     setScanState("idle");
     setAdjustment(0);
@@ -136,7 +142,7 @@ export default function QRScanClient() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div
-          className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+          className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
         >
           <QrCode size={20} className="text-white" />
@@ -155,16 +161,17 @@ export default function QRScanClient() {
       {scanState === "idle" || scanState === "scanning" ? (
         <div className="card overflow-hidden">
           {/* Camera viewport */}
-          <div
-            id="qr-reader-area"
-            className="relative flex items-center justify-center overflow-hidden"
-            style={{ background: "#0d1117", minHeight: "260px" }}
-          >
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+          {/* IMPORTANT: #qr-reader-area phải KHÔNG có React children bên trong
+              vì html5-qrcode library tự quản lý DOM của nó trong element này.
+              Nếu React render children vào đây, sẽ xung đột DOM → removeChild error.
+              Overlays được đặt ở sibling div với position absolute thay vì children. */}
+          <div className="relative" style={{ minHeight: "260px", background: "#0d1117" }}>
+            {/* html5-qrcode owns this div — NO React children! */}
+            <div id="qr-reader-area" className="w-full" style={{ minHeight: "260px" }} />
 
-            {/* Idle overlay */}
+            {/* Idle overlay — sibling, không phải children của qr-reader-area */}
             {scanState === "idle" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ pointerEvents: "none" }}>
                 <div
                   className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center"
                   style={{ background: "rgba(249,115,22,0.2)", border: "2px dashed #f97316" }}
@@ -176,7 +183,7 @@ export default function QRScanClient() {
               </div>
             )}
 
-            {/* Scanning overlay */}
+            {/* Scanning overlay — sibling, không phải children của qr-reader-area */}
             {scanState === "scanning" && (
               <div className="absolute inset-0 pointer-events-none">
                 {/* Scan frame - responsive size */}
@@ -206,7 +213,7 @@ export default function QRScanClient() {
           <div className="p-3 sm:p-5 space-y-3 sm:space-y-4">
             {cameraError && (
               <div className="flex items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
-                <AlertCircle size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                <AlertCircle size={14} className="sm:w-4 sm:h-4 shrink-0" />
                 <span>{cameraError}</span>
               </div>
             )}
@@ -214,7 +221,14 @@ export default function QRScanClient() {
             <div className="flex gap-2">
               <button
                 id="start-camera"
-                onClick={scanState === "scanning" ? stopCamera : startCamera}
+                onClick={async () => {
+                  if (scanState === "scanning") {
+                    await stopCamera();
+                    setScanState("idle");
+                  } else {
+                    await startCamera();
+                  }
+                }}
                 className={`btn flex-1 justify-center text-xs sm:text-sm ${scanState === "scanning" ? "btn-secondary" : "btn-primary"}`}
                 style={{ height: "42px" }}
               >
@@ -267,10 +281,10 @@ export default function QRScanClient() {
           <div className="card p-4 sm:p-5">
             <div className="flex items-start gap-3 sm:gap-4">
               <div
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: "#fff7ed" }}
               >
-                <Package size={18} className="sm:w-[22px] sm:h-[22px]" style={{ color: "#f97316" }} />
+                <Package size={18} className="sm:w-5.5 sm:h-5.5" style={{ color: "#f97316" }} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
@@ -373,7 +387,7 @@ export default function QRScanClient() {
                     <button
                       key={v}
                       onClick={() => setAdjustment((a) => Math.max(-selectedInv.quantity, a + v))}
-                      className="btn btn-ghost btn-xs flex-shrink-0 px-3"
+                      className="btn btn-ghost btn-xs shrink-0 px-3"
                     >
                       {v > 0 ? "+" : ""}{v}
                     </button>
