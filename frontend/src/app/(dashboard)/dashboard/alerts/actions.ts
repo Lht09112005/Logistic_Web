@@ -9,7 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000/api";
 // Helper to create Axios instance with Server-side Authentication token
 async function getServerApi() {
   const session = await auth();
-  const token = (session as any)?.accessToken;
+  const token = session?.accessToken;
 
   return axios.create({
     baseURL: API_URL,
@@ -40,16 +40,17 @@ export async function resolveAlertAction(id: string) {
       data: res.data.data,
       message: res.data.message || "Đã xử lý cảnh báo thành công",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const axiosErr = error as { response?: { data?: { message?: string } } };
     console.error("====== ERROR IN SERVER ACTION (resolveAlertAction) ======");
-    console.error(error?.response?.data || error?.message || error);
+    console.error(axiosErr?.response?.data || (error as Error)?.message || error);
     console.error("=========================================================");
 
     return {
       success: false,
       message:
-        error?.response?.data?.message ||
-        error?.message ||
+        axiosErr?.response?.data?.message ||
+        (error as Error)?.message ||
         "Lỗi không xác định khi xử lý cảnh báo",
     };
   }
@@ -73,9 +74,10 @@ export async function fetchAlertsAction(params?: { isResolved?: string }) {
       data: res.data.data || [],
       message: res.data.message || "Lấy cảnh báo thành công",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const axiosErr = error as { response?: { data?: { message?: string } } };
     console.error("====== ERROR IN SERVER ACTION (fetchAlertsAction) ======");
-    console.error(error?.response?.data || error?.message || error);
+    console.error(axiosErr?.response?.data || (error as Error)?.message || error);
     console.error("========================================================");
 
     // Return empty array on error so the UI can gracefully handle it
@@ -83,8 +85,8 @@ export async function fetchAlertsAction(params?: { isResolved?: string }) {
       success: false,
       data: [],
       message:
-        error?.response?.data?.message ||
-        error?.message ||
+        axiosErr?.response?.data?.message ||
+        (error as Error)?.message ||
         "Lỗi không xác định khi lấy cảnh báo",
     };
   }

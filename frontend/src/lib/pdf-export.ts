@@ -186,7 +186,7 @@ export async function exportAnalyticsPDF(params: {
 
   // ═══════════════════════════ INVENTORY SECTION ═══════════════════════════
 
-  const lastY = (doc as any).lastAutoTable.finalY || 62;
+  const lastY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY || 62;
 
   applyFont(doc, "bold");
   doc.setFontSize(14);

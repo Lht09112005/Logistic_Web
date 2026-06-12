@@ -12,9 +12,17 @@ import {
 } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
-import DriverCheckpointPanel from "./driver-checkpoint-panel";
-import StaffLoadingPanel from "./staff-loading-panel";
-import StaffReceivingPanel from "./staff-receiving-panel";
+import dynamic from "next/dynamic";
+
+const DriverCheckpointPanel = dynamic(() => import("./driver-checkpoint-panel"), {
+  loading: () => <div className="card p-4 animate-pulse"><div className="skeleton h-32 rounded-xl" /></div>,
+});
+const StaffLoadingPanel = dynamic(() => import("./staff-loading-panel"), {
+  loading: () => <div className="card p-4 animate-pulse"><div className="skeleton h-32 rounded-xl" /></div>,
+});
+const StaffReceivingPanel = dynamic(() => import("./staff-receiving-panel"), {
+  loading: () => <div className="card p-4 animate-pulse"><div className="skeleton h-32 rounded-xl" /></div>,
+});
 import { toast } from "sonner";
 
 interface Checkpoint {
@@ -29,7 +37,7 @@ interface ShipmentItem {
   product: { name: string; sku: string; unit: string };
 }
 
-interface Shipment {
+export interface Shipment {
   id: string; shipmentCode: string; status: string;
   vehicleNumber?: string; vehicleType?: string;
   originAddress: string; destinationAddress: string;
@@ -55,8 +63,6 @@ interface Props {
   refreshing: boolean;
 }
 
-let MapComponent: React.ComponentType<{ shipment: Shipment; currentLat?: number; currentLng?: number }> | null = null;
-
 export default function ShipmentDetailClient({ shipment: initial, lastUpdated, refresh, refreshing }: Props) {
   const router = useRouter();
   const auth = useAuth();
@@ -65,8 +71,8 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
   const [shipment, setShipment] = useState(initial);
   const [socketConnected, setSocketConnected] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const MapRef = useRef<typeof MapComponent>(null);
-  const socketRef = useRef<any>(null);
+  const MapRef = useRef<React.ComponentType<{ shipment: Shipment; currentLat?: number; currentLng?: number }> | null>(null);
+  const socketRef = useRef<{ off: (event: string) => void; disconnect: () => void; emit: (event: string, data: unknown) => void } | null>(null);
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -173,7 +179,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
           <button onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Đang tải..." : "Làm mới"}
           </button>
-          {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: any) => mw.id === shipment.originWarehouse?.id))) &&
+          {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: { id: string }) => mw.id === shipment.originWarehouse?.id))) &&
             shipment.status === "PENDING" && (
             <>
               <button className="btn btn-primary btn-sm" onClick={async () => {
@@ -181,8 +187,9 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                   await shipmentsApi.approve(shipment.id);
                   toast.success("Đã duyệt vận đơn thành công!");
                   router.push("/dashboard/shipments");
-                } catch (err: any) {
-                  const msg = err?.response?.data?.message || err?.message;
+                } catch (err: unknown) {
+                  const axiosErr = err as { response?: { data?: { message?: string } } };
+                  const msg = axiosErr?.response?.data?.message || (err as Error)?.message;
                   toast.error("Lỗi duyệt vận đơn: " + msg);
                 }
               }}>
@@ -616,8 +623,9 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                     setRejectOpen(false);
                     setRejectReason("");
                     router.push("/dashboard/shipments");
-                  } catch (err: any) {
-                    const msg = err?.response?.data?.message || err?.message;
+                  } catch (err: unknown) {
+                    const axiosErr = err as { response?: { data?: { message?: string } } };
+                    const msg = axiosErr?.response?.data?.message || (err as Error)?.message;
                     toast.error("Lỗi từ chối vận đơn: " + msg);
                   }
                 }}

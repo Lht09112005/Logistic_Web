@@ -166,7 +166,7 @@ async function syncQueuedMutations() {
 
 function openSyncDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('logistiq-sync', 1);
+    const request = indexedDB.open('logistiq-offline', 2);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains('mutations')) {

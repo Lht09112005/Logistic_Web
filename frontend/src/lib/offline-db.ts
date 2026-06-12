@@ -10,7 +10,7 @@
  */
 
 const DB_NAME = "logistiq-offline";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export interface OfflineShipment {
   id: string;
@@ -63,6 +63,12 @@ function openDB(): Promise<IDBDatabase> {
 
       if (!db.objectStoreNames.contains("metadata")) {
         db.createObjectStore("metadata", { keyPath: "key" });
+      }
+
+      if (!db.objectStoreNames.contains("appData")) {
+        const store = db.createObjectStore("appData", { keyPath: "key" });
+        store.createIndex("cachedAt", "cachedAt", { unique: false });
+        store.createIndex("dataType", "dataType", { unique: false });
       }
     };
 
@@ -251,6 +257,101 @@ export const offlineDB = {
       const req = store.get(key);
       req.onsuccess = () => resolve((req.result as { value: unknown } | undefined)?.value);
       req.onerror = () => reject(req.error);
+    });
+  },
+
+  // ─── Generic App Data Cache (Inventory, Warehouses, Products, Alerts) ───
+
+  /** Cache any app data for offline viewing (inventory, warehouses, products, alerts, etc.) */
+  async cacheAppData(
+    key: string,
+    data: unknown,
+    dataType?: string
+  ): Promise<void> {
+    const db = await openDB();
+    const tx = db.transaction("appData", "readwrite");
+    const store = tx.objectStore("appData");
+
+    const now = Date.now();
+    store.put({
+      key,
+      data,
+      dataType: dataType || "general",
+      cachedAt: now,
+    });
+
+    // Prune entries older than 7 days to prevent unbounded growth
+    const index = store.index("cachedAt");
+    const range = IDBKeyRange.upperBound(now - 7 * 24 * 60 * 60 * 1000);
+    const pruneReq = index.openCursor(range);
+    pruneReq.onsuccess = (e) => {
+      const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  /** Get cached app data */
+  async getCachedAppData<T = unknown>(key: string): Promise<T | null> {
+    const db = await openDB();
+    const tx = db.transaction("appData", "readonly");
+    const store = tx.objectStore("appData");
+
+    return new Promise((resolve, reject) => {
+      const req = store.get(key);
+      req.onsuccess = () => {
+        const result = req.result as { data: T } | undefined;
+        resolve(result?.data ?? null);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  /** Get all cached data of a specific type */
+  async getCachedAppDataByType<T = unknown>(dataType: string): Promise<{ key: string; data: T }[]> {
+    const db = await openDB();
+    const tx = db.transaction("appData", "readonly");
+    const store = tx.objectStore("appData");
+    const index = store.index("dataType");
+
+    return new Promise((resolve, reject) => {
+      const req = index.getAll(dataType);
+      req.onsuccess = () => {
+        const results = req.result as { key: string; data: T }[];
+        resolve(results || []);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  /** Remove a specific cached entry */
+  async removeCachedAppData(key: string): Promise<void> {
+    const db = await openDB();
+    const tx = db.transaction("appData", "readwrite");
+    const store = tx.objectStore("appData");
+    store.delete(key);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  /** Clear all cached app data */
+  async clearAllAppData(): Promise<void> {
+    const db = await openDB();
+    const tx = db.transaction("appData", "readwrite");
+    const store = tx.objectStore("appData");
+    store.clear();
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   },
 };

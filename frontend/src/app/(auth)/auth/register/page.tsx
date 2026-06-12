@@ -95,25 +95,31 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Field label="Họ tên" id="reg-name" error={errors.name?.message}>
           <input {...register("name")} id="reg-name" placeholder="Nguyễn Văn A"
-            className={`input-base ${errors.name ? "input-error" : ""}`} />
+            disabled={isLoading}
+            className={`input-base ${errors.name ? "input-error" : ""} ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`} />
         </Field>
 
         <Field label="Email" id="reg-email" error={errors.email?.message}>
           <input {...register("email")} id="reg-email" type="email" placeholder="email@example.com"
-            className={`input-base ${errors.email ? "input-error" : ""}`} />
+            disabled={isLoading}
+            className={`input-base ${errors.email ? "input-error" : ""} ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`} />
         </Field>
 
         <Field label="Số điện thoại (tuỳ chọn)" id="reg-phone" error={errors.phone?.message}>
           <input {...register("phone")} id="reg-phone" placeholder="0901234567"
-            className={`input-base ${errors.phone ? "input-error" : ""}`} />
+            disabled={isLoading}
+            className={`input-base ${errors.phone ? "input-error" : ""} ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`} />
         </Field>
 
         <Field label="Mật khẩu" id="reg-password" error={errors.password?.message}>
           <div className="relative">
             <input {...register("password")} id="reg-password"
               type={showPwd ? "text" : "password"} placeholder="••••••••"
-              className={`input-base pr-12 ${errors.password ? "input-error" : ""}`} />
-            <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon">
+              disabled={isLoading}
+              className={`input-base pr-12 ${errors.password ? "input-error" : ""} ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`} />
+            <button type="button" onClick={() => setShowPwd(!showPwd)}
+              disabled={isLoading}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 btn-icon ${isLoading ? "opacity-40" : ""}`}>
               {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
@@ -123,21 +129,34 @@ export default function RegisterPage() {
           <div className="relative">
             <input {...register("confirmPassword")} id="reg-confirm"
               type={showConfirm ? "text" : "password"} placeholder="••••••••"
-              className={`input-base pr-12 ${errors.confirmPassword ? "input-error" : ""}`} />
-            <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon">
+              disabled={isLoading}
+              className={`input-base pr-12 ${errors.confirmPassword ? "input-error" : ""} ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`} />
+            <button type="button" onClick={() => setShowConfirm(!showConfirm)}
+              disabled={isLoading}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 btn-icon ${isLoading ? "opacity-40" : ""}`}>
               {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
         </Field>
 
         {serverError && (
-          <div className="p-3 rounded-lg text-sm text-center dark:bg-red-900/30 dark:text-red-400" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+          <div className="p-3 rounded-lg text-sm text-center animate-shake dark:bg-red-900/30 dark:text-red-400" style={{ background: "#fee2e2", color: "#b91c1c" }}>
             {serverError}
           </div>
         )}
 
-        <button type="submit" id="register-submit" disabled={isLoading} className="btn btn-primary w-full btn-lg mt-2">
-          {isLoading ? <><Loader2 size={18} className="animate-spin" /> Đang tạo tài khoản...</> : "Tạo tài khoản"}
+        <button type="submit" id="register-submit" disabled={isLoading} className={`btn btn-primary w-full btn-lg mt-2 ${isLoading ? "btn-loading" : "btn-press"}`}>
+          {isLoading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 size={18} className="animate-spin" />
+              <span>Đang tạo tài khoản</span>
+              <span className="flex gap-0.5">
+                <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </span>
+            </span>
+          ) : "Tạo tài khoản"}
         </button>
       </form>
 

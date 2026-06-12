@@ -6,6 +6,16 @@ import { inventoryApi } from "@/lib/api";
 import { RoleGuard } from "@/components/auth/role-guard";
 import InventoryClient from "./_components/inventory-client";
 
+interface InventoryItem {
+  id: string;
+  [key: string]: unknown;
+}
+
+interface AlertItem {
+  id: string;
+  [key: string]: unknown;
+}
+
 function InventoryContent() {
   const searchParams = useSearchParams();
   const page = searchParams.get("page") || "1";
@@ -13,8 +23,8 @@ function InventoryContent() {
   const warehouseId = searchParams.get("warehouseId") || undefined;
   const lowStock = searchParams.get("lowStock") || undefined;
 
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -40,8 +50,8 @@ function InventoryContent() {
         if (alertRes.status === "fulfilled") {
           setAlerts(alertRes.value.data.data || []);
         }
-      } catch (err: any) {
-        console.warn("Lỗi lấy dữ liệu tồn kho:", err.message || err);
+      } catch (err: unknown) {
+        console.warn("Lỗi lấy dữ liệu tồn kho:", (err as Error)?.message || err);
       } finally {
         setLoading(false);
       }

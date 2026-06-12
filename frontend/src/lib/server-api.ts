@@ -44,8 +44,7 @@ export async function serverFetch(endpoint: string, options: FetchOptions = {}) 
   try {
     const { auth } = await import("@/auth");
     const session = await auth();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const accessToken = (session as any)?.accessToken;
+    const accessToken = session?.accessToken;
     if (accessToken && !accessToken.startsWith("mock-")) {
       (init.headers as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`;
     }

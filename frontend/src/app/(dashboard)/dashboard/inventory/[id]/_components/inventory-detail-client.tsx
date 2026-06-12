@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, ArrowLeft, Save, MapPin, AlertTriangle, CheckCircle, Info, RefreshCw, ShieldBan
@@ -9,6 +9,9 @@ import { updateInventoryAction } from "@/app/actions/inventory";
 import { getStockPercent, getCategoryLabel, formatDate } from "@/lib/utils";
 import { inventoryApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
+import { offlineDB } from "@/lib/offline-db";
+import { CACHE_KEYS } from "@/lib/use-offline-cache";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 
 interface Product {
   id: string; name: string; sku: string; category: string; unit: string; minStockLevel: number;
@@ -47,17 +50,28 @@ function useRealtimeInventoryDetail(initial: InventoryItem) {
   const [liveItem, setLiveItem] = useState(initial);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
+  const itemId = initial.id;
+  const liveItemRef = useRef(liveItem);
+  liveItemRef.current = liveItem;
 
   const fetchAll = useCallback(async () => {
     try {
-      const res = await inventoryApi.getById(initial.id);
-      const data = res.data.data ?? initial;
-      setLiveItem(data);
+      const res = await inventoryApi.getById(itemId);
+      const data = res.data.data;
+      if (data) {
+        setLiveItem(data);
+      }
+      // Cache for offline use
+      offlineDB.cacheAppData(CACHE_KEYS.INVENTORY_DETAIL(itemId), data || liveItemRef.current, "inventory").catch((e) => console.warn('[OfflineCache] inventory detail cache error:', e));
     } catch {
-      // keep existing data
+      // Try offline cache
+      const cached = await offlineDB.getCachedAppData<typeof liveItem>(CACHE_KEYS.INVENTORY_DETAIL(itemId));
+      if (cached) {
+        setLiveItem(cached);
+      }
     }
     setLastUpdated(new Date());
-  }, [initial.id]);
+  }, [itemId]);
 
   // Initial fetch + polling
   useEffect(() => {
@@ -101,6 +115,18 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
   const { user, isLoading } = useAuth();
   const { liveItem, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeInventoryDetail(initialItem);
 
+  // ── All hooks MUST be before any early return (Rules of Hooks) ──
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Form states (initialized once from initialItem, not overwritten by polling)
+  const [quantity, setQuantity] = useState(initialItem.quantity);
+  const [rack, setRack] = useState(initialItem.rack || "");
+  const [shelf, setShelf] = useState(initialItem.shelf || "");
+  const [zoneId, setZoneId] = useState(initialItem.zoneId || "");
+  const [notes, setNotes] = useState(initialItem.notes || "");
+
   // Route guard — only ADMIN & MANAGER
   if (isLoading) return null;
   if (!user || !['ADMIN', 'MANAGER'].includes(user.role)) {
@@ -117,16 +143,6 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
 
   // Use live item for display but keep form state stable
   const item = liveItem;
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // Form states (initialized once from initialItem, not overwritten by polling)
-  const [quantity, setQuantity] = useState(initialItem.quantity);
-  const [rack, setRack] = useState(initialItem.rack || "");
-  const [shelf, setShelf] = useState(initialItem.shelf || "");
-  const [zoneId, setZoneId] = useState(initialItem.zoneId || "");
-  const [notes, setNotes] = useState(initialItem.notes || "");
 
   // Derived stock status uses live item for display
   const pct = getStockPercent(item.quantity, item.product.minStockLevel);
@@ -217,12 +233,31 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
           {/* Product and Stock Status */}
           <div className="card p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex items-start gap-3 sm:gap-4">
-              <div
-                className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
-              >
-                <Package size={22} className="sm:w-8 sm:h-8" style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-secondary)" }} />
-              </div>
+              {item.product.imageUrl ? (
+                <OptimizedImage
+                  src={item.product.imageUrl}
+                  alt={item.product.name}
+                  width={64}
+                  height={64}
+                  rounded="xl"
+                  containerClassName="w-10 h-10 sm:w-16 sm:h-16 shrink-0"
+                  fallback={
+                    <div
+                      className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
+                    >
+                      <Package size={22} className="sm:w-8 sm:h-8" style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-secondary)" }} />
+                    </div>
+                  }
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
+                >
+                  <Package size={22} className="sm:w-8 sm:h-8" style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-secondary)" }} />
+                </div>
+              )}
               <div className="space-y-1 min-w-0 flex-1">
                 <h2 className="text-base sm:text-xl font-bold truncate" style={{ color: "var(--text-primary)" }}>{item.product.name}</h2>
                 <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-xs" style={{ color: "var(--text-muted)" }}>

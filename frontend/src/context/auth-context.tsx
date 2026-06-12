@@ -60,16 +60,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync user object khi session thay đổi
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const su = session.user as any;
+      const { user: sessionUser } = session;
       setUser({
-        id: su.id || "",
-        name: su.name || "",
-        email: su.email || "",
-        role: su.role || "STAFF",
-        phone: su.phone,
-        avatar: su.image || undefined,
-        managedWarehouses: su.managedWarehouses || [],
+        id: sessionUser.id || "",
+        name: sessionUser.name || "",
+        email: sessionUser.email || "",
+        role: sessionUser.role || "STAFF",
+        phone: sessionUser.phone,
+        avatar: sessionUser.image || undefined,
+        managedWarehouses: sessionUser.managedWarehouses || [],
       });
     } else if (status === "unauthenticated") {
       setUser(null);
@@ -79,23 +78,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync access token riêng — bỏ qua mock token để tránh 401
   useEffect(() => {
     if (status === "authenticated" && session) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const token = (session as any).accessToken as string | undefined;
+      const token = session.accessToken;
       setAccessToken(token?.startsWith("mock-") ? null : token ?? null);
     } else if (status === "unauthenticated") {
       setAccessToken(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status]);
 
   const logout = useCallback(async () => {
     await signOut({ callbackUrl: "/auth/login" });
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const managedWarehouses = ((session?.user as any)?.managedWarehouses as ManagedWarehouse[]) || [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const staffedWarehouses = ((session?.user as any)?.staffedWarehouses as ManagedWarehouse[]) || [];
+  const managedWarehouses = (session?.user?.managedWarehouses as ManagedWarehouse[]) || [];
+  const staffedWarehouses = (session?.user?.staffedWarehouses as ManagedWarehouse[]) || [];
   const assignedWarehouses = [...managedWarehouses, ...staffedWarehouses];
 
   const managedWarehouse = user?.managedWarehouses && user.managedWarehouses.length > 0

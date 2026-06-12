@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ssrFetch } from "@/lib/server-api";
 import DashboardClient from "./_components/dashboard-client";
 
@@ -30,10 +31,27 @@ interface RecentShipment {
 import { auth } from "@/auth";
 import DashboardDriver from "./_components/dashboard-driver";
 
+export async function generateMetadata(): Promise<Metadata> {
+  const session = await auth();
+  const isDriver = session?.user?.role === 'DRIVER';
+
+  if (isDriver) {
+    return {
+      title: "Chuyến đi của tôi | LogistiQ",
+      description: "Theo dõi lộ trình giao hàng, cập nhật trạng thái vận đơn và điểm danh tại các trạm kiểm soát.",
+    };
+  }
+
+  return {
+    title: "Tổng quan | LogistiQ",
+    description: "Dashboard quản lý logistics thời gian thực — theo dõi vận đơn, tồn kho, cảnh báo và hiệu suất vận chuyển.",
+  };
+}
+
 export default async function DashboardPage() {
   // Get session to check role
   const session = await auth();
-  const isDriver = (session?.user as any)?.role === 'DRIVER';
+  const isDriver = session?.user?.role === 'DRIVER';
 
   if (isDriver) {
     return <DashboardDriver />;

@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { warehousesApi } from "@/lib/api";
+import { offlineDB } from "@/lib/offline-db";
+import { CACHE_KEYS } from "@/lib/use-offline-cache";
 
 interface Zone {
   id: string;
@@ -32,7 +34,7 @@ interface InventoryItem {
   shelf?: string;
 }
 
-interface WarehouseDetail {
+export interface WarehouseDetail {
   id: string;
   name: string;
   code: string;
@@ -72,8 +74,15 @@ function useRealtimeWarehouseDetail(initial: WarehouseDetail) {
       const data = res.data.data ?? fallbackRef.current;
       setWarehouse(data);
       fallbackRef.current = data;
+      // Cache for offline use
+      offlineDB.cacheAppData(CACHE_KEYS.WAREHOUSE_DETAIL(initial.id), data, "warehouses").catch((e) => console.warn('[OfflineCache] wh detail cache error:', e));
     } catch {
-      // keep existing data on failure
+      // Try offline cache
+      const cached = await offlineDB.getCachedAppData<WarehouseDetail>(CACHE_KEYS.WAREHOUSE_DETAIL(initial.id));
+      if (cached) {
+        setWarehouse(cached);
+        fallbackRef.current = cached;
+      }
     }
     setLastUpdated(new Date());
   }, [initial.id]);

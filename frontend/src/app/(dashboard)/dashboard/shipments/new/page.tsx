@@ -1,13 +1,23 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import axios from "axios";
 import NewShipmentClient from "./_components/new-shipment-client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000/api";
 
+export const metadata: Metadata = {
+  title: "Tạo vận đơn | LogistiQ",
+  description: "Tạo vận đơn vận chuyển hàng hóa mới — chọn kho nguồn, kho đích, sản phẩm, số lượng và phân công tài xế.",
+  openGraph: {
+    title: "Tạo vận đơn | LogistiQ",
+    description: "Quản lý vận chuyển hàng hóa với quy trình tạo vận đơn thông minh, theo dõi realtime.",
+  },
+};
+
 // Fetch data on the server side using the server session token
 async function getFormData() {
   const session = await auth();
-  const token = (session as any)?.accessToken;
+  const token = session?.accessToken;
 
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -32,8 +42,8 @@ async function getFormData() {
       products: productsRes.data?.data || [],
       drivers: driversRes.data?.data || [],
     };
-  } catch (error: any) {
-    console.error("Lỗi fetch server-side cho trang New Shipment:", error.message);
+  } catch (error: unknown) {
+    console.error("Lỗi fetch server-side cho trang New Shipment:", (error as Error)?.message);
     return { warehouses: [], products: [], drivers: [] };
   }
 }

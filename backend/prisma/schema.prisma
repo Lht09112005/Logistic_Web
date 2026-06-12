@@ -11,58 +11,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ==================== ENUMS ====================
-
-enum Role {
-  ADMIN
-  MANAGER
-  STAFF
-  DRIVER
-}
-
-enum WarehouseStatus {
-  ACTIVE
-  INACTIVE
-  MAINTENANCE
-}
-
-enum ProductCategory {
-  ELECTRONICS
-  CLOTHING
-  FOOD
-  FURNITURE
-  MEDICAL
-  AUTOMOTIVE
-  CHEMICAL
-  OTHER
-}
-
-enum ShipmentStatus {
-  PENDING
-  CONFIRMED
-  LOADING
-  IN_TRANSIT
-  AT_CHECKPOINT
-  DELIVERING
-  DELIVERED
-  CANCELLED
-  FAILED
-}
-
-enum AlertType {
-  LOW_STOCK
-  OUT_OF_STOCK
-  EXPIRING
-  OVERSTOCK
-}
-
-enum AlertSeverity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
 // ==================== MODELS ====================
 
 model User {
@@ -70,7 +18,7 @@ model User {
   name           String
   email          String   @unique
   password       String
-  role           Role     @default(STAFF)
+  role           String   @default("STAFF")
   phone          String?
   avatar         String?
   refreshToken    String?
@@ -105,7 +53,7 @@ model Warehouse {
   usedArea    Float           @default(0)
   capacity    Int             // max items
   managerId   String?
-  status      WarehouseStatus @default(ACTIVE)
+  status      String          @default("ACTIVE")
   description String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -143,7 +91,7 @@ model Product {
   name          String
   sku           String          @unique
   barcode       String?         @unique
-  category      ProductCategory @default(OTHER)
+  category      String          @default("OTHER")
   description   String?
   unit          String          // pcs, kg, box, liter...
   weight        Float?          // kg per unit
@@ -196,7 +144,7 @@ model InventoryItem {
 model Shipment {
   id                  String         @id @default(uuid())
   shipmentCode        String         @unique
-  status              ShipmentStatus @default(PENDING)
+  status              String         @default("PENDING")
   driverId            String?
   createdById         String
   vehicleNumber       String?
@@ -275,7 +223,7 @@ model TrackingHistory {
   latitude    Float
   longitude   Float
   speed       Float?   // km/h
-  status      ShipmentStatus?
+  status      String?
   description String?
   recordedAt  DateTime @default(now())
 
@@ -289,8 +237,8 @@ model StockAlert {
   id          String        @id @default(uuid())
   productId   String
   warehouseId String?
-  alertType   AlertType
-  severity    AlertSeverity
+  alertType   String
+  severity    String
   message     String
   threshold   Int?          // Ngưỡng cảnh báo
   currentQty  Int
@@ -308,19 +256,12 @@ model StockAlert {
 
 // ==================== NOTIFICATIONS ====================
 
-enum NotificationType {
-  INFO
-  SUCCESS
-  WARNING
-  ERROR
-}
-
 model Notification {
   id        String           @id @default(uuid())
   userId    String
   title     String
   message   String
-  type      NotificationType @default(INFO)
+  type      String           @default("INFO")
   isRead    Boolean          @default(false)
   link      String?          // e.g. /dashboard/shipments/id
   createdAt DateTime         @default(now())

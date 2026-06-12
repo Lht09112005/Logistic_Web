@@ -21,8 +21,7 @@ export function setAccessToken(token: string | null) {
 async function ensureToken(): Promise<string | null> {
   // 1. Check refreshed token (in-memory, from refresh logic below)
   if (typeof window !== "undefined") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const refreshed = (window as any).__newAccessToken;
+    const refreshed = (window as unknown as Record<string, string>).__newAccessToken;
     if (refreshed) return refreshed;
   }
 
@@ -31,13 +30,11 @@ async function ensureToken(): Promise<string | null> {
 
   // 3. Fallback — read directly from NextAuth session
   if (!_tokenInitPromise) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    _tokenInitPromise = getSession().then((session: any) => {
-      // NextAuth v5 stores extra fields differently depending on callbacks config
-      // Try multiple paths: top-level, user, and accessToken sub-key
+    _tokenInitPromise = getSession().then((session) => {
+      // NextAuth stores extra fields on session object
       const token =
-        session?.accessToken ||
-        (session as any)?.user?.accessToken ||
+        (session as unknown as Record<string, unknown>)?.accessToken as string | undefined ||
+        (session?.user as unknown as Record<string, unknown> | undefined)?.accessToken as string | undefined ||
         null;
 
       if (token && !token.startsWith("mock-")) {
@@ -92,10 +89,9 @@ api.interceptors.response.use(
     }
 
     // Get session to check if token is real or mock
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const session: any = await getSession();
-    const accessToken = session?.accessToken as string | undefined;
-    const refreshToken = session?.refreshToken as string | undefined;
+    const session = await getSession() as unknown as Record<string, unknown> | null;
+    const accessToken = (session?.accessToken as string) ?? undefined;
+    const refreshToken = (session?.refreshToken as string) ?? undefined;
     const isMockToken = !accessToken || accessToken.startsWith("mock-");
 
     // Mock token — skip silently, don't retry or sign out
@@ -132,8 +128,7 @@ api.interceptors.response.use(
       // Update NextAuth session via update (next-auth v5)
       // Since next-auth doesn't expose update client-side easily,
       // store in memory for this session lifetime
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__newAccessToken = newAccessToken;
+      (window as unknown as Record<string, string>).__newAccessToken = newAccessToken;
 
       // Patch future requests
       api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;

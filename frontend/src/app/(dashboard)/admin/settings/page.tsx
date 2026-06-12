@@ -49,7 +49,6 @@ export default function AdminSettingsPage() {
   // Safety: nếu activeTab không còn trong danh sách tab cho phép, về mặc định
   useEffect(() => {
     if (!visibleTabs.some((t) => t.key === activeTab)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('profile');
     }
   }, [visibleTabs, activeTab]);

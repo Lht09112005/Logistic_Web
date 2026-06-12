@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ssrFetch } from "@/lib/server-api";
-import WarehouseDetailClient from "./_components/warehouse-detail-client";
+import WarehouseDetailClient, { type WarehouseDetail } from "./_components/warehouse-detail-client";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,10 +11,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!warehouse) {
     return { title: "Kho hàng không tồn tại" };
   }
-  const name = (warehouse as any)?.name || "Kho hàng";
-  const address = (warehouse as any)?.address || "";
-  const city = (warehouse as any)?.city || "";
-  const code = (warehouse as any)?.code || "";
+  const name = (warehouse as Record<string, string>)?.name || "Kho hàng";
+  const address = (warehouse as Record<string, string>)?.address || "";
+  const city = (warehouse as Record<string, string>)?.city || "";
+  const code = (warehouse as Record<string, string>)?.code || "";
   return {
     title: name,
     description: `Thông tin chi tiết kho ${name} (${code}) — ${address}, ${city}. Quản lý mặt hàng tồn kho, phân khu, thông số vận hành.`,
@@ -34,5 +34,5 @@ export default async function WarehouseDetailPage({ params }: { params: Promise<
     return notFound();
   }
 
-  return <WarehouseDetailClient warehouse={warehouse as any} />;
+  return <WarehouseDetailClient warehouse={warehouse as unknown as WarehouseDetail} />;
 }

@@ -2,7 +2,6 @@
 
 // MapLibre GL uses imperative ref manipulation during render for marker/control syncing.
 // These patterns are necessary for the map library integration and are safe.
-/* eslint-disable react-compiler/react-hooks */
 
 import MapLibreGL, { type PopupOptions, type MarkerOptions } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";

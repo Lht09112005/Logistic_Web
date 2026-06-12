@@ -9,11 +9,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     return { title: "Vận đơn không tồn tại" };
   }
 
-  const s = shipment as any;
-  const shipmentCode = s.shipmentCode || id;
-  const status = s.status || "";
-  const origin = s.originAddress || "";
-  const destination = s.destinationAddress || "";
+  const shipmentCode = (shipment as Record<string, string>).shipmentCode || id;
+  const status = (shipment as Record<string, string>).status || "";
+  const origin = (shipment as Record<string, string>).originAddress || "";
+  const destination = (shipment as Record<string, string>).destinationAddress || "";
 
   const statusLabels: Record<string, string> = {
     PENDING: "Chờ xác nhận",

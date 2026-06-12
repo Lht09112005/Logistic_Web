@@ -8,6 +8,9 @@ import { formatDate, getCategoryLabel, getAlertSeverityBadge, getStockPercent } 
 import { inventoryApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { useSharedDataStore } from "@/store/shared-data-store";
+import { offlineDB } from "@/lib/offline-db";
+import { CACHE_KEYS, extractApiData } from "@/lib/use-offline-cache";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 
 interface InventoryItem {
   id: string; quantity: number; reservedQty: number;
@@ -66,14 +69,22 @@ function useRealtimeInventory(initial: Props) {
       updated.total = metaTotal;
       setItems(data);
       setTotal(metaTotal);
+      // Cache for offline use
+      offlineDB.cacheAppData(CACHE_KEYS.INVENTORY_LIST, { items: data, total: metaTotal }, "inventory").catch((e) => console.warn('[OfflineCache] inventory cache error:', e));
+    } else {
+      // Fetch failed — try offline cache
+      const cached = await offlineDB.getCachedAppData<{ items: unknown[]; total: number }>(CACHE_KEYS.INVENTORY_LIST);
+      if (cached) {
+        setItems(cached.items);
+        setTotal(cached.total);
+        updated.inventory = cached.items;
+        updated.total = cached.total;
+      }
     }
     // Update fallback with latest successful data
     fallbackRef.current = { ...fallbackRef.current, ...updated };
     setLastUpdated(new Date());
-  }, [
-    initial.initialPage, initial.initialSearch,
-    initial.initialWarehouseId, initial.lowStock,
-  ]);
+  }, []);
 
   // Initial fetch + polling (only for inventory list — alerts handled by shared store)
   useEffect(() => {
@@ -249,13 +260,32 @@ export default function InventoryClient(props: Props) {
                   style={{ animationDelay: `${i * 40}ms` }}
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
-                      >
-                        <Package size={18} style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-secondary)" }} />
-                      </div>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {item.product.imageUrl ? (
+                        <OptimizedImage
+                          src={item.product.imageUrl}
+                          alt={item.product.name}
+                          width={40}
+                          height={40}
+                          rounded="lg"
+                          containerClassName="w-10 h-10 shrink-0"
+                          fallback={
+                            <div
+                              className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                              style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
+                            >
+                              <Package size={18} style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-secondary)" }} />
+                            </div>
+                          }
+                        />
+                      ) : (
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: isOut ? "var(--color-error-bg)" : isLow ? "var(--color-warning-bg)" : "var(--bg-input)" }}
+                        >
+                          <Package size={18} style={{ color: isOut ? "var(--color-error)" : isLow ? "var(--color-warning)" : "var(--text-secondary)" }} />
+                        </div>
+                      )}
                       <div>
                         <Link
                           href={`/dashboard/inventory/${item.id}`}

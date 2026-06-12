@@ -53,11 +53,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Centralized polling for shared data (stats, alerts, warehouses)
   // This single polling loop replaces 5+ independent polling intervals in child components
   useEffect(() => {
+    // Driver không cần inventory/warehouse data, bỏ qua polling để tránh 403
+    if (user?.role === 'DRIVER') return;
     useSharedDataStore.getState().startPolling(15_000);
     return () => {
       useSharedDataStore.getState().stopPolling();
     };
-  }, []);
+  }, [user?.role]);
 
   const [toast, setToast] = useState<{ visible: boolean; message: string; link?: string } | null>(null);
 

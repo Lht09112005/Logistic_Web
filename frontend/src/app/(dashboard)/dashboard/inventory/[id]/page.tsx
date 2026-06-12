@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import axios from "axios";
 import { notFound } from "next/navigation";
@@ -9,9 +10,42 @@ interface Params {
   params: Promise<{ id: string }>;
 }
 
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { id } = await params;
+  const session = await auth();
+  const token = session?.accessToken;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  try {
+    const res = await axios.get(`${API_URL}/inventory/${id}`, { headers });
+    const item = res.data?.data;
+
+    if (!item) {
+      return { title: "Hàng tồn kho không tồn tại" };
+    }
+
+    const productName = item.product?.name || "Hàng tồn kho";
+    const warehouseName = item.warehouse?.name || "";
+    const sku = item.product?.sku || "";
+    const quantity = item.quantity ?? 0;
+
+    return {
+      title: `${productName} | LogistiQ`,
+      description: `Chi tiết mặt hàng ${productName} (${sku}) — tồn kho: ${quantity}, lưu tại ${warehouseName}. Thông tin vị trí, lịch sử kiểm kê.`,
+      openGraph: {
+        title: `${productName} | LogistiQ`,
+        description: `${productName} — SKU: ${sku}, Số lượng: ${quantity}, Kho: ${warehouseName}`,
+      },
+    };
+  } catch {
+    return { title: "Hàng tồn kho không tồn tại" };
+  }
+}
+
+
 async function getInventoryDetail(id: string) {
   const session = await auth();
-  const token = (session as any)?.accessToken;
+  const token = session?.accessToken;
 
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -29,8 +63,8 @@ async function getInventoryDetail(id: string) {
     const zones = whRes.data?.data?.zones || [];
 
     return { item, zones };
-  } catch (error: any) {
-    console.error("Lỗi fetch server-side cho trang Inventory Detail:", error.message);
+  } catch (error: unknown) {
+    console.error("Lỗi fetch server-side cho trang Inventory Detail:", (error as Error)?.message);
     return null;
   }
 }

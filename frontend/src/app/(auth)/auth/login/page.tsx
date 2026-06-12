@@ -192,9 +192,7 @@ export default function LoginPage() {
         <p className="text-[11px] text-center pt-1" style={{ color: "var(--text-muted)" }}>
           Nhấp vào vai trò để tự động điền thông tin đăng nhập
         </p>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      </div>        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Email */}
         <div>
           <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
@@ -205,7 +203,8 @@ export default function LoginPage() {
             type="email"
             id="login-email"
             placeholder="admin@logistiq.vn"
-            className={`input-base ${errors.email ? "input-error" : ""}`}
+            disabled={isLoading}
+            className={`input-base ${errors.email ? "input-error" : ""} ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`}
           />
           {errors.email && (
             <p className="mt-1 text-xs" style={{ color: "#ef4444" }}>
@@ -225,12 +224,14 @@ export default function LoginPage() {
               type={showPassword ? "text" : "password"}
               id="login-password"
               placeholder="••••••••"
-              className={`input-base pr-12 ${errors.password ? "input-error" : ""}`}
+              disabled={isLoading}
+              className={`input-base pr-12 ${errors.password ? "input-error" : ""} ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon"
+              disabled={isLoading}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 btn-icon ${isLoading ? "opacity-40" : ""}`}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
@@ -245,7 +246,7 @@ export default function LoginPage() {
           <div className="flex justify-end mt-1.5">
             <Link
               href="/auth/forgot-password"
-              className="text-xs font-medium hover:underline transition-all"
+              className={`text-xs font-medium hover:underline transition-all ${isLoading ? "pointer-events-none opacity-40" : ""}`}
               style={{ color: "#f97316" }}
             >
               Quên mật khẩu?
@@ -255,7 +256,7 @@ export default function LoginPage() {
 
         {serverError && (
           <div
-            className="p-3 rounded-lg text-sm text-center dark:bg-red-900/30 dark:text-red-400"
+            className="p-3 rounded-lg text-sm text-center animate-shake dark:bg-red-900/30 dark:text-red-400"
             style={{ background: "#fee2e2", color: "#b91c1c" }}
           >
             {serverError}
@@ -266,10 +267,18 @@ export default function LoginPage() {
           type="submit"
           id="login-submit"
           disabled={isLoading}
-          className="btn btn-primary w-full btn-lg"
+          className={`btn btn-primary w-full btn-lg ${isLoading ? "btn-loading" : "btn-press"}`}
         >
           {isLoading ? (
-            <><Loader2 size={18} className="animate-spin" /> Đang đăng nhập...</>
+            <span className="flex items-center gap-2">
+              <Loader2 size={18} className="animate-spin" />
+              <span>Đang đăng nhập</span>
+              <span className="flex gap-0.5">
+                <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </span>
+            </span>
           ) : (
             "Đăng nhập"
           )}

@@ -7,6 +7,8 @@ import { getStockPercent, formatDate, getCategoryLabel } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { inventoryApi } from "@/lib/api";
+import { offlineDB } from "@/lib/offline-db";
+import { CACHE_KEYS } from "@/lib/use-offline-cache";
 
 interface WarehouseItem {
   id: string;
@@ -37,13 +39,26 @@ function useRealtimeWarehouses(initial: unknown[]) {
   // Granular selector for warehouses only
   const sharedWarehouses = useSharedDataStore((s) => s.warehouses);
   const [items, setItems] = useState<unknown[]>(initial);
-  const [lastUpdated] = useState<Date>(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
   // Sync shared store data to local state when it updates
   useEffect(() => {
     if (sharedWarehouses.length > 0) {
       setItems(sharedWarehouses);
+      // Cache for offline use
+      offlineDB.cacheAppData(CACHE_KEYS.WAREHOUSES_LIST, sharedWarehouses, "warehouses").catch((e) => console.warn('[OfflineCache] warehouse cache error:', e));
+    }
+  }, [sharedWarehouses]);
+
+  // Try to load from cache if shared store is empty and we might be offline
+  useEffect(() => {
+    if (sharedWarehouses.length === 0 && typeof navigator !== "undefined" && !navigator.onLine) {
+      offlineDB.getCachedAppData<unknown[]>(CACHE_KEYS.WAREHOUSES_LIST).then((cached) => {
+        if (cached && cached.length > 0) {
+          setItems(cached);
+        }
+      }).catch(() => {});
     }
   }, [sharedWarehouses]);
 
@@ -80,12 +95,12 @@ function useRealtimeWarehouses(initial: unknown[]) {
 export default function WarehouseClient({ warehouses: initial }: Props) {
   const { items, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeWarehouses(initial);
   const { isAdmin, isManager, isStaffOnly, user, assignedWarehouses } = useAuth();
+  const [search, setSearch] = useState("");
 
   // STAFF: show inventory items inside their assigned warehouse, not warehouse cards
   if (isStaffOnly) {
     return <StaffWarehouseInventory assignedWarehouses={assignedWarehouses} />;
   }
-  const [search, setSearch] = useState("");
   const list = items as WarehouseItem[];
 
   const filtered = list.filter(

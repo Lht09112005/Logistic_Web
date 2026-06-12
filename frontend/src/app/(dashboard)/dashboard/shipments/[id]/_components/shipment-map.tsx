@@ -11,6 +11,7 @@ import {
   MapRoute,
 } from "@/components/ui/map";
 import MapLibreGL from "maplibre-gl";
+import { Circle, Loader2 } from "lucide-react";
 import { haversineDistance } from "@/lib/route-optimizer";
 import { fetchRoadRoute, type RouteWaypoint, type RoadRoute } from "@/lib/routing-service";
 
@@ -401,7 +402,7 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
                   display: "flex", alignItems: "center", gap: 4,
                 }}
               >
-                <span style={{ color: "#f97316" }}>●</span>
+                <Circle size={10} fill="#f97316" className="inline" style={{ color: "#f97316" }} />
                 {isRoadRoute ? "Đường bộ (ORS)" : "Đường chim bay"}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "1px 8px" }}>
@@ -421,7 +422,7 @@ export function ShipmentMap({ shipment, currentLat, currentLng }: Props) {
                 }}
               >
                 {waypoints.length - 2} checkpoints • {waypoints.length - 1} segments
-                {roadLoading && <span className="ml-1 text-orange-400">⟳</span>}
+                {roadLoading && <Loader2 size={10} className="ml-1 inline animate-spin" style={{ color: "#f97316" }} />}
               </div>
             </div>
           </MarkerContent>

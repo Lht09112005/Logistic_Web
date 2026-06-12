@@ -347,6 +347,37 @@ h1, h2, h3, h4, h5, h6 {
 }
 .animate-text-pop { animation: text-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
+/* ─── Button loading shimmer ─── */
+@keyframes btn-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.btn-loading {
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+}
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.2) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: btn-shimmer 1.2s ease-in-out infinite;
+  border-radius: inherit;
+}
+
+/* ─── Button press animation ─── */
+@keyframes btn-press {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.97); }
+  60%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+.btn-press {
+  animation: btn-press 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 /* ─── Shake (error) ─── */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

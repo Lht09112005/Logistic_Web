@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   QrCode, Camera, CheckCircle, AlertCircle, Loader2,
-  Package, RotateCcw, Minus, Plus, Save, X, Scan,
+  Package, RotateCcw, Minus, Plus, Save, X, Scan, ArrowRight,
 } from "lucide-react";
 import { productsApi, inventoryApi } from "@/lib/api";
 import { getCategoryLabel } from "@/lib/utils";
@@ -80,8 +80,8 @@ export default function QRScanClient() {
         },
         () => {}
       );
-    } catch (err: any) {
-      console.warn(err.message || err);
+    } catch (err: unknown) {
+      console.warn((err as Error)?.message || err);
       setCameraError("Không thể truy cập camera. Vui lòng cho phép quyền camera.");
       setScanState("idle");
     }
@@ -323,11 +323,11 @@ export default function QRScanClient() {
               {/* Current qty display */}
               <div className="rounded-xl p-3 sm:p-4 text-center" style={{ background: "var(--bg-input)" }}>
                 <div className="text-[10px] sm:text-xs font-medium uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>
-                  Hiện tại → Sau cập nhật
+                  Hiện tại <ArrowRight size={14} className="inline" style={{ color: "var(--text-muted)" }} /> Sau cập nhật
                 </div>
                 <div className="text-xl sm:text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
                   <span style={{ color: "var(--text-muted)" }}>{selectedInv.quantity}</span>
-                  {" → "}
+                  <ArrowRight size={14} className="inline mx-1" style={{ color: "var(--text-muted)" }} />
                   <span style={{ color: newQty < product.minStockLevel ? "#ef4444" : "#10b981" }}>
                     {newQty}
                   </span>

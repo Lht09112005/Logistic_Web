@@ -8,7 +8,8 @@ import {
 import { inventoryApi } from "@/lib/api";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { RoleGuard } from "@/components/auth/role-guard";
-import { exportAnalyticsPDF, exportAnalyticsExcel } from "@/lib/pdf-export";
+// PDF export is dynamically imported on demand to avoid bundling jspdf+jspdf-autotable at page load
+import { offlineDB } from "@/lib/offline-db";
 
 // ─── SVG Donut Chart ────────────────────────────────────────────────
 function DonutChart({
@@ -123,8 +124,16 @@ function useRealtimeAnalytics() {
   // Only fetch inventory count — stats/alerts/warehouses come from shared store
   useEffect(() => {
     inventoryApi.getAll({ limit: 1 })
-      .then((res) => setInventoryCount(res.data.meta?.total ?? 0))
-      .catch(() => setIsOffline(true))
+      .then((res) => {
+        const count = res.data.meta?.total ?? 0;
+        setInventoryCount(count);
+        offlineDB.cacheAppData("app:inventoryCount", count, "stats").catch((e) => console.warn('[OfflineCache] analytics count cache error:', e));
+      })
+      .catch(async () => {
+        setIsOffline(true);
+        const cached = await offlineDB.getCachedAppData<number>("app:inventoryCount");
+        if (cached !== null) setInventoryCount(cached);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -176,6 +185,7 @@ function AnalyticsContent() {
   } = useRealtimeAnalytics();
 
   const handleExportPDF = async () => {
+    const { exportAnalyticsPDF } = await import("@/lib/pdf-export");
     await exportAnalyticsPDF({
       total: stats.total,
       inTransit: stats.inTransit,
@@ -189,6 +199,7 @@ function AnalyticsContent() {
   };
 
   const handleExportExcel = async () => {
+    const { exportAnalyticsExcel } = await import("@/lib/pdf-export");
     await exportAnalyticsExcel({
       total: stats.total,
       inTransit: stats.inTransit,

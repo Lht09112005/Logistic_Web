@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Truck, ArrowLeft, Plus, Trash2, MapPin, Calendar, Clipboard, User, Package, AlertCircle, Shield, Warehouse, Navigation
@@ -59,21 +59,21 @@ export default function NewShipmentClient({ warehouses, products, drivers }: Pro
     }
   };
 
-  // Auto-fill destination warehouse for managers
-  useEffect(() => {
-    if (!isAdmin && managedWarehouse) {
-      handleDestinationChange(managedWarehouse.id);
-    }
-  }, [managedWarehouse, isAdmin]);
-
   // Auto-fill destination warehouse info
-  const handleDestinationChange = (whId: string) => {
+  const handleDestinationChange = useCallback((whId: string) => {
     setDestinationWarehouseId(whId);
     const wh = warehouses.find(w => w.id === whId);
     if (wh) {
       setDestinationAddress(wh.address);
     }
-  };
+  }, [warehouses]);
+
+  // Auto-fill destination warehouse for managers
+  useEffect(() => {
+    if (!isAdmin && managedWarehouse) {
+      handleDestinationChange(managedWarehouse.id);
+    }
+  }, [managedWarehouse, isAdmin, handleDestinationChange]);
 
   // Manage dynamic items
   const addItem = () => {

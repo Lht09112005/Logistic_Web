@@ -7,7 +7,7 @@ import {
   Truck, Plus, Search, Filter, MapPin, Clock,
   CheckCircle, Eye, RefreshCw, ThumbsUp,
   Navigation, Zap, Flag, Package, ChevronRight,
-  AlertTriangle,
+  AlertTriangle, Circle,
 } from "lucide-react";
 import {
   formatDate, formatRelative,
@@ -16,6 +16,8 @@ import {
 import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
+import { offlineDB } from "@/lib/offline-db";
+import { CACHE_KEYS } from "@/lib/use-offline-cache";
 
 const STATUS_TABS = [
   { label: "Tất cả", value: "" },
@@ -63,8 +65,21 @@ function useRealtimeShipments(status?: string, page?: string, search?: string, d
       const metaTotal = res.data.meta?.total || 0;
       setShipments(data);
       setTotal(metaTotal);
+      // Cache for offline use (only non-driver views)
+      if (!driverId) {
+        const cacheKey = `app:shipments:${status || "all"}:${search || ""}`;
+        offlineDB.cacheAppData(cacheKey, { items: data, total: metaTotal }, "shipments").catch((e) => console.warn('[OfflineCache] cache error:', e));
+      }
     } catch {
-      // keep existing data
+      // Try offline cache (non-driver only)
+      if (!driverId) {
+        const cacheKey = `app:shipments:${status || "all"}:${search || ""}`;
+        const cached = await offlineDB.getCachedAppData<{ items: unknown[]; total: number }>(cacheKey);
+        if (cached) {
+          setShipments(cached.items);
+          setTotal(cached.total);
+        }
+      }
     }
     setLastUpdated(new Date());
   }, [page, status, search, driverId]);
@@ -142,8 +157,9 @@ export default function ShipmentsClient({ status, page, search }: Props) {
       await shipmentsApi.approve(id);
       await refresh();
       toast.success("Đã duyệt vận đơn thành công!");
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message;
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      const msg = axiosErr?.response?.data?.message || (err as Error)?.message;
       console.warn("Lỗi duyệt vận đơn:", msg);
       toast.error("Lỗi duyệt vận đơn: " + msg);
     }
@@ -156,8 +172,9 @@ export default function ShipmentsClient({ status, page, search }: Props) {
     try {
       await shipmentsApi.reject(rejectModal.id, rejectModal.reason);
       await refresh();
-    } catch (err: any) {
-      console.warn("Lỗi từ chối vận đơn:", err?.response?.data?.message || err?.message);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      console.warn("Lỗi từ chối vận đơn:", axiosErr?.response?.data?.message || (err as Error)?.message);
     }
     setApprovingId(null);
     setRejectModal({ id: "", open: false, reason: "" });
@@ -304,7 +321,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                       {isActive && (
                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse"
                           style={{ background: `${color}20`, color }}>
-                          ● Đang chạy
+                          <Circle size={8} fill="currentColor" className="inline mr-0.5" /> Đang chạy
                         </span>
                       )}
                     </div>
@@ -486,7 +503,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                     </td>
                     <td>
                       <div className="flex items-center gap-1.5">
-                        {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: any) => mw.id === (s as any).originWarehouseId))) &&
+                        {(isAdmin || (isManager && user?.managedWarehouses?.some((mw: { id: string }) => mw.id === (s as Record<string, string>).originWarehouseId))) &&
                           (s.status as string) === "PENDING" && (
                           <>
                             <button

@@ -27,9 +27,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const json = await res.json();
           const { user, accessToken, refreshToken } = json.data;
           return { ...user, accessToken, refreshToken };
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error("====== MOCK LOGIN FALLBACK ERROR ======");
-          console.error(error?.response?.data || error?.message || error);
+          console.error((error as Error)?.message || error);
           console.error("=======================================");
           // Mock login fallback if backend/DB is offline to let user explore the UI
           const email = credentials.email as string;
@@ -142,24 +142,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;
-        token.role = (user as any).role;
-        token.phone = (user as any).phone;
-        token.accessToken = (user as any).accessToken;
-        token.refreshToken = (user as any).refreshToken;
-        token.managedWarehouses = (user as any).managedWarehouses;
-        token.staffedWarehouses = (user as any).staffedWarehouses;
+        token.role = user.role!;
+        token.phone = user.phone;
+        token.accessToken = user.accessToken;
+        token.refreshToken = user.refreshToken;
+        token.managedWarehouses = user.managedWarehouses;
+        token.staffedWarehouses = user.staffedWarehouses;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
-        (session.user as any).role = token.role;
-        (session.user as any).phone = token.phone;
-        (session as any).accessToken = token.accessToken;
-        (session as any).refreshToken = token.refreshToken;
-        (session.user as any).managedWarehouses = token.managedWarehouses;
-        (session.user as any).staffedWarehouses = token.staffedWarehouses;
+        session.user.role = token.role!;
+        session.user.phone = token.phone;
+        session.accessToken = token.accessToken;
+        session.refreshToken = token.refreshToken;
+        session.user.managedWarehouses = token.managedWarehouses;
+        session.user.staffedWarehouses = token.staffedWarehouses;
       }
       return session;
     },

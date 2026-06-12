@@ -15,6 +15,7 @@ import {
   Bell, Settings, LogOut, ChevronLeft, Users, BarChart3,
   Navigation, MapPin, CheckCircle, Circle, Activity,
   Clock,  TrendingUp, AlertTriangle, ClipboardList, Sun, Moon,
+  ArrowRight,
 } from "lucide-react";
 
 // ─── Role-based accent colors ─────────────────────────────────
@@ -320,6 +321,7 @@ interface ActiveTrip {
   status: string;
   originAddress: string;
   destinationAddress: string;
+  estimatedArrival?: string;
   checkpoints: { id: string; name: string; isCompleted: boolean; sequence: number }[];
   items: { id: string }[];
 }
@@ -497,15 +499,13 @@ function DriverActiveTrip({ collapsed, onNavClick }: { collapsed: boolean; onNav
             </div>
             <div className="px-3 pb-2 flex items-center gap-1 text-[7px]" style={{ color: "#047857" }}>
               <MapPin size={7} />
-              <span className="truncate leading-tight">{trip.originAddress} → {trip.destinationAddress}</span>
+              <span className="truncate leading-tight flex items-center gap-1 min-w-0"><span className="truncate min-w-0">{trip.originAddress}</span> <ArrowRight size={10} className="shrink-0" style={{ color: "var(--text-muted)" }} /> <span className="truncate min-w-0">{trip.destinationAddress}</span></span>
             </div>
             {/* ETA */}
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(trip as any).estimatedArrival && (
+            {trip.estimatedArrival && (
               <div className="px-3 pb-1 flex items-center gap-1 text-[7px]" style={{ color: "#047857" }}>
                 <Clock size={7} />
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                <span>ETA: <strong>{new Date((trip as any).estimatedArrival).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</strong></span>
+                <span>ETA: <strong>{new Date(trip.estimatedArrival!).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</strong></span>
               </div>
             )}
             {trip.checkpoints && trip.checkpoints.length > 0 && (
@@ -549,12 +549,17 @@ export function Sidebar() {
 
   // Detect mobile for auto-close sidebar on nav click & auto-close on mount
   const [isMobile, setIsMobile] = useState(false);
+  const sidebarOpenRef = useRef(sidebarOpen);
+  const toggleSidebarRef = useRef(toggleSidebar);
+  sidebarOpenRef.current = sidebarOpen;
+  toggleSidebarRef.current = toggleSidebar;
+
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px)");
     setIsMobile(mq.matches);
     // Auto-close sidebar on mobile at initial load (fix: sidebar covers screen on mobile)
-    if (mq.matches && sidebarOpen) {
-      toggleSidebar();
+    if (mq.matches && sidebarOpenRef.current) {
+      toggleSidebarRef.current();
     }
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
@@ -682,8 +687,7 @@ export function Sidebar() {
                         <span className="flex-1 truncate">{item.label}</span>
                       )}
                       {/* Expanded: show combined badge on 'Cảnh báo' */}
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {sidebarOpen && (item as any).badge === "alerts" && totalUnread > 0 && (
+                      {sidebarOpen && (item as { badge?: string }).badge === "alerts" && totalUnread > 0 && (
                         <span
                           className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0"
                           style={{ background: "#ef4444", color: "white" }}
@@ -692,8 +696,7 @@ export function Sidebar() {
                         </span>
                       )}
                       {/* Collapsed: small dot badge on Bell icon */}
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {!sidebarOpen && (item as any).badge === "alerts" && totalUnread > 0 && (
+                      {!sidebarOpen && (item as { badge?: string }).badge === "alerts" && totalUnread > 0 && (
                         <span
                           className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center"
                           style={{ background: "#ef4444", color: "white" }}
@@ -701,8 +704,7 @@ export function Sidebar() {
                           {totalUnread > 9 ? "9+" : totalUnread}
                         </span>
                       )}
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {sidebarOpen && (item as any).badge === "pending" && pendingForCurrentUser > 0 && (
+                      {sidebarOpen && (item as { badge?: string }).badge === "pending" && pendingForCurrentUser > 0 && (
                         <span
                           className="min-w-5 h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0 animate-pulse"
                           style={{ background: "#6366f1", color: "white" }}

@@ -13,6 +13,7 @@ import { formatRelative, getShipmentStatusLabel, getShipmentStatusBadge } from "
 import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { useSharedDataStore } from "@/store/shared-data-store";
+import { offlineDB } from "@/lib/offline-db";
 
 interface ShipmentStats {
   total: number; inTransit: number; delivered: number; pending: number; failed: number;
@@ -482,18 +483,12 @@ function useRealtimeDashboard(initial: Props, assignedWarehouseIds?: string[]) {
 }
 
 // ─────────────────────────────────────────────
-// MAIN EXPORT
+// NON-DRIVER DASHBOARD (separate component to obey Rules of Hooks)
 // ─────────────────────────────────────────────
-export default function DashboardClient(props: Props) {
+function NonDriverDashboard(props: Props) {
   const auth = useAuth();
-  const { isAdmin, isManager, isDriver, isStaffOnly } = auth;
+  const { isAdmin, isManager, isStaffOnly } = auth;
 
-  // Driver gets their own dedicated dashboard — return early BEFORE all other hooks
-  if (isDriver) {
-    return <DriverDashboardContent user={auth.user!} />;
-  }
-
-  // Non-driver roles: unchanged dashboard
   const assignedWarehouseIds = useMemo(() => 
     [...(auth.managedWarehouses || []), ...(auth.staffedWarehouses || [])].map(w => w.id), 
     [auth.managedWarehouses, auth.staffedWarehouses]
@@ -505,8 +500,22 @@ export default function DashboardClient(props: Props) {
   const [pendingReceiving, setPendingReceiving] = useState<RecentShipment[]>([]);
 
   useEffect(() => {
-    shipmentsApi.getAll({ limit: "10", status: "PENDING" }).then((r) => setPendingLoading(r.data.data ?? [])).catch(() => {});
-    shipmentsApi.getAll({ limit: "10", status: "DELIVERING" }).then((r) => setPendingReceiving(r.data.data ?? [])).catch(() => {});
+    shipmentsApi.getAll({ limit: "10", status: "PENDING" }).then((r) => {
+      const data = r.data.data ?? [];
+      setPendingLoading(data);
+      offlineDB.cacheAppData("app:pendingLoading", data, "shipments").catch((e) => console.warn('[OfflineCache] pending loading cache error:', e));
+    }).catch(async () => {
+      const cached = await offlineDB.getCachedAppData<RecentShipment[]>("app:pendingLoading");
+      if (cached) setPendingLoading(cached);
+    });
+    shipmentsApi.getAll({ limit: "10", status: "DELIVERING" }).then((r) => {
+      const data = r.data.data ?? [];
+      setPendingReceiving(data);
+      offlineDB.cacheAppData("app:pendingReceiving", data, "shipments").catch((e) => console.warn('[OfflineCache] pending receiving cache error:', e));
+    }).catch(async () => {
+      const cached = await offlineDB.getCachedAppData<RecentShipment[]>("app:pendingReceiving");
+      if (cached) setPendingReceiving(cached);
+    });
   }, []);
 
   const pendingLoadingCount = pendingLoading.length;
@@ -847,4 +856,19 @@ export default function DashboardClient(props: Props) {
       </div>
     </div>
   );
+}
+
+// ─────────────────────────────────────────────
+// MAIN EXPORT — delegates to role-appropriate sub-component
+// ─────────────────────────────────────────────
+export default function DashboardClient(props: Props) {
+  const auth = useAuth();
+  const { isDriver, user } = auth;
+
+  // Driver gets their own dedicated dashboard (separate component = no hook-ordering issues)
+  if (isDriver) {
+    return <DriverDashboardContent user={user!} />;
+  }
+
+  return <NonDriverDashboard {...props} />;
 }

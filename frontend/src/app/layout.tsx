@@ -6,6 +6,7 @@ import { Providers } from "@/components/providers";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { OfflineBanner } from "@/components/layout/offline-banner";
+import { WebVitals } from "@/components/web-vitals";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -69,6 +70,7 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <Providers>{children}</Providers>
         <OfflineBanner />
+        <WebVitals />
         <Toaster position="top-right" richColors closeButton duration={4000} />
       </body>
     </html>

@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { shipmentsApi, inventoryApi, warehousesApi } from "@/lib/api";
 import { useAppStore } from "./app-store";
+import { offlineDB } from "@/lib/offline-db";
+import { CACHE_KEYS } from "@/lib/use-offline-cache";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -81,6 +83,17 @@ export const useSharedDataStore = create<SharedDataState>((set, get) => ({
       whResult.status === "rejected";
 
     set(updates as SharedDataState);
+
+    // Cache fresh data to IndexedDB for offline use
+    if (updates.shipmentStats) {
+      offlineDB.cacheAppData(CACHE_KEYS.SHIPMENT_STATS, updates.shipmentStats, "stats").catch((e) => console.warn('[OfflineCache] stats cache error:', e));
+    }
+    if (updates.alerts && Array.isArray(updates.alerts)) {
+      offlineDB.cacheAppData(CACHE_KEYS.ALERTS, updates.alerts, "alerts").catch((e) => console.warn('[OfflineCache] alerts cache error:', e));
+    }
+    if (updates.warehouses && Array.isArray(updates.warehouses)) {
+      offlineDB.cacheAppData(CACHE_KEYS.WAREHOUSES_LIST, updates.warehouses, "warehouses").catch((e) => console.warn('[OfflineCache] warehouses cache error:', e));
+    }
   },
 
   refresh: async () => {

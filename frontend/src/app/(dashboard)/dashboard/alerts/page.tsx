@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAppStore } from "@/store/app-store";
 import { fetchAlertsAction } from "./actions";import { 
   AlertTriangle, CheckCircle, RefreshCw, ArrowLeft,
@@ -10,7 +10,11 @@ import { formatDate, getAlertSeverityBadge } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { RoleGuard } from "@/components/auth/role-guard";
-import ResolveAlertDialog from "./_components/resolve-alert-dialog";
+import dynamic from "next/dynamic";
+
+const ResolveAlertDialog = dynamic(() => import("./_components/resolve-alert-dialog"), {
+  loading: () => null,
+});
 
 interface Alert {
   id: string;
@@ -56,7 +60,7 @@ function AlertsPage() {
     });
   };
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     setLoading(true);
     const params =
       filter === "resolved"
@@ -72,11 +76,11 @@ function AlertsPage() {
       setAlerts(data);
     }
     setLoading(false);
-  };
+  }, [filter, setAlerts]);
 
   useEffect(() => {
     fetchAlerts();
-  }, [filter]);
+  }, [fetchAlerts]);
 
   const handleResolved = () => {
     setResolvingAlert(null);

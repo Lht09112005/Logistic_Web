@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, notFound } from "next/navigation";
 import { shipmentsApi } from "@/lib/api";
 import ShipmentDetailClient from "./_components/shipment-detail-client";
+import type { Shipment } from "./_components/shipment-detail-client";
 
 const POLL_INTERVAL = 15_000;
 
@@ -11,7 +12,7 @@ export default function ShipmentDetailPage() {
   const params = useParams();
   const id = params?.id as string;
 
-  const [shipment, setShipment] = useState<any>(null);
+  const [shipment, setShipment] = useState<Shipment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<boolean>(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());

@@ -6,7 +6,7 @@ import {
   MapPin, Navigation, Flag, Loader2,
   CheckCircle, Clock, ArrowRightFromLine, ArrowLeftToLine,
   PartyPopper, X, AlertTriangle, Zap, ChevronDown, ChevronUp,
-  WifiOff,
+  WifiOff, ArrowRight,
 } from "lucide-react";
 import { getShipmentStatusLabel } from "@/lib/utils";
 import { shipmentsApi } from "@/lib/api";
@@ -324,7 +324,7 @@ function RouteVisualizer({
             const isDotPending = node.status === "pending";
             const isClickable = isDotCurrent && node.isCheckpoint && isRouteActive;
             const dSize = node.id === "origin" || node.id === "destination" ? 10 : isDotCurrent ? 12 : 8;
-            const justCompleted = (node as any).justCompleted;
+            const justCompleted = (node as { justCompleted?: boolean }).justCompleted;
 
             return (
               <div key={node.id} className="flex items-center">
@@ -356,7 +356,7 @@ function RouteVisualizer({
                       }} />
                     )}
                     {isDotCompleted && <CheckCircle size={7} className="text-white" />}
-                    {(node as any).justCompleted && (
+                    {(node as { justCompleted?: boolean }).justCompleted && (
                       <div className="absolute -top-1.5 -right-1.5 animate-sparkle">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
@@ -786,7 +786,7 @@ export default function DriverCheckpointPanel({
               <span className="mx-1">•</span>
               <Warehouse size={10} />
               <span className="text-[9px]">
-                {originWarehouse?.name || "Kho xuất"} → {destinationWarehouse?.name || "Kho nhập"}
+                {originWarehouse?.name || "Kho xuất"} <ArrowRight size={10} className="inline" style={{ color: "var(--text-muted)" }} /> {destinationWarehouse?.name || "Kho nhập"}
               </span>
             </div>
             {showCargoList
