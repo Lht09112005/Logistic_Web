@@ -49,6 +49,7 @@ const adminNav = [
     items: [
       { href: "/dashboard/warehouse", icon: Warehouse, label: "Quản lý kho" },
       { href: "/dashboard/inventory", icon: Package, label: "Hàng hóa" },
+      { href: "/dashboard/qr-scan", icon: QrCode, label: "Kiểm kho QR" },
       { href: "/dashboard/alerts", icon: Bell, label: "Cảnh báo", badge: "alerts" },
     ],
   },
@@ -81,6 +82,7 @@ const managerNav = [
     items: [
       { href: "/dashboard/warehouse", icon: Warehouse, label: "Kho hàng" },
       { href: "/dashboard/inventory", icon: Package, label: "Hàng hóa" },
+      { href: "/dashboard/qr-scan", icon: QrCode, label: "Kiểm kho QR" },
       { href: "/dashboard/alerts", icon: Bell, label: "Cảnh báo", badge: "alerts" },
     ],
   },
