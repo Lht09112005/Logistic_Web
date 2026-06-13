@@ -42,9 +42,10 @@ interface Driver {
 interface Props {
   alert: Alert;
   onClose: () => void;
+  onResolved: () => void;
 }
 
-export default function ResolveAlertDialog({ alert, onClose }: Props) {
+export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props) {
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<"loading" | "form" | "submitting" | "success">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -247,7 +248,7 @@ export default function ResolveAlertDialog({ alert, onClose }: Props) {
                 <strong>{destWarehouse?.name}</strong> đã được khởi tạo.
               </p>
               <div className="flex gap-3 mt-2">
-                <button onClick={onClose} className="btn btn-primary">
+                <button onClick={() => { onResolved(); onClose(); }} className="btn btn-primary">
                   Hoàn tất
                 </button>
               </div>
