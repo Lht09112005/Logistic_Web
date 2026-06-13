@@ -42,10 +42,9 @@ interface Driver {
 interface Props {
   alert: Alert;
   onClose: () => void;
-  onResolved: () => void;
 }
 
-export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props) {
+export default function ResolveAlertDialog({ alert, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<"loading" | "form" | "submitting" | "success">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +104,7 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
         setQuantity(1);
 
         setStep("form");
-      } catch (err) {
+      } catch {
         setError("Không thể tải dữ liệu. Vui lòng thử lại.");
         setStep("form");
       }
@@ -189,7 +188,7 @@ export default function ResolveAlertDialog({ alert, onClose, onResolved }: Props
   // (e.g. animate-fade-in on <main> uses transform which creates a new containing block)
   if (!mounted) return null;
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"

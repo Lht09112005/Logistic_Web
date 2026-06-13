@@ -29,7 +29,15 @@ const CATEGORIES = [
 export default function QRScanClient() {
   const searchParams = useSearchParams();
   const preloadId = searchParams.get("productId");
-  const scannerRef = useRef<any>(null);
+  const scannerRef = useRef<{
+    stop: () => Promise<void>;
+    start: (
+      config: Record<string, unknown>,
+      options: Record<string, unknown>,
+      onSuccess: (text: string) => void,
+      onFailure: () => void
+    ) => Promise<void>;
+  } | null>(null);
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [scanMode, setScanMode] = useState<ScanMode>("QR_CODE");
   const [product, setProduct] = useState<ScannedProduct | null>(null);

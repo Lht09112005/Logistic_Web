@@ -63,7 +63,7 @@ interface Props {
   refreshing: boolean;
 }
 
-export default function ShipmentDetailClient({ shipment: initial, lastUpdated, refresh, refreshing }: Props) {
+export default function ShipmentDetailClient({ shipment: initial, refresh, refreshing }: Props) {
   const router = useRouter();
   const auth = useAuth();
   const { isAdmin, isManager, isDriver, isStaffOnly, user } = auth;
@@ -238,7 +238,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
       <div className="flex flex-1 min-h-0 gap-4 lg:gap-6 p-4 lg:p-6 overflow-hidden flex-col lg:flex-row">
 
         {/* Map — chiếm 2/3 chiều rộng desktop, full width mobile */}
-        <div className="flex-1 lg:flex-[2] min-h-0 card overflow-hidden flex flex-col min-h-[300px] lg:min-h-0">
+        <div className="flex-1 lg:flex-2 min-h-0 card overflow-hidden flex flex-col lg:min-h-0">
           <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--border-color)" }}>
             <div className="flex items-center gap-2">
               <MapPin size={16} style={{ color: "#f97316" }} />
@@ -463,13 +463,13 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                   {completedCount}/{shipment.checkpoints.length}
                 </span>
               </div>
-              <div className="space-y-1 max-h-[200px] overflow-y-auto driver-cp-scroll pr-1">
+              <div className="space-y-1 max-h-50 overflow-y-auto driver-cp-scroll pr-1">
                 {shipment.checkpoints.map((cp, idx) => {
                   const isCurrent = idx === nextCpIndex;
                   return (
                     <div key={cp.id} className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${
                       isCurrent ? "bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50" : ""
-                    } ${cp.isCompleted ? "" : "hover:bg-[var(--bg-input)]"}`}>
+                    } ${cp.isCompleted ? "" : "hover:bg-(--bg-input)"}`}>
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all ${
                         cp.isCompleted
                           ? "bg-emerald-500"
@@ -541,7 +541,7 @@ export default function ShipmentDetailClient({ shipment: initial, lastUpdated, r
                 </thead>
                 <tbody>
                   {shipment.items.map((item) => (
-                    <tr key={item.id} className="hover:bg-[var(--bg-input)] transition-colors">
+                    <tr key={item.id} className="hover:bg-(--bg-input) transition-colors">
                       <td className="font-medium text-sm">{item.product.name}</td>
                       <td><code className="text-[11px] px-1 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>{item.product.sku}</code></td>
                       <td className="text-right font-semibold">{item.quantity} <span className="text-[10px] font-normal" style={{ color: "var(--text-muted)" }}>{item.product.unit}</span></td>

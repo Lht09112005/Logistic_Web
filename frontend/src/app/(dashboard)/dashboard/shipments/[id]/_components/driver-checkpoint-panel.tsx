@@ -122,7 +122,7 @@ function SuccessToast({
   if (!visible) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[100] animate-toast-slide-in">
+    <div className="fixed top-4 right-4 z-100 animate-toast-slide-in">
       <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl shadow-2xl text-sm"
         style={{
           background: "linear-gradient(135deg, var(--color-success), #047857)",
@@ -183,7 +183,7 @@ function IncidentModal({
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-200 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
       <div
         className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
@@ -398,9 +398,9 @@ function RouteVisualizer({
 }
 
 export default function DriverCheckpointPanel({
-  shipmentId, shipmentCode, status, originAddress, destinationAddress,
+  shipmentId, shipmentCode, status,
   originWarehouse, destinationWarehouse, checkpoints, items,
-  driver, currentUserId, onStatusUpdate, onCheckpointUpdate,
+  onStatusUpdate, onCheckpointUpdate,
 }: Props) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -592,7 +592,7 @@ export default function DriverCheckpointPanel({
         )}
 
         {/* Timeline */}
-        <div className="px-4 pb-2 space-y-0.5 max-h-[300px] overflow-y-auto driver-cp-scroll">
+        <div className="px-4 pb-2 space-y-0.5 max-h-75 overflow-y-auto driver-cp-scroll">
           {steps.map((step, idx) => {
             const isLast = idx === steps.length - 1;
             const StepIcon = step.icon;
@@ -650,7 +650,7 @@ export default function DriverCheckpointPanel({
                       )}
                     </div>
 
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       {/* Checkpoint confirm button */}
                       {isCpCurrent && isCp && (
                         <button disabled={actionLoading !== null}

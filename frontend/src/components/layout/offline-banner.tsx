@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Wifi, WifiOff, RefreshCw, Cloud, CloudOff, X } from "lucide-react";
+import { WifiOff, RefreshCw, Cloud, CloudOff, X } from "lucide-react";
 import { useOfflineSync } from "@/lib/use-offline-sync";
 
 export function OfflineBanner() {

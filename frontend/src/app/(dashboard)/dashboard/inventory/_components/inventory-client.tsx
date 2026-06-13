@@ -9,7 +9,7 @@ import { inventoryApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { useSharedDataStore } from "@/store/shared-data-store";
 import { offlineDB } from "@/lib/offline-db";
-import { CACHE_KEYS, extractApiData } from "@/lib/use-offline-cache";
+import { CACHE_KEYS } from "@/lib/use-offline-cache";
 import { OptimizedImage } from "@/components/ui/optimized-image";
 
 interface InventoryItem {
@@ -234,7 +234,7 @@ export default function InventoryClient(props: Props) {
                 <button
                   key={tab.v}
                   onClick={() => setFilter(tab.v)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === tab.v ? "text-white" : "hover:bg-[var(--bg-input)]"}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === tab.v ? "text-white" : "hover:bg-(--bg-input)"}`}
                   style={filter === tab.v ? { background: "linear-gradient(135deg,#f97316,#ea580c)" } : { color: "var(--text-secondary)" }}
                 >
                   {tab.label}
@@ -256,7 +256,7 @@ export default function InventoryClient(props: Props) {
               return (
                 <div
                   key={item.id}
-                  className={`card card-hover p-5 animate-fade-in snap-start shrink-0 min-w-[280px] md:min-w-0 ${isOut ? "border-error" : isLow ? "border-warning" : ""}`}
+                  className={`card card-hover p-5 animate-fade-in snap-start shrink-0 min-w-70 md:min-w-0 ${isOut ? "border-error" : isLow ? "border-warning" : ""}`}
                   style={{ animationDelay: `${i * 40}ms` }}
                 >
                   <div className="flex items-start justify-between mb-3">

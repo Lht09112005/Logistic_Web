@@ -17,7 +17,6 @@ import { shipmentsApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import { offlineDB } from "@/lib/offline-db";
-import { CACHE_KEYS } from "@/lib/use-offline-cache";
 
 const STATUS_TABS = [
   { label: "Tất cả", value: "" },
