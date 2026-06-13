@@ -1,10 +1,12 @@
+// Load .env FIRST — before any module-level code that uses process.env
+import './config/env'
+
 import express, { Request, Response, NextFunction } from 'express'
 import http from 'http'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import { Server } from 'socket.io'
-import dotenv from 'dotenv'
 import swaggerUi from 'swagger-ui-express'
 import { sendError } from './utils/response'
 
@@ -16,8 +18,6 @@ import shipmentRoutes from './routes/shipment.routes'
 import warehouseRoutes from './routes/warehouse.routes'
 import notificationRoutes from './routes/notification.routes'
 import { swaggerSpec } from './config/swagger'
-
-dotenv.config()
 
 const app = express()
 const server = http.createServer(app)
