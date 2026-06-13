@@ -8,6 +8,7 @@ import {
   Barcode, PlusCircle,
   ArrowRight,
 } from "lucide-react";
+import type { Html5Qrcode } from "html5-qrcode";
 import { productsApi, inventoryApi } from "@/lib/api";
 import { getCategoryLabel } from "@/lib/utils";
 
@@ -29,15 +30,7 @@ const CATEGORIES = [
 export default function QRScanClient() {
   const searchParams = useSearchParams();
   const preloadId = searchParams.get("productId");
-  const scannerRef = useRef<{
-    stop: () => Promise<void>;
-    start: (
-      config: Record<string, unknown>,
-      options: Record<string, unknown>,
-      onSuccess: (text: string) => void,
-      onFailure: () => void
-    ) => Promise<void>;
-  } | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [scanMode, setScanMode] = useState<ScanMode>("QR_CODE");
   const [product, setProduct] = useState<ScannedProduct | null>(null);
