@@ -21,6 +21,7 @@ interface User {
   phone?: string;
   avatar?: string;
   managedWarehouses?: ManagedWarehouse[];
+  staffedWarehouses?: ManagedWarehouse[];
 }
 
 interface AuthContextType {
@@ -68,7 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: sessionUser.role || "STAFF",
         phone: sessionUser.phone,
         avatar: sessionUser.image || undefined,
-        managedWarehouses: sessionUser.managedWarehouses || [],
+        managedWarehouses: (sessionUser.managedWarehouses as ManagedWarehouse[]) || [],
+        staffedWarehouses: (sessionUser.staffedWarehouses as ManagedWarehouse[]) || [],
       });
     } else if (status === "unauthenticated") {
       setUser(null);
@@ -78,8 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync access token riêng — bỏ qua mock token để tránh 401
   useEffect(() => {
     if (status === "authenticated" && session) {
-      const token = session.accessToken;
-      setAccessToken(token?.startsWith("mock-") ? null : token ?? null);
+      const token = session.accessToken || (session.user as any)?.accessToken;
+      setAccessToken(token ?? null);
     } else if (status === "unauthenticated") {
       setAccessToken(null);
     }
@@ -89,12 +91,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut({ callbackUrl: "/auth/login" });
   }, []);
 
-  const managedWarehouses = (session?.user?.managedWarehouses as ManagedWarehouse[]) || [];
-  const staffedWarehouses = (session?.user?.staffedWarehouses as ManagedWarehouse[]) || [];
+  // Lấy từ user state (đã được sync từ session) để đảm bảo nhất quán
+  const managedWarehouses = user?.managedWarehouses || [];
+  const staffedWarehouses = user?.staffedWarehouses || [];
   const assignedWarehouses = [...managedWarehouses, ...staffedWarehouses];
 
-  const managedWarehouse = user?.managedWarehouses && user.managedWarehouses.length > 0
-    ? user.managedWarehouses[0]
+  const managedWarehouse = managedWarehouses.length > 0
+    ? managedWarehouses[0]
     : null;
 
   return (

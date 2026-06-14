@@ -32,7 +32,13 @@ const BLOCKED_PREFIXES: Record<string, string[]> = {
   ],
 };
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+  modal,
+}: {
+  children: React.ReactNode
+  modal: React.ReactNode
+}) {
   const sidebarOpen = useAppStore((state) => state.sidebarOpen);
   const { user, managedWarehouse, isLoading } = useAuth();
   const router = useRouter();
@@ -163,6 +169,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* Parallel route: modal (e.g. intercepted login) */}
+      {modal}
     </div>
   );
 }

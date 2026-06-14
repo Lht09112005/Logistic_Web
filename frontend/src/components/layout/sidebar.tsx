@@ -563,7 +563,12 @@ export function Sidebar() {
     if (mq.matches && sidebarOpenRef.current) {
       toggleSidebarRef.current();
     }
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    const handler = (e: MediaQueryListEvent) => {
+      setIsMobile(e.matches);
+      if (e.matches && sidebarOpenRef.current) {
+        toggleSidebarRef.current(); // Auto close if resizing to mobile
+      }
+    };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);

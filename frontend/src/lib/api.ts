@@ -37,7 +37,7 @@ async function ensureToken(): Promise<string | null> {
         (session?.user as unknown as Record<string, unknown> | undefined)?.accessToken as string | undefined ||
         null;
 
-      if (token && !token.startsWith("mock-")) {
+      if (token) {
         _tokenCache = token;
       } else {
         _tokenCache = null;
@@ -90,18 +90,12 @@ api.interceptors.response.use(
 
     // Get session to check if token is real or mock
     const session = await getSession() as unknown as Record<string, unknown> | null;
-    const accessToken = (session?.accessToken as string) ?? undefined;
     const refreshToken = (session?.refreshToken as string) ?? undefined;
-    const isMockToken = !accessToken || accessToken.startsWith("mock-");
-
-    // Mock token — skip silently, don't retry or sign out
-    if (isMockToken) {
-      return Promise.reject(error);
-    }
 
     // No refresh token — sign out
     if (!refreshToken) {
-      await signOut({ callbackUrl: "/auth/login" });
+      await signOut({ callbackUrl: "/auth/login", redirect: false });
+      window.location.href = "/auth/login";
       return Promise.reject(error);
     }
 
@@ -138,7 +132,8 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
-      await signOut({ callbackUrl: "/auth/login" });
+      await signOut({ callbackUrl: "/auth/login", redirect: false });
+      window.location.href = "/auth/login";
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;
