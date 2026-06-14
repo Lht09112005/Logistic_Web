@@ -130,10 +130,19 @@ api.interceptors.response.use(
 
       processQueue(null, newAccessToken);
       return api(originalRequest);
-    } catch (refreshError) {
+    } catch (refreshError: any) {
       processQueue(refreshError, null);
-      await signOut({ callbackUrl: "/auth/login", redirect: false });
-      window.location.href = "/auth/login";
+      
+      // Only sign out if the refresh token is truly invalid (401/403)
+      // If it's a rate limit (429) or network error, don't force sign out.
+      const status = refreshError.response?.status;
+      if (status === 401 || status === 403) {
+        await signOut({ callbackUrl: "/auth/login", redirect: false });
+        window.location.href = "/auth/login";
+      } else {
+        console.warn("Refresh token failed with non-auth error (e.g. rate limit).", refreshError);
+      }
+      
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;
