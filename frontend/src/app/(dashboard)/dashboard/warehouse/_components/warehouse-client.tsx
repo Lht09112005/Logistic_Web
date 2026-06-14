@@ -221,7 +221,7 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
                     <div className="space-y-1">
                       <div className="flex justify-between text-[11px] lg:text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
                         <span>Công suất chứa</span>
-                        <span>{w.usedArea || 0} / {w.totalArea} m\u00b2</span>
+                        <span>{w.usedArea || 0} / {w.totalArea} m²</span>
                       </div>
                       <div className="progress-bar">
                         <div

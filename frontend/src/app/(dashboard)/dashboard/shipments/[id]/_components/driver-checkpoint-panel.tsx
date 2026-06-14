@@ -439,19 +439,19 @@ export default function DriverCheckpointPanel({
     const cp = checkpoints.find((c) => c.id === cpId);
     if (!cp || cp.isCompleted || actionLoading !== null) return;
 
-    const updatedCheckpoints = checkpoints.map((c) =>
-      c.id === cpId ? { ...c, isCompleted: true, arrivedAt: new Date().toISOString() } : c
-    );
+    // Gửi đúng format backend mong đợi: chỉ id, isCompleted, arrivedAt
+    const now = new Date().toISOString();
+    const checkpointUpdates = [{ id: cpId, isCompleted: true, arrivedAt: now }];
 
     handleAction(`cp-${cpId}`, async () => {
       try {
-        await shipmentsApi.update(shipmentId, { checkpoints: updatedCheckpoints });
+        await shipmentsApi.update(shipmentId, { checkpoints: checkpointUpdates });
       } catch {
         // Offline: queue mutation for later sync
         await offlineDB.queueMutation(
           `/api/shipments/${shipmentId}`,
           "PUT",
-          { checkpoints: updatedCheckpoints },
+          { checkpoints: checkpointUpdates },
           { "Content-Type": "application/json" }
         );
       }
@@ -655,10 +655,9 @@ export default function DriverCheckpointPanel({
                       {isCpCurrent && isCp && (
                         <button disabled={actionLoading !== null}
                           onClick={() => handleAction(`cp-${step.checkpointId}`, async () => {
+                            const now = new Date().toISOString();
                             await shipmentsApi.update(shipmentId, {
-                              checkpoints: checkpoints.map((cp) =>
-                                cp.id === step.checkpointId ? { ...cp, isCompleted: true, arrivedAt: new Date().toISOString() } : cp
-                              ),
+                              checkpoints: [{ id: step.checkpointId, isCompleted: true, arrivedAt: now }],
                             });
                             onCheckpointUpdate(step.checkpointId);
                             const cp = checkpoints.find((c) => c.id === step.checkpointId);

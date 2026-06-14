@@ -127,9 +127,10 @@ export default function ShipmentDetailClient({ shipment: initial, refresh, refre
     return () => { cleanup.then((s) => { s?.off("connect"); s?.off("disconnect"); s?.off("location:updated"); s?.off("checkpoint:completed"); s?.disconnect(); }); };
   }, [shipment.id, shipment.originWarehouse?.id, shipment.destinationWarehouse?.id]);
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    try { await shipmentsApi.update(shipment.id, { status: newStatus }); setShipment((prev) => ({ ...prev, status: newStatus })); }
-    catch { /* ignore */ }
+  const handleStatusUpdate = (newStatus: string) => {
+    // Chỉ cập nhật state local — các component con tự gọi API riêng
+    // rồi mới gọi onStatusUpdate để đồng bộ UI
+    setShipment((prev) => ({ ...prev, status: newStatus }));
   };
 
   const handleCheckpointUpdate = useCallback((cpId: string) => {
@@ -203,17 +204,47 @@ export default function ShipmentDetailClient({ shipment: initial, refresh, refre
             </>
           )}
           {canControlShipment && shipment.status === "CONFIRMED" && (
-            <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("LOADING")}>
+            <button className="btn btn-primary btn-sm" onClick={async () => {
+              try {
+                await shipmentsApi.startLoading(shipment.id);
+                setShipment((prev) => ({ ...prev, status: "LOADING" }));
+                toast.success("Đã bắt đầu xếp hàng!");
+              } catch (err: unknown) {
+                const axiosErr = err as { response?: { data?: { message?: string } } };
+                const msg = axiosErr?.response?.data?.message || (err as Error)?.message;
+                toast.error("Đã có lỗi: " + msg);
+              }
+            }}>
               <Package size={14} /> <span className="hidden xs:inline">Bắt đầu </span>xếp hàng
             </button>
           )}
           {canControlShipment && shipment.status === "LOADING" && (
-            <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate("IN_TRANSIT")}>
+            <button className="btn btn-primary btn-sm" onClick={async () => {
+              try {
+                await shipmentsApi.update(shipment.id, { status: "IN_TRANSIT" });
+                setShipment((prev) => ({ ...prev, status: "IN_TRANSIT" }));
+                toast.success("Đã bắt đầu vận chuyển!");
+              } catch (err: unknown) {
+                const axiosErr = err as { response?: { data?: { message?: string } } };
+                const msg = axiosErr?.response?.data?.message || (err as Error)?.message;
+                toast.error("Đã có lỗi: " + msg);
+              }
+            }}>
               <Navigation size={14} /> <span className="hidden xs:inline">Bắt đầu </span>vận chuyển
             </button>
           )}
           {canControlShipment && shipment.status === "IN_TRANSIT" && (
-            <button className="btn btn-secondary btn-sm" style={{ color: "#10b981", borderColor: "#10b981" }} onClick={() => handleStatusUpdate("DELIVERED")}>
+            <button className="btn btn-secondary btn-sm" style={{ color: "#10b981", borderColor: "#10b981" }} onClick={async () => {
+              try {
+                await shipmentsApi.update(shipment.id, { status: "DELIVERED" });
+                setShipment((prev) => ({ ...prev, status: "DELIVERED" }));
+                toast.success("Đã đánh dấu giao hàng!");
+              } catch (err: unknown) {
+                const axiosErr = err as { response?: { data?: { message?: string } } };
+                const msg = axiosErr?.response?.data?.message || (err as Error)?.message;
+                toast.error("Đã có lỗi: " + msg);
+              }
+            }}>
               <CheckCircle size={14} /> <span className="hidden sm:inline">Đánh dấu </span>đã giao
             </button>
           )}
