@@ -80,7 +80,7 @@ async function networkFirst(request, cacheName, timeoutMs = 5000) {
       setTimeout(() => reject(new Error('Timeout')), timeoutMs)
     );
     const response = await Promise.race([fetch(request), timeoutPromise]);
-    if (response && response.ok) {
+    if (request.method === 'GET' && response && response.ok) {
       const clone = response.clone();
       caches.open(cacheName).then((cache) => cache.put(request, clone));
     }
@@ -98,8 +98,9 @@ async function networkFirst(request, cacheName, timeoutMs = 5000) {
 async function staleWhileRevalidate(request, cacheName = API_CACHE) {
   const cached = await caches.match(request);
   const fetchPromise = fetch(request).then((response) => {
-    if (response && response.ok) {
-      caches.open(cacheName).then((cache) => cache.put(request, response.clone()));
+    if (request.method === 'GET' && response && response.ok) {
+      const clone = response.clone();
+      caches.open(cacheName).then((cache) => cache.put(request, clone));
     }
     return response;
   }).catch(() => cached);
@@ -110,7 +111,7 @@ async function staleWhileRevalidate(request, cacheName = API_CACHE) {
 async function serveNavigation(request) {
   try {
     const response = await fetch(request);
-    if (response && response.ok) {
+    if (request.method === 'GET' && response && response.ok) {
       const clone = response.clone();
       caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, clone));
     }
@@ -183,9 +184,8 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = request.url;
 
-  // Skip non-GET for API (mutations) — queue them via client
-  if (request.method !== 'GET' && isApiRequest(url)) {
-    // Don't handle mutations; the client will queue them
+  // Cache API only supports GET requests. Skip non-GET requests.
+  if (request.method !== 'GET') {
     return;
   }
 
