@@ -8,6 +8,7 @@ const mockPrisma = {
     findFirst: jest.fn(),
     update: jest.fn(),
   },
+  $transaction: jest.fn(),
 };
 
 jest.mock("../config/database", () => ({
@@ -114,8 +115,9 @@ describe("Forgot & Reset Password Controllers", () => {
       await forgotPassword(mockRequest as Request, mockResponse as Response);
 
       expect(statusMock).toHaveBeenCalledWith(500);
+      // Controller now passes the actual error message from the service
       expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, message: "Có lỗi xảy ra. Vui lòng thử lại sau." })
+        expect.objectContaining({ success: false, message: "DB error" })
       );
     });
   });
@@ -175,6 +177,8 @@ describe("Forgot & Reset Password Controllers", () => {
       mockPrisma.user.findFirst.mockResolvedValue(fakeUser);
       (bcrypt.hash as jest.Mock).mockResolvedValue("hashed-password");
       mockPrisma.user.update.mockResolvedValue(fakeUser);
+      // Service uses $transaction for the 2 updates
+      mockPrisma.$transaction.mockImplementation((args: any[]) => Promise.all(args));
 
       const { resetPassword } = await import("../controllers/auth.controller");
       await resetPassword(mockRequest as Request, mockResponse as Response);
@@ -182,7 +186,10 @@ describe("Forgot & Reset Password Controllers", () => {
       // Verify password was hashed
       expect(bcrypt.hash).toHaveBeenCalledWith("newpassword123", 12);
 
-      // Verify user was updated with new password and cleared tokens
+      // Verify $transaction was called with the 2 update operations
+      expect(mockPrisma.$transaction).toHaveBeenCalled()
+
+      // Service updates: one for password+reset tokens, one for clearing refreshToken
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "user-1" },
@@ -193,8 +200,6 @@ describe("Forgot & Reset Password Controllers", () => {
           }),
         })
       );
-
-      // Verify refresh token was also cleared
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "user-1" },
@@ -221,7 +226,7 @@ describe("Forgot & Reset Password Controllers", () => {
 
       expect(statusMock).toHaveBeenCalledWith(500);
       expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, message: "Có lỗi xảy ra. Vui lòng thử lại sau." })
+        expect.objectContaining({ success: false, message: "DB error" })
       );
     });
   });

@@ -1,43 +1,25 @@
 import { Request, Response } from 'express'
-import { prisma } from '../config/database'
 import { sendSuccess, sendError } from '../utils/response'
 import { AuthRequest } from '../middleware/auth.middleware'
+import {
+  getWarehouses as getWarehousesService,
+  getWarehouseById as getWarehouseByIdService,
+  createWarehouse as createWarehouseService,
+  updateWarehouse as updateWarehouseService,
+  deleteWarehouse as deleteWarehouseService,
+} from '../services/warehouse.service'
 
 // GET /api/warehouses
 export const getWarehouses = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { status, search, all } = req.query
 
-    const where: Record<string, unknown> = {}
-
-    // MANAGER only sees warehouses they are assigned to manage
-    // Pass ?all=true to bypass this filter (e.g. for shipment creation flows)
-    if (req.user?.role === 'MANAGER' && all !== 'true') {
-      where.managerId = req.user.userId
-    }
-
-    // STAFF only sees warehouses they are assigned to work at
-    if (req.user?.role === 'STAFF' && all !== 'true') {
-      where.staffId = req.user.userId
-    }
-
-    if (status) where.status = status
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-        { city: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-
-    const warehouses = await prisma.warehouse.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        manager: { select: { id: true, name: true, email: true } },
-        staff: { select: { id: true, name: true, email: true } },
-        _count: { select: { inventory: true, zones: true } },
-      },
+    const warehouses = await getWarehousesService({
+      status: status as string,
+      search: search as string,
+      all: all === 'true',
+      role: req.user?.role,
+      userId: req.user?.userId,
     })
 
     sendSuccess(res, warehouses, 'Lấy danh sách kho thành công')
@@ -49,79 +31,21 @@ export const getWarehouses = async (req: AuthRequest, res: Response): Promise<vo
 // GET /api/warehouses/:id
 export const getWarehouseById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const warehouse = await prisma.warehouse.findUnique({
-      where: { id: req.params.id },
-      include: {
-        manager: { select: { id: true, name: true, email: true, phone: true } },
-        staff: { select: { id: true, name: true, email: true, phone: true } },
-        zones: true,
-        inventory: {
-          take: 20,
-          include: {
-            product: { select: { id: true, name: true, sku: true, category: true, unit: true, minStockLevel: true } },
-          },
-        },
-        _count: { select: { inventory: true } },
-      },
-    })
-
-    if (!warehouse) {
-      sendError(res, 'Không tìm thấy kho', 404)
-      return
-    }
-
-    // MANAGER can only view detail of their own warehouse
-    if (req.user?.role === 'MANAGER' && warehouse.managerId !== req.user.userId) {
-      sendError(res, 'Bạn không có quyền xem kho này', 403)
-      return
-    }
-
-    // STAFF can only view detail of their assigned warehouse
-    if (req.user?.role === 'STAFF' && warehouse.staffId !== req.user.userId) {
-      sendError(res, 'Bạn không có quyền xem kho này', 403)
-      return
-    }
-
+    const warehouse = await getWarehouseByIdService(req.params.id, req.user?.role, req.user?.userId)
     sendSuccess(res, warehouse)
-  } catch (error) {
-    sendError(res, 'Lỗi lấy thông tin kho', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi lấy thông tin kho', status, status === 500 ? error : undefined)
   }
 }
 
 // POST /api/warehouses
 export const createWarehouse = async (req: Request, res: Response): Promise<void> => {
   try {
-    const {
-      name, code, address, city, province, country,
-      latitude, longitude, totalArea, capacity, managerId,
-      description, zones = [],
-    } = req.body
-
-    const warehouse = await prisma.warehouse.create({
-      data: {
-        name, code, address, city,
-        province: province || '',
-        country: country || 'Vietnam',
-        latitude, longitude, totalArea, capacity,
-        managerId, description,
-        zones: {
-          create: zones.map((z: { name: string; description?: string; capacity: number }) => ({
-            name: z.name,
-            description: z.description,
-            capacity: z.capacity,
-          })),
-        },
-      },
-      include: {
-        manager: { select: { id: true, name: true } },
-        staff: { select: { id: true, name: true } },
-        zones: true,
-      },
-    })
-
+    const warehouse = await createWarehouseService(req.body)
     sendSuccess(res, warehouse, 'Tạo kho thành công', 201)
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === 'P2002') {
+  } catch (error: any) {
+    if (error.code === 'P2002') {
       sendError(res, 'Mã kho đã tồn tại', 409)
       return
     }
@@ -132,51 +56,21 @@ export const createWarehouse = async (req: Request, res: Response): Promise<void
 // PUT /api/warehouses/:id
 export const updateWarehouse = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const warehouse = await prisma.warehouse.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, managerId: true },
-    })
-
-    if (!warehouse) {
-      sendError(res, 'Không tìm thấy kho', 404)
-      return
-    }
-
-    // MANAGER can only update their own managed warehouse
-    if (req.user?.role === 'MANAGER' && warehouse.managerId !== req.user.userId) {
-      sendError(res, 'Bạn không có quyền cập nhật kho này', 403)
-      return
-    }
-
-    const updated = await prisma.warehouse.update({
-      where: { id: req.params.id },
-      data: req.body,
-      include: {
-        manager: { select: { id: true, name: true, email: true } },
-        staff: { select: { id: true, name: true, email: true } },
-        _count: { select: { inventory: true, zones: true } },
-      },
-    })
+    const updated = await updateWarehouseService(req.params.id, req.body, req.user?.role, req.user?.userId)
     sendSuccess(res, updated, 'Cập nhật kho thành công')
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === 'P2025') {
-      sendError(res, 'Không tìm thấy kho', 404)
-      return
-    }
-    sendError(res, 'Lỗi cập nhật kho', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi cập nhật kho', status, status === 500 ? error : undefined)
   }
 }
 
 // DELETE /api/warehouses/:id
 export const deleteWarehouse = async (req: Request, res: Response): Promise<void> => {
   try {
-    await prisma.warehouse.update({
-      where: { id: req.params.id },
-      data: { status: 'INACTIVE' },
-    })
+    await deleteWarehouseService(req.params.id)
     sendSuccess(res, null, 'Đã vô hiệu hóa kho')
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === 'P2025') {
+  } catch (error: any) {
+    if (error.code === 'P2025') {
       sendError(res, 'Không tìm thấy kho', 404)
       return
     }

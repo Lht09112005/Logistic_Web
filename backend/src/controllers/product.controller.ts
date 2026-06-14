@@ -1,45 +1,33 @@
 import { Request, Response } from 'express'
-import { prisma } from '../config/database'
 import { sendSuccess, sendError } from '../utils/response'
-import { v4 as uuidv4 } from 'uuid'
+import {
+  getProducts as getProductsService,
+  getProductById as getProductByIdService,
+  createProduct as createProductService,
+  updateProduct as updateProductService,
+  deleteProduct as deleteProductService,
+  getProductByQR as getProductByQRService,
+  getProductByBarcode as getProductByBarcodeService,
+} from '../services/product.service'
 
 // GET /api/products
 export const getProducts = async (req: Request, res: Response): Promise<void> => {
   try {
-    const {
-      page = '1', limit = '20', search, category, isActive,
-    } = req.query
+    const { page = '1', limit = '20', search, category, isActive } = req.query
 
-    const pageNum = parseInt(page as string)
-    const limitNum = parseInt(limit as string)
-    const skip = (pageNum - 1) * limitNum
+    const result = await getProductsService({
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+      search: search as string,
+      category: category as string,
+      isActive: isActive !== undefined ? isActive === 'true' : undefined,
+    })
 
-    const where: Record<string, unknown> = {}
-    if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { sku: { contains: search as string, mode: 'insensitive' } },
-      ]
-    }
-    if (category) where.category = category
-    if (isActive !== undefined) where.isActive = isActive === 'true'
-
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          _count: { select: { inventory: true } },
-        },
-      }),
-      prisma.product.count({ where }),
-    ])
-
-    sendSuccess(res, products, 'Lấy danh sách sản phẩm thành công', 200, {
-      total, page: pageNum, limit: limitNum,
-      totalPages: Math.ceil(total / limitNum),
+    sendSuccess(res, result.products, 'Lấy danh sách sản phẩm thành công', 200, {
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
     })
   } catch (error) {
     sendError(res, 'Lỗi lấy danh sách sản phẩm', 500, error)
@@ -49,137 +37,65 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
 // GET /api/products/:id
 export const getProductById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await prisma.product.findUnique({
-      where: { id: req.params.id },
-      include: {
-        inventory: {
-          include: {
-            warehouse: { select: { id: true, name: true, code: true } },
-            zone: true,
-          },
-        },
-        alerts: { where: { isResolved: false }, orderBy: { createdAt: 'desc' } },
-      },
-    })
-
-    if (!product) {
-      sendError(res, 'Không tìm thấy sản phẩm', 404)
-      return
-    }
-
+    const product = await getProductByIdService(req.params.id)
     sendSuccess(res, product)
-  } catch (error) {
-    sendError(res, 'Lỗi lấy sản phẩm', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi lấy sản phẩm', status, status === 500 ? error : undefined)
   }
 }
 
 // POST /api/products
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    const {
-      name, sku, barcode, category, description, unit,
-      weight, length, width, height, imageUrl, qrCode: bodyQrCode,
-      minStockLevel, maxStockLevel, costPrice, sellPrice,
-    } = req.body
-
-    // Dùng qrCode từ body nếu có (khi tạo từ QR scan), nếu không thì tự sinh
-    const qrCode = bodyQrCode || `LOGISTIQ-${uuidv4().substring(0, 8).toUpperCase()}`
-
-    const product = await prisma.product.create({
-      data: {
-        name, sku, barcode, category, description, unit,
-        weight, length, width, height, imageUrl, qrCode,
-        minStockLevel: minStockLevel || 10,
-        maxStockLevel, costPrice, sellPrice,
-      },
-    })
-
+    const product = await createProductService(req.body)
     sendSuccess(res, product, 'Tạo sản phẩm thành công', 201)
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === 'P2002') {
-      sendError(res, 'SKU hoặc barcode đã tồn tại', 409)
-      return
-    }
-    sendError(res, 'Lỗi tạo sản phẩm', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi tạo sản phẩm', status, status === 500 ? error : undefined)
   }
 }
 
 // PUT /api/products/:id
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await prisma.product.update({
-      where: { id: req.params.id },
-      data: req.body,
-    })
+    const product = await updateProductService(req.params.id, req.body)
     sendSuccess(res, product, 'Cập nhật sản phẩm thành công')
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === 'P2025') {
-      sendError(res, 'Không tìm thấy sản phẩm', 404)
-      return
-    }
-    sendError(res, 'Lỗi cập nhật sản phẩm', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi cập nhật sản phẩm', status, status === 500 ? error : undefined)
   }
 }
 
 // DELETE /api/products/:id
 export const deleteProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    await prisma.product.update({
-      where: { id: req.params.id },
-      data: { isActive: false },
-    })
+    await deleteProductService(req.params.id)
     sendSuccess(res, null, 'Xóa sản phẩm thành công')
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === 'P2025') {
-      sendError(res, 'Không tìm thấy sản phẩm', 404)
-      return
-    }
-    sendError(res, 'Lỗi xóa sản phẩm', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi xóa sản phẩm', status, status === 500 ? error : undefined)
   }
 }
 
 // GET /api/products/by-qr/:qrCode
 export const getProductByQR = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await prisma.product.findFirst({
-      where: { qrCode: req.params.qrCode },
-      include: {
-        inventory: {
-          include: { warehouse: { select: { id: true, name: true, code: true } } },
-        },
-      },
-    })
-
-    if (!product) {
-      sendError(res, 'Không tìm thấy sản phẩm với QR này', 404)
-      return
-    }
-
+    const product = await getProductByQRService(req.params.qrCode)
     sendSuccess(res, product)
-  } catch (error) {
-    sendError(res, 'Lỗi tìm kiếm theo QR', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi tìm kiếm theo QR', status, status === 500 ? error : undefined)
   }
 }
 
 // GET /api/products/by-barcode/:barcode
 export const getProductByBarcode = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await prisma.product.findFirst({
-      where: { barcode: req.params.barcode },
-      include: {
-        inventory: {
-          include: { warehouse: { select: { id: true, name: true, code: true } } },
-        },
-      },
-    })
-
-    if (!product) {
-      sendError(res, 'Không tìm thấy sản phẩm với mã vạch này', 404)
-      return
-    }
-
+    const product = await getProductByBarcodeService(req.params.barcode)
     sendSuccess(res, product)
-  } catch (error) {
-    sendError(res, 'Lỗi tìm kiếm theo mã vạch', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi tìm kiếm theo mã vạch', status, status === 500 ? error : undefined)
   }
 }

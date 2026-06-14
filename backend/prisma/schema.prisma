@@ -37,6 +37,9 @@ model User {
   createdShipments Shipment[]      @relation("CreatedBy")
   notifications    Notification[]
 
+  @@index([role, isActive])
+  @@index([role])
+  @@index([resetToken, resetTokenExpiry])
   @@map("users")
 }
 
@@ -69,6 +72,11 @@ model Warehouse {
   destinationShipments Shipment[] @relation("DestinationWarehouse")
   alerts            StockAlert[]
 
+  @@index([managerId, status])
+  @@index([staffId, status])
+  @@index([status])
+  @@index([city])
+  @@index([name])
   @@map("warehouses")
 }
 
@@ -84,6 +92,7 @@ model WarehouseZone {
   warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
   racks       InventoryItem[]
 
+  @@index([warehouseId])
   @@map("warehouse_zones")
 }
 
@@ -114,6 +123,10 @@ model Product {
   shipmentItems ShipmentItem[]
   alerts        StockAlert[]
 
+  @@index([name])
+  @@index([category])
+  @@index([isActive])
+  @@index([qrCode])
   @@map("products")
 }
 
@@ -139,6 +152,11 @@ model InventoryItem {
   auditedBy   User?         @relation("AuditedBy", fields: [auditedById], references: [id])
 
   @@unique([productId, warehouseId, zoneId, rack, shelf])
+  @@index([warehouseId])
+  @@index([productId, warehouseId])
+  @@index([productId, warehouseId, quantity])
+  @@index([auditedById])
+  @@index([updatedAt])
   @@map("inventory_items")
 }
 
@@ -180,6 +198,14 @@ model Shipment {
   checkpoints         ShipmentCheckpoint[]
   trackingHistory     TrackingHistory[]
 
+  @@index([status])
+  @@index([driverId])
+  @@index([originWarehouseId])
+  @@index([destinationWarehouseId])
+  @@index([originWarehouseId, status])
+  @@index([driverId, status])
+  @@index([createdById])
+  @@index([createdAt])
   @@map("shipments")
 }
 
@@ -195,6 +221,8 @@ model ShipmentItem {
   shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
   product     Product  @relation(fields: [productId], references: [id])
 
+  @@index([shipmentId])
+  @@index([productId])
   @@map("shipment_items")
 }
 
@@ -215,6 +243,7 @@ model ShipmentCheckpoint {
   // Relations
   shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
 
+  @@index([shipmentId, sequence])
   @@map("shipment_checkpoints")
 }
 
@@ -231,6 +260,7 @@ model TrackingHistory {
   // Relations
   shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
 
+  @@index([shipmentId, recordedAt])
   @@map("tracking_history")
 }
 
@@ -252,6 +282,9 @@ model StockAlert {
   product     Product       @relation(fields: [productId], references: [id])
   warehouse   Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
 
+  @@index([productId, warehouseId, isResolved])
+  @@index([isResolved, severity, createdAt])
+  @@index([warehouseId])
   @@map("stock_alerts")
 }
 
@@ -270,5 +303,19 @@ model Notification {
   // Relations
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
   @@map("notifications")
+}
+
+// ==================== TOKEN BLACKLIST ====================
+
+model TokenBlacklist {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("token_blacklist")
 }

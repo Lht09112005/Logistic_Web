@@ -1,63 +1,31 @@
 import { Request, Response } from 'express'
-import bcrypt from 'bcryptjs'
-import { prisma } from '../config/database'
 import { sendSuccess, sendError } from '../utils/response'
 import { AuthRequest } from '../middleware/auth.middleware'
+import {
+  getUsers as getUsersService,
+  getUserById as getUserByIdService,
+  createUser as createUserService,
+  updateUser as updateUserService,
+  deleteUser as deleteUserService,
+} from '../services/user.service'
 
 // GET /api/users
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 20
-    const skip = (page - 1) * limit
     const search = req.query.search as string | undefined
     const role = req.query.role as string | undefined
     const isActive = req.query.isActive as string | undefined
-
     const authReq = req as AuthRequest
-    const requesterRole = authReq.user?.role
 
-    const where: Record<string, unknown> = {}
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-    // MANAGER can only see STAFF & DRIVER (not ADMIN or MANAGER)
-    if (requesterRole === 'MANAGER') {
-      where.role = { in: ['STAFF', 'DRIVER'] }
-    } else if (role) {
-      where.role = role
-    }
-    if (isActive !== undefined) where.isActive = isActive === 'true'
-
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          phone: true,
-          avatar: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
-      prisma.user.count({ where }),
-    ])
-
-    sendSuccess(res, {
-      data: users,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    const result = await getUsersService({
+      page, limit, search, role,
+      isActive: isActive !== undefined ? isActive === 'true' : undefined,
+      requesterRole: authReq.user?.role,
     })
+
+    sendSuccess(res, result)
   } catch (error) {
     sendError(res, 'Lỗi lấy danh sách người dùng', 500, error)
   }
@@ -66,32 +34,11 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 // GET /api/users/:id
 export const getUserById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true, name: true, email: true, role: true,
-        phone: true, avatar: true, isActive: true,
-        createdAt: true, updatedAt: true,
-        _count: {
-          select: {
-            auditedInventory: true,
-            managedWarehouses: true,
-            drivenShipments: true,
-            createdShipments: true,
-          },
-        },
-      },
-    })
-
-    if (!user) {
-      sendError(res, 'Không tìm thấy người dùng', 404)
-      return
-    }
-
+    const user = await getUserByIdService(req.params.id)
     sendSuccess(res, user)
-  } catch (error) {
-    sendError(res, 'Lỗi lấy thông tin người dùng', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi lấy thông tin người dùng', status, status === 500 ? error : undefined)
   }
 }
 
@@ -99,132 +46,33 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, email, password, role = 'STAFF', phone } = req.body
-
-    if (!name || !email || !password) {
-      sendError(res, 'Vui lòng nhập đầy đủ họ tên, email và mật khẩu', 400)
-      return
-    }
-
-    const existing = await prisma.user.findUnique({ where: { email } })
-    if (existing) {
-      sendError(res, 'Email đã được sử dụng', 409)
-      return
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12)
-    const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword, role, phone },
-      select: {
-        id: true, name: true, email: true, role: true,
-        phone: true, avatar: true, isActive: true, createdAt: true,
-      },
-    })
-
+    const user = await createUserService({ name, email, password, role, phone })
     sendSuccess(res, user, 'Tạo người dùng thành công', 201)
-  } catch (error) {
-    sendError(res, 'Lỗi tạo người dùng', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi tạo người dùng', status, status === 500 ? error : undefined)
   }
 }
 
 // PUT /api/users/:id
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params
     const { name, email, password, role, phone, isActive } = req.body
-
-    const existing = await prisma.user.findUnique({ where: { id } })
-    if (!existing) {
-      sendError(res, 'Không tìm thấy người dùng', 404)
-      return
-    }
-
-    // Check email uniqueness if changing email
-    if (email && email !== existing.email) {
-      const emailTaken = await prisma.user.findUnique({ where: { email } })
-      if (emailTaken) {
-        sendError(res, 'Email đã được sử dụng', 409)
-        return
-      }
-    }
-
-    const data: Record<string, unknown> = {}
-    if (name !== undefined) data.name = name
-    if (email !== undefined) data.email = email
-    if (role !== undefined) data.role = role
-    if (phone !== undefined) data.phone = phone
-    if (isActive !== undefined) data.isActive = isActive
-    if (password) {
-      data.password = await bcrypt.hash(password, 12)
-    }
-
-    const user = await prisma.user.update({
-      where: { id },
-      data,
-      select: {
-        id: true, name: true, email: true, role: true,
-        phone: true, avatar: true, isActive: true,
-        createdAt: true, updatedAt: true,
-      },
-    })
-
+    const user = await updateUserService(req.params.id, { name, email, password, role, phone, isActive })
     sendSuccess(res, user, 'Cập nhật người dùng thành công')
-  } catch (error) {
-    sendError(res, 'Lỗi cập nhật người dùng', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi cập nhật người dùng', status, status === 500 ? error : undefined)
   }
 }
 
 // DELETE /api/users/:id
 export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params
-
-    // Prevent deleting yourself
-    if (req.user?.userId === id) {
-      sendError(res, 'Bạn không thể xóa chính mình', 400)
-      return
-    }
-
-    const existing = await prisma.user.findUnique({ where: { id } })
-    if (!existing) {
-      sendError(res, 'Không tìm thấy người dùng', 404)
-      return
-    }
-
-    // Hard delete — completely remove user from database
-    // First, handle related records to avoid foreign key constraints
-    await prisma.$transaction([
-      // 1. Nullify warehouse manager reference
-      prisma.warehouse.updateMany({
-        where: { managerId: id },
-        data: { managerId: null },
-      }),
-      // 2. Nullify warehouse staff reference
-      prisma.warehouse.updateMany({
-        where: { staffId: id },
-        data: { staffId: null },
-      }),
-      // 3. Nullify inventory audit reference
-      prisma.inventoryItem.updateMany({
-        where: { auditedById: id },
-        data: { auditedById: null },
-      }),
-      // 4. Nullify shipment driver reference
-      prisma.shipment.updateMany({
-        where: { driverId: id },
-        data: { driverId: null },
-      }),
-      // 5. Reassign created shipments to the requesting admin
-      prisma.shipment.updateMany({
-        where: { createdById: id },
-        data: { createdById: req.user!.userId },
-      }),
-      // 6. Notifications will cascade-delete automatically (onDelete: Cascade)
-      // 7. Finally, delete the user
-      prisma.user.delete({ where: { id } }),
-    ])
-
+    await deleteUserService(req.params.id, req.user!.userId)
     sendSuccess(res, null, 'Đã xóa người dùng thành công')
-  } catch (error) {
-    sendError(res, 'Lỗi xóa người dùng', 500, error)
+  } catch (error: any) {
+    const status = error.statusCode || 500
+    sendError(res, error.message || 'Lỗi xóa người dùng', status, status === 500 ? error : undefined)
   }
 }
