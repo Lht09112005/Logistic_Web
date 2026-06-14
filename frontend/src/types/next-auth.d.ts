@@ -1,5 +1,5 @@
-import { DefaultSession, DefaultUser } from "next-auth";
-import { DefaultJWT } from "next-auth/jwt";
+import "next-auth";
+import "next-auth/jwt";
 
 interface ManagedWarehouse {
   id: string;
@@ -12,34 +12,35 @@ interface ManagedWarehouse {
 
 declare module "next-auth" {
   interface Session {
+    accessToken?: string;
+    refreshToken?: string;
     user: {
       id: string;
+      accessToken?: string;
+      refreshToken?: string;
       role: "ADMIN" | "MANAGER" | "STAFF" | "DRIVER";
       phone?: string;
       managedWarehouses?: ManagedWarehouse[];
       staffedWarehouses?: ManagedWarehouse[];
     } & DefaultSession["user"];
-    accessToken?: string;
-    refreshToken?: string;
   }
 
-  interface User extends DefaultUser {
-    role: "ADMIN" | "MANAGER" | "STAFF" | "DRIVER";
-    phone?: string;
+  interface User {
     accessToken?: string;
     refreshToken?: string;
+    role: "ADMIN" | "MANAGER" | "STAFF" | "DRIVER";
+    phone?: string;
     managedWarehouses?: ManagedWarehouse[];
     staffedWarehouses?: ManagedWarehouse[];
   }
 }
 
 declare module "next-auth/jwt" {
-  interface JWT extends DefaultJWT {
-    id: string;
-    role: "ADMIN" | "MANAGER" | "STAFF" | "DRIVER";
-    phone?: string;
+  interface JWT {
     accessToken?: string;
     refreshToken?: string;
+    role: "ADMIN" | "MANAGER" | "STAFF" | "DRIVER";
+    phone?: string;
     managedWarehouses?: ManagedWarehouse[];
     staffedWarehouses?: ManagedWarehouse[];
   }

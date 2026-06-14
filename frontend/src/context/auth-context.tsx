@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync access token riêng — bỏ qua mock token để tránh 401
   useEffect(() => {
     if (status === "authenticated" && session) {
-      const token = session.accessToken || (session.user as any)?.accessToken;
+      const token = session.accessToken || (session.user as { accessToken?: string })?.accessToken;
       setAccessToken(token ?? null);
     } else if (status === "unauthenticated") {
       setAccessToken(null);
