@@ -18,6 +18,8 @@ import shipmentRoutes from './routes/shipment.routes'
 import warehouseRoutes from './routes/warehouse.routes'
 import notificationRoutes from './routes/notification.routes'
 import { swaggerSpec } from './config/swagger'
+import { apiLimiter, pollingLimiter, adminLimiter } from './middleware/rate-limiter.middleware'
+import { cleanupExpiredTokens } from './services/token-blacklist.service'
 
 const app = express()
 const server = http.createServer(app)
@@ -30,6 +32,9 @@ const io = new Server(server, {
   },
 })
 
+// Trust proxy — required for rate limiter's default keyGenerator to get real client IP behind Render/Nginx
+app.set('trust proxy', 1)
+
 // Middleware
 app.use(helmet())
 app.use(cors({
@@ -39,6 +44,17 @@ app.use(cors({
 app.use(morgan('dev'))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// Apply general API rate limiter to all /api routes
+app.use('/api', apiLimiter)
+
+// Apply higher-limit polling limiter to frequently polled GET endpoints
+app.use('/api/shipments', pollingLimiter)
+app.use('/api/inventory', pollingLimiter)
+
+// Apply stricter rate limiter to admin operations
+app.use('/api/users', adminLimiter)
+app.use('/api/warehouses', adminLimiter)
 
 // Routes
 app.use('/api/auth', authRoutes)
@@ -148,6 +164,20 @@ io.on('connection', (socket) => {
     console.log(`Client disconnected: ${socket.id}`)
   })
 })
+
+// ─── Automatic cleanup of expired blacklisted tokens ───
+// Chạy mỗi 60 phút để dọn dẹp token đã hết hạn
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 giờ
+setInterval(async () => {
+  try {
+    const count = await cleanupExpiredTokens()
+    if (count > 0) {
+      console.log(`[TokenBlacklist] Cleaned up ${count} expired token(s)`)
+    }
+  } catch (err) {
+    console.error('[TokenBlacklist] Cleanup error:', err)
+  }
+}, CLEANUP_INTERVAL_MS)
 
 // Export io for use in controllers
 export { io }
