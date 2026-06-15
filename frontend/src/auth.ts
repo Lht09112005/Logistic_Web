@@ -30,8 +30,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           
           const json = await res.json();
           const { user, tokens } = json.data;
-          const accessToken = tokens?.accessToken;
-          const refreshToken = tokens?.refreshToken;
+          const accessToken = tokens?.accessToken || json.data?.accessToken;
+          const refreshToken = tokens?.refreshToken || json.data?.refreshToken;
           return { ...user, accessToken, refreshToken };
         } catch (error: unknown) {
           console.error("====== LOGIN ERROR ======");
