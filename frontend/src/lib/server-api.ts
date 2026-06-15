@@ -5,7 +5,7 @@
  * Uses NextAuth server session to attach JWT token automatically.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://127.0.0.1:5000/api";
 
 interface FetchOptions {
   cache?: RequestCache | "no-store" | "force-cache";

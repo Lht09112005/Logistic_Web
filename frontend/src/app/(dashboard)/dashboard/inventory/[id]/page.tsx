@@ -4,7 +4,9 @@ import axios from "axios";
 import { notFound } from "next/navigation";
 import InventoryDetailClient from "./_components/inventory-detail-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000/api";
+export const dynamic = 'force-dynamic';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://127.0.0.1:5000/api";
 
 interface Params {
   params: Promise<{ id: string }>;
