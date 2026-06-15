@@ -1,0 +1,126 @@
+# ============================================================
+# Docker Compose — LogistiQ (Full-Stack Logistics Platform)
+#
+# Services:
+#   db        PostgreSQL 16 database
+#   backend   Express REST API + Socket.io (port 5000)
+#   frontend  Next.js App Router (port 3000)
+#
+# Usage:
+#   docker compose up -d              # Start all services
+#   docker compose up -d --build      # Rebuild & start
+#   docker compose logs -f backend    # Follow backend logs
+#   docker compose exec backend npx prisma db push   # Init DB schema
+#   docker compose exec backend npx prisma db seed   # Seed sample data
+#   docker compose down               # Stop all services
+#   docker compose down -v            # Stop & delete volumes
+# ============================================================
+
+services:
+  # ─── PostgreSQL Database ────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: logistiq-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: logistiq
+      POSTGRES_PASSWORD: logistiq_dev_pass
+      POSTGRES_DB: logistiq
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logistiq -d logistiq"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─── Backend API (Express + Prisma + Socket.io) ────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: logistiq-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # ── Node ──
+      NODE_ENV: production
+      PORT: 5000
+
+      # ── Database (Docker PostgreSQL) ──
+      DATABASE_URL: "postgresql://logistiq:logistiq_dev_pass@db:5432/logistiq?schema=public"
+
+      # ── JWT Secrets ──
+      JWT_SECRET: "docker-jwt-secret-change-in-production-abc123"
+      JWT_REFRESH_SECRET: "docker-refresh-secret-change-in-production-xyz789"
+      JWT_EXPIRES_IN: "15m"
+      JWT_REFRESH_EXPIRES_IN: "7d"
+
+      # ── CORS (frontend URL) ──
+      FRONTEND_URL: "http://localhost:3000"
+
+      # ── Rate Limiting (Docker defaults — relaxed for dev) ──
+      RATE_LIMIT_AUTH_MAX: 20
+      RATE_LIMIT_STRICT_MAX: 10
+      RATE_LIMIT_API_MAX: 1000
+      RATE_LIMIT_POLLING_MAX: 500
+
+      # ── Email (SMTP) — uncomment & configure for password reset ──
+      # SMTP_HOST: smtp.gmail.com
+      # SMTP_PORT: 465
+      # SMTP_USER: your-email@gmail.com
+      # SMTP_PASS: your-16-digit-app-password
+      # SMTP_FROM_EMAIL: noreply@logistiq.vn
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ─── Frontend (Next.js) ─────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* vars được baked vào JS bundle tại build time
+        # Client-side browser dùng localhost vì Docker port mapping
+        NEXT_PUBLIC_API_URL: "http://localhost:5000/api"
+        NEXT_PUBLIC_SOCKET_URL: "http://localhost:5000"
+    container_name: logistiq-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # ── Node ──
+      NODE_ENV: production
+
+      # ── NextAuth ──
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "docker-nextauth-secret-change-in-production"
+
+      # ── Backend API ──
+      # NOTE: NEXT_PUBLIC_API_URL dùng localhost (cho browser qua Docker port mapping)
+      #       API_URL dùng Docker service name (cho server-side trong container)
+      NEXT_PUBLIC_API_URL: "http://localhost:5000/api"
+      NEXT_PUBLIC_SOCKET_URL: "http://localhost:5000"
+      API_URL: "http://backend:5000/api"
+
+      # ── Supabase (optional — comment out if not using) ──
+      # NEXT_PUBLIC_SUPABASE_URL: "https://your-project.supabase.co"
+      # NEXT_PUBLIC_SUPABASE_ANON_KEY: "your-anon-key"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+# ─── Volumes ──────────────────────────────────────────────
+volumes:
+  pgdata:
