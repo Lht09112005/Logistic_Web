@@ -163,12 +163,13 @@ npm run dev
 
 | Vai trò | Email | Mật khẩu |
 |---|---|---|
-| **Admin** | `admin@logistiq.vn` | `123456` |
-| **Manager HCM** | `manager.hcm@logistiq.vn` | `123456` |
-| **Manager HN** | `manager.hn@logistiq.vn` | `123456` |
-| **Manager ĐN** | `manager.dn@logistiq.vn` | `123456` |
-| **Staff** | `staff@logistiq.vn` | `123456` |
-| **Driver** | `driver@logistiq.vn` | `123456` |
+| **Admin** | `admin@logistiq.vn` | `admin123` |
+| **Manager HCM** | `manager.hcm@logistiq.vn` | `staff123` |
+| **Manager HN** | `manager.hn@logistiq.vn` | `staff123` |
+| **Manager ĐN** | `manager.dn@logistiq.vn` | `staff123` |
+| **Staff** | `nam@logistiq.vn` | `staff123` |
+| **Driver 1** | `driver1@logistiq.vn` | `staff123` |
+| **Driver 2** | `driver2@logistiq.vn` | `staff123` |
 
-> 🎯 **Mỗi manager quản lý đúng 1 kho**: Xem chi tiết trong [WALKTHROUGH.md](./WALKTHROUGH.md)
+> 🎯 **Mỗi manager quản lý đúng 1 kho**: Xem chi tiết tài khoản và mật mã mẫu trong hệ thống.
 
