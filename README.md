@@ -1,175 +1,453 @@
 # 🚛 LogistiQ — Hệ Thống Quản Lý Kho Hàng & Vận Chuyển Thông Minh
 
-> **Đề tài bài tập lớn môn Lập trình Web và Dịch vụ (INT1334)**  
-> *Một giải pháp chuyển đổi số toàn diện cho chuỗi cung ứng và vận tải logistics thời gian thực.*
-
-> 📖 **Xem [WALKTHROUGH.md](./WALKTHROUGH.md)** để có tài liệu hướng dẫn chi tiết về kiến trúc, luồng nghiệp vụ, API endpoints, phân quyền và deployment.
+> **Đồ án cuối kỳ — Môn Lập trình Web (INT1334)**  
+> *Giải pháp chuyển đổi số toàn diện cho chuỗi cung ứng và vận tải logistics thời gian thực.*
 
 ---
 
-## 🌟 Tổng Quan Dự Án
+## 🌟 Tổng Quan
 
-**LogistiQ** là hệ thống quản lý logistics và kho bãi hiện đại, tích hợp bản đồ số thông minh và định vị GPS thời gian thực. Hệ thống giúp doanh nghiệp tự động hóa quy trình quản lý lưu kho, giám sát hành trình di chuyển của đội xe, cảnh báo tồn kho an toàn và tối ưu hóa luồng công việc giữa các phòng ban (Quản trị viên, Nhân viên kho, Tài xế).
+**LogistiQ** là hệ thống quản lý logistics và kho bãi hiện đại, tích hợp **bản đồ số MapLibre GL** thông minh và **định vị GPS thời gian thực** qua Socket.io. Hệ thống giúp doanh nghiệp tự động hóa quy trình quản lý lưu kho, giám sát hành trình di chuyển của đội xe, cảnh báo tồn kho an toàn và tối ưu hóa luồng công việc giữa các phòng ban (Quản trị viên, Quản lý kho, Nhân viên, Tài xế).
 
----
-
-## 📸 Các Tính Năng Cốt Lõi
-
-### 1. 📊 Bản Đồ Giám Sát Hành Trình & Giả Lập GPS Thời Gian Thực (Real-time GPS Tracking)
-*   **Bản đồ tương tác Leaflet.js**: Tích hợp theme bản đồ tối giản cao cấp **CartoDB Positron**, trực quan hóa toàn bộ trạm kiểm soát (checkpoints) và lộ trình di chuyển.
-*   **Hoạt ảnh Radar Pulse Cam**: Định vị thời gian thực của xe tải bằng CSS animation phát sóng radar sinh động.
-*   **Bộ giả lập GPS (GPS Simulator Console)**: Tích hợp nút điều khiển mô phỏng tốc độ thực tế, tự động cập nhật tọa độ liên tục gửi qua **Socket.io** và lưu trực tiếp vào database.
-*   **Bám đuổi tự động (Auto-pan)**: Bản đồ tự động di chuyển mượt mà bám theo sát vị trí xe tải trong quá trình di chuyển.
-
-### 2. 🏢 Quản Lý Mạng Lưới Kho Phân Phối (Warehouse Management)
-*   **Thống kê công suất m² trực quan**: Hiển thị thanh tiến trình sử dụng diện tích thực tế so với tổng diện tích kho, tự động đổi màu đỏ cảnh báo khi kho quá tải (>85%).
-*   **Chi tiết kho thông minh**: Liệt kê số lượng phân khu (zones), các mặt hàng lưu kho, thông tin người quản lý và tổng số lượng sản phẩm chi tiết.
-
-### 3. 📦 Kiểm Soát Tồn Kho & Cảnh Báo Thiếu Hàng (Inventory & Stock Alerts)
-*   **Quản lý tồn kho theo lô/vị trí**: Theo dõi chính xác vị trí sản phẩm nằm tại khu vực nào của từng kho hàng.
-*   **Hệ thống cảnh báo tự động**: Đưa ra cảnh báo đỏ đối với các mặt hàng có số lượng tồn kho giảm xuống dưới hạn mức an toàn tối thiểu.
-
-### 4. 📈 Phân Tích Số Liệu & Dashboard Trực Quan (Analytics & Dashboard)
-*   **Thống kê tổng quan**: Biểu đồ phân tích doanh thu, sản lượng xuất/nhập kho và tỷ lệ hoàn thành đơn hàng.
-*   **Dashboard động**: Tự động phản ánh dữ liệu thực từ PostgreSQL theo thời gian thực.
-
-### 5. 🔐 Bảo Mật Phiên Đăng Nhập & Phân Quyền (NextAuth v5 & JWT)
-*   **Phân quyền chặt chẽ (RBAC)**: Phân chia vai trò rõ ràng gồm **Admin** (Quản trị toàn hệ thống), **Staff** (Nhân viên quản lý kho), và **Driver** (Tài xế theo dõi chuyến đi).
-*   **Cơ chế chống lặp vòng vô hạn (Safe Sign-Out)**: Tự động xóa cookies phiên khi nhận lỗi `401 Unauthorized` từ API để bảo vệ tài khoản người dùng và duy trì trải nghiệm liền mạch.
+Hệ thống hỗ trợ **PWA (Progressive Web App)** — có thể cài đặt như ứng dụng di động, hoạt động **offline-first** với IndexedDB cache và hàng đợi đồng bộ tự động khi có mạng trở lại.
 
 ---
 
-## 🏗️ Kiến Trúc Hệ Thống (System Architecture)
+## 🎯 Tính Năng Cốt Lõi
+
+### 1. 🗺️ Bản Đồ Giám Sát Hành Trình & GPS Thời Gian Thực
+- **Bản đồ tương tác MapLibre GL**: Tích hợp theme CartoDB Positron (light) & Dark Matter (dark), tự động chuyển đổi theo theme hệ thống.
+- **Định vị thời gian thực**: Xe tải được hiển thị trên bản đồ với cập nhật tọa độ qua **Socket.io**.
+- **Bộ điều khiển bản đồ**: Zoom In/Out, Compass, Locate (định vị người dùng), Fullscreen.
+- **Marker, Popup, Route, Cluster Layer**: Hệ thống component map đầy đủ với marker tùy chỉnh, popup, tooltip, route và cluster layer.
+
+### 2. 🏢 Quản Lý Mạng Lưới Kho Phân Phối
+- **Thống kê công suất kho**: Hiển thị thanh tiến trình sử dụng diện tích, tự động cảnh báo khi quá tải.
+- **Phân khu kho (Zones)**: Quản lý các khu vực A, B, C trong kho, gán sản phẩm theo vị trí (rack, shelf).
+- **Chi tiết kho thông minh**: Liệt kê sản phẩm lưu kho, thông tin quản lý, nhân viên phụ trách.
+
+### 3. 📦 Kiểm Soát Tồn Kho & Cảnh Báo Hàng Tồn
+- **Quản lý tồn kho theo lô/vị trí**: Theo dõi chính xác sản phẩm tại từng khu vực của kho hàng.
+- **Cảnh báo tự động**: Hệ thống cảnh báo đỏ khi tồn kho dưới ngưỡng an toàn tối thiểu, kèm theo cấp độ (LOW / MEDIUM / HIGH / CRITICAL).
+- **QR Code**: Tạo và quét QR code cho sản phẩm, hỗ trợ kiểm kho nhanh bằng camera.
+- **Server Actions**: `createShipmentAction`, `createInventoryAction`, `updateInventoryAction` với `"use server"`.
+
+### 4. 📈 Phân Tích Số Liệu & Báo Cáo
+- **Dashboard động**: Thống kê tổng quan vận đơn, tồn kho, cảnh báo, warehouse.
+- **Biểu đồ Donut & Bar**: Phân bổ vận đơn theo trạng thái, tỷ lệ giao thành công.
+- **Xuất báo cáo**: Hỗ trợ xuất PDF (jsPDF + Noto Sans font) và Excel (ExcelJS) chuyên nghiệp.
+- **Sparkline**: Biểu đồ xu hướng nhỏ gọn cho các KPI chính.
+
+### 5. 🔐 Bảo Mật & Phân Quyền (NextAuth v5 + JWT)
+- **RBAC (Role-Based Access Control)**: 4 vai trò — **Admin**, **Manager**, **Staff**, **Driver** với permissions riêng biệt.
+- **JWT Token**: Access Token (15 phút) + Refresh Token (7 ngày), tự động refresh khi hết hạn.
+- **Route Guard**: Bảo vệ cả client-side và server-side, chặn truy cập trái phép.
+- **Rate Limiting**: Giới hạn số lần đăng nhập, refresh token, API requests theo IP.
+
+### 6. 📱 PWA & Offline-First
+- **Progressive Web App**: Có thể cài đặt lên màn hình chính điện thoại.
+- **Service Worker**: `/sw.js` với scope "/", cache PWA icons, tự động cập nhật phiên bản mới.
+- **IndexedDB Cache**: Cache shipments, inventory, warehouses, products, alerts để xem khi offline.
+- **Mutation Queue**: Các thao tác checkpoint, cập nhật được xếp hàng đợi và tự động đồng bộ khi online.
+- **Offline Banner**: Hiển thị trạng thái mạng, số lượng thao tác chờ đồng bộ.
+
+### 7. 🚀 Chiến Lược Render (Rendering Strategy)
+- **SSR (Server-Side Rendering)**: Dashboard (`force-dynamic`), Inventory Detail — dữ liệu luôn mới nhất.
+- **ISR (Incremental Static Regeneration)**: Warehouse List (revalidate 60s), New Shipment/Inventory forms (revalidate 120s).
+- **Server API Utility**: `ssrFetch()`, `isrFetch()`, `ssgFetch()` — wrapper linh hoạt cho các chiến lược caching.
+
+### 8. 🧪 Kiểm Thử & CI/CD
+- **Unit Testing**: Jest + ts-jest, 6+ test cases (JWT, token blacklist, rate limiter, email, auth password, response utility).
+- **E2E Testing**: Playwright — kiểm thử luồng đăng nhập và điều hướng.
+- **CI/CD Pipeline**: GitHub Actions — tự động test backend + build frontend trên mỗi push/PR.
+
+---
+
+## 🏗️ Kiến Trúc Hệ Thống
 
 ```mermaid
 graph TD
-    %% Frontend Layer
-    subgraph Frontend [Next.js Client]
-        UI[React Components - Dashboard, Map, Warehouses]
-        NextAuth[NextAuth.js v5 - Session Management]
-        Axios[Axios Interceptor - Token Injector & SignOut Handler]
+    subgraph Frontend [Next.js 15 Client]
+        UI[React Components - Dashboard, Map, Warehouse, Shipments]
+        NextAuth[NextAuth.js v5 - JWT Session]
+        Axios[Axios Interceptor - Token Inject, Refresh & SignOut Handler]
         SocketClient[Socket.io-client - GPS Listener]
+        SW[Service Worker / PWA]
+        IDB[IndexedDB - Offline Cache & Mutation Queue]
     end
 
-    %% Network Layer
-    Axios -->|HTTP API Requests + Bearer Token| Express
-    SocketClient -->|WebSocket Connection| SocketServer
+    Frontend -->|HTTP + Bearer Token| Backend
+    Frontend -->|WebSocket| SocketServer
 
-    %% Backend Layer
-    subgraph Backend [Express Server - Node.js & TS]
+    subgraph Backend [Express Server]
         Express[Express REST API - Controllers & Routes]
-        AuthMiddleware[JWT Verify Middleware]
+        AuthMiddleware[JWT Verify + Rate Limiter]
+        Validation[express-validator]
         SocketServer[Socket.io Gateway - GPS Broadcast]
-        GPSSimulator[GPS Route Simulator Engine]
+        Swagger[Swagger UI - API Documentation]
     end
 
-    %% Database Layer
-    Express -->|Prisma Client| DB[(PostgreSQL Database - Supabase)]
-    GPSSimulator -->|Prisma Save Coordinates| DB
+    Express -->|Prisma ORM| DB[(PostgreSQL - Supabase)]
+
+    subgraph DevOps
+        Docker[Docker Compose - Dev/Prod]
+        GH[GitHub Actions - CI/CD]
+        Vercel[Vercel - Frontend Deployment]
+        Render[Render - Backend Deployment]
+    end
 ```
 
 ---
 
-## 🛠️ Công Nghệ Sử Dụng (Tech Stack)
+## 🛠️ Công Nghệ Sử Dụng
 
-| Thành phần | Công nghệ chính | Vai trò |
+### Frontend
+
+| Thành phần | Công nghệ | Vai trò |
 |---|---|---|
-| **Frontend Framework** | `Next.js 15` (App Router) | Xây dựng giao diện ứng dụng phía Client |
-| **Styling** | `Vanilla CSS` + `Lucide React` | Tạo giao diện cao cấp, micro-animations và các tokens tối giản |
-| **Client Auth** | `NextAuth.js v5` (Auth.js) | Bảo mật phiên đăng nhập, JWT caching |
-| **Bản đồ** | `Leaflet.js` & `OpenStreetMap` | Hiển thị lộ trình và bản đồ động |
-| **API Client** | `Axios` + Request/Response Interceptors | Kết nối API, tự động đính kèm Token và xử lý lỗi 401 |
-| **Backend Engine** | `Express.js` + `TypeScript` | Phát triển RESTful API cho toàn hệ thống |
-| **Real-time Engine**| `Socket.io` (WebSockets) | Truyền tải tọa độ GPS xe tải thời gian thực |
-| **ORM** | `Prisma Client` | Tương tác cơ sở dữ liệu an toàn kiểu dữ liệu (Type-safe) |
-| **Database** | `PostgreSQL` (Supabase Hosted) | Cơ sở dữ liệu đám mây lưu trữ thông tin hệ thống |
+| **Framework** | `Next.js 15` (App Router) | Xây dựng giao diện & server components |
+| **Ngôn ngữ** | `TypeScript` | An toàn kiểu dữ liệu |
+| **Styling** | `Tailwind CSS v4` + CSS Variables | Giao diện responsive, dark/light mode |
+| **UI Components** | `shadcn/ui`, `Radix UI`, `Base UI` | Component library tái sử dụng |
+| **Bản đồ** | `MapLibre GL` + CartoDB tiles | Hiển thị bản đồ, route, marker, cluster |
+| **Xác thực** | `NextAuth.js v5` (Auth.js) | Quản lý phiên JWT |
+| **State Management** | `Zustand` + `Immer` | Store toàn cục (alerts, sidebar, positions) |
+| **API Client** | `Axios` | Kết nối API, interceptor token |
+| **Real-time** | `Socket.io-client` | GPS tracking thời gian thực |
+| **Form** | `react-hook-form` + `zod` | Quản lý form & validation |
+| **Offline** | `IndexedDB` (custom wrapper) | Cache dữ liệu & hàng đợi đồng bộ |
+| **QR Code** | `html5-qrcode`, `qrcode` | Quét & tạo QR code |
+| **Báo cáo** | `jsPDF`, `jspdf-autotable`, `ExcelJS` | Xuất PDF & Excel |
+| **Toast** | `sonner` | Thông báo |
+| **Date** | `date-fns` (locale vi) | Định dạng ngày tháng |
+| **Icons** | `lucide-react` | Biểu tượng giao diện |
+
+### Backend
+
+| Thành phần | Công nghệ | Vai trò |
+|---|---|---|
+| **Runtime** | `Node.js` + `TypeScript` | Server-side logic |
+| **Framework** | `Express.js` | RESTful API |
+| **ORM** | `Prisma` | Type-safe database access |
+| **Database** | `PostgreSQL` (Supabase) | Lưu trữ dữ liệu |
+| **Xác thực** | `jsonwebtoken` + `bcryptjs` | JWT token & hash password |
+| **Validation** | `express-validator` | Validate request |
+| **Rate Limiting** | `express-rate-limit` | Chống brute force |
+| **Bảo mật** | `helmet`, `cors` | Security headers |
+| **Real-time** | `socket.io` | WebSocket GPS tracking |
+| **Email** | `nodemailer` | Gửi email reset password |
+| **API Docs** | `swagger-jsdoc` + `swagger-ui-express` | Tài liệu API tự động |
+| **Testing** | `Jest` + `ts-jest` | Unit testing |
+| **Logging** | `morgan` | HTTP request logger |
+
+### DevOps & Triển Khai
+
+| Thành phần | Công nghệ |
+|---|---|
+| **Containerization** | Docker + Docker Compose |
+| **Frontend Hosting** | Vercel |
+| **Backend Hosting** | Render |
+| **Database Hosting** | Supabase / Render PostgreSQL |
+| **CI/CD** | GitHub Actions |
+| **E2E Testing** | Playwright |
 
 ---
 
-## 📂 Cấu Trúc Thư Mục Dự Án (Project Structure)
+## 📂 Cấu Trúc Thư Mục
 
-```text
-Logistics_management/
-├── backend/                  # MÃ NGUỒN BACKEND (NODE.JS & EXPRESS TS)
+```
+LogiWeb/
+├── backend/                          # MÃ NGUỒN BACKEND
 │   ├── prisma/
-│   │   ├── schema.prisma     # Định nghĩa cơ sở dữ liệu PostgreSQL
-│   │   └── seed.ts           # Script nạp dữ liệu mẫu tự động
+│   │   ├── schema.prisma             # Định nghĩa database (11 models)
+│   │   ├── seed.ts                   # Dữ liệu mẫu
+│   │   └── dev.db                    # SQLite dev (optional)
 │   ├── src/
-│   │   ├── config/           # Khởi tạo Prisma Client, Socket.io
-│   │   ├── controllers/      # Logic xử lý API (Warehouse, Shipment, Inventory...)
-│   │   ├── middleware/       # JWT Auth validator middleware
-│   │   ├── routes/           # Định tuyến endpoint API
-│   │   └── index.ts          # Điểm chạy chính (Server entrypoint)
+│   │   ├── config/                   # env, database, jwt, swagger
+│   │   ├── controllers/              # auth, user, warehouse, shipment, inventory, notification
+│   │   ├── middleware/                # auth, rate-limiter, validation
+│   │   ├── routes/                   # Route definitions
+│   │   ├── services/                 # Business logic
+│   │   ├── utils/                    # Response helpers
+│   │   ├── lib/                      # Email utility
+│   │   ├── __tests__/                # Unit tests (6+ test files)
+│   │   └── index.ts                  # Server entrypoint
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── frontend/                         # MÃ NGUỒN FRONTEND
+│   ├── src/
+│   │   ├── app/                      # Next.js App Router
+│   │   │   ├── (auth)/               # auth/login, register, forgot-password, reset-password
+│   │   │   ├── (dashboard)/          # dashboard (admin/manager/staff), admin (users, settings)
+│   │   │   ├── @modal/               # Parallel routes (intercepted modals)
+│   │   │   ├── api/                  # API routes (auth/nextauth, send-email, routing)
+│   │   │   ├── offline/              # PWA offline page
+│   │   │   └── actions/              # Server Actions (shipments, inventory)
+│   │   ├── components/
+│   │   │   ├── ui/                   # Map (MapLibre GL), Button, OptimizedImage
+│   │   │   ├── layout/               # Sidebar, Header, OfflineBanner
+│   │   │   ├── auth/                 # RoleGuard
+│   │   │   └── providers.tsx         # Session + Theme + Auth providers
+│   │   ├── lib/                      # api.ts, server-api.ts, offline-db.ts,
+│   │   │                                use-offline-sync.ts, pdf-export.ts,
+│   │   │                                route-optimizer.ts, utils.ts
+│   │   ├── store/                    # Zustand stores (app-store, notification-store,
+│   │   │                                shared-data-store, driver-notification-store)
+│   │   ├── context/                  # auth-context, theme-context
+│   │   ├── auth.ts                   # NextAuth v5 config
+│   │   ├── globals.css               # CSS variables, animations, utility classes
+│   │   └── styles/                   # shadcn-tailwind.css, tw-animate.css
+│   ├── e2e/                          # Playwright E2E tests
+│   ├── public/                       # PWA icons, manifest.json, sw.js
+│   ├── Dockerfile
+│   ├── next.config.ts
 │   └── package.json
 │
-├── frontend/                 # MÃ NGUỒN FRONTEND (NEXT.JS 15)
-│   ├── src/
-│   │   ├── app/              # Next.js App Router (Dashboard, Login, Shipments...)
-│   │   ├── components/       # Các component dùng chung UI (Sidebar, Header...)
-│   │   ├── lib/              # Cấu hình Axios api client, utils helper
-│   │   ├── auth.ts           # Cấu hình Providers credentials và JWT của NextAuth
-│   │   └── proxy.ts          # Cấu hình proxy định hướng luồng mạng
-│   └── package.json
+├── docker-compose.yml                # Docker Compose (DB + Backend + Frontend)
+├── render.yaml                       # Render deployment config
+├── .github/workflows/ci-cd.yml       # GitHub Actions CI/CD
+└── assessment_report.html            # Báo cáo đánh giá đồ án
 ```
 
 ---
 
 ## 🚀 Hướng Dẫn Cài Đặt & Chạy Local
 
-### 1. Khởi tạo Cơ sở dữ liệu (Supabase PostgreSQL)
-*   Tạo cơ sở dữ liệu mới trên Supabase và lấy đường dẫn URL.
-*   Tạo tệp `backend/.env` dựa theo `backend/.env.example` và điền:
-    ```env
-    DATABASE_URL="postgresql://postgres:[PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
-    DIRECT_URL="postgresql://postgres:[PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
-    JWT_SECRET="YOUR_SUPER_SECRET_KEY"
-    PORT=5000
-    ```
+### Yêu Cầu
+- **Node.js** ≥ 20
+- **npm** hoặc **pnpm** / **yarn**
+- **PostgreSQL** (hoặc tài khoản Supabase miễn phí)
+- **Docker** (tùy chọn — cho Docker Compose)
 
-### 2. Cài đặt & Chạy Backend
+### 1. Clone & Cài Đặt
+
 ```bash
+git clone <repository-url>
+cd LogiWeb
+
+# Cài đặt backend
 cd backend
 npm install
 
-# Tạo Prisma client và đẩy schema lên database
-npx prisma generate
-npx prisma db push
-
-# Nạp dữ liệu mẫu (Seed database)
-npm run seed
-
-# Khởi động chế độ phát triển
-npm run dev
+# Cài đặt frontend
+cd ../frontend
+npm install
 ```
 
-### 3. Cài đặt & Chạy Frontend
-*   Tạo tệp `frontend/.env` điền các thông tin:
-    ```env
-    NEXTAUTH_SECRET="NEXTAUTH_GENERATED_SECRET"
-    NEXT_PUBLIC_API_URL="http://localhost:5000/api"
-    NEXT_PUBLIC_SOCKET_URL="http://localhost:5000"
-    ```
-*   Khởi chạy dự án:
-    ```bash
-    cd ../frontend
-    npm install
-    npm run dev
-    ```
-*   Truy cập: `http://localhost:3000`
+### 2. Cấu Hình Backend
+
+Tạo file `backend/.env`:
+
+```env
+# Database (Supabase PostgreSQL)
+DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?schema=public"
+DIRECT_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
+
+# JWT
+JWT_SECRET="your-super-secret-jwt-key-here"
+JWT_REFRESH_SECRET="your-refresh-token-secret-here"
+JWT_EXPIRES_IN="15m"
+JWT_REFRESH_EXPIRES_IN="7d"
+
+# Server
+PORT=5000
+NODE_ENV=development
+
+# Rate Limiting
+RATE_LIMIT_AUTH_MAX=10
+RATE_LIMIT_STRICT_MAX=5
+RATE_LIMIT_API_MAX=500
+RATE_LIMIT_POLLING_MAX=300
+
+# CORS
+FRONTEND_URL="http://localhost:3000"
+
+# Email (SMTP) — optional, for password reset
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=465
+SMTP_USER="your-email@gmail.com"
+SMTP_PASS="your-16-digit-app-password"
+SMTP_FROM_EMAIL="noreply@logistiq.vn"
+```
+
+### 3. Khởi Tạo Database
+
+```bash
+cd backend
+npx prisma generate
+npx prisma db push
+npm run seed    # Nạp dữ liệu mẫu
+```
+
+### 4. Cấu Hình Frontend
+
+Tạo file `frontend/.env.local`:
+
+```env
+NEXTAUTH_SECRET="your-nextauth-secret"
+NEXT_PUBLIC_API_URL="http://localhost:5000/api"
+NEXT_PUBLIC_SOCKET_URL="http://localhost:5000"
+```
+
+### 5. Chạy Ứng Dụng
+
+```bash
+# Terminal 1: Backend
+cd backend
+npm run dev    # http://localhost:5000
+
+# Terminal 2: Frontend
+cd frontend
+npm run dev    # http://localhost:3000
+```
+
+### 🐳 Hoặc Dùng Docker Compose
+
+```bash
+# Khởi động tất cả services
+docker compose up -d --build
+
+# Khởi tạo database schema & seed data
+docker compose exec backend npx prisma db push
+docker compose exec backend npx prisma db seed
+
+# Frontend: http://localhost:3000
+# Backend:  http://localhost:5000
+# Swagger:  http://localhost:5000/api-docs
+```
 
 ---
 
-## 👥 Tài Khoản Kiểm Thử (Demo Credentials)
+## 👥 Tài Khoản Kiểm Thử
 
 | Vai trò | Email | Mật khẩu |
 |---|---|---|
-| **Admin** | `admin@logistiq.vn` | `admin123` |
-| **Manager HCM** | `manager.hcm@logistiq.vn` | `staff123` |
-| **Manager HN** | `manager.hn@logistiq.vn` | `staff123` |
-| **Manager ĐN** | `manager.dn@logistiq.vn` | `staff123` |
-| **Staff** | `nam@logistiq.vn` | `staff123` |
-| **Driver 1** | `driver1@logistiq.vn` | `staff123` |
-| **Driver 2** | `driver2@logistiq.vn` | `staff123` |
+| **Quản trị viên (Admin)** | `admin@logistiq.vn` | `admin123` |
+| **Quản lý kho HCM** | `manager.hcm@logistiq.vn` | `staff123` |
+| **Quản lý kho HN** | `manager.hn@logistiq.vn` | `staff123` |
+| **Quản lý kho ĐN** | `manager.dn@logistiq.vn` | `staff123` |
+| **Nhân viên kho** | `nam@logistiq.vn` | `staff123` |
+| **Tài xế 1** | `driver1@logistiq.vn` | `staff123` |
+| **Tài xế 2** | `driver2@logistiq.vn` | `staff123` |
 
-> 🎯 **Mỗi manager quản lý đúng 1 kho**: Xem chi tiết tài khoản và mật mã mẫu trong hệ thống.
+> Mỗi manager quản lý đúng 1 kho. Xem chi tiết trong hệ thống.
 
+---
+
+## 🔗 API Endpoints
+
+| Nhóm | Endpoint | Mô tả |
+|---|---|---|
+| **Auth** | `POST /api/auth/login` | Đăng nhập |
+| | `POST /api/auth/register` | Đăng ký |
+| | `POST /api/auth/refresh` | Refresh token |
+| | `POST /api/auth/forgot-password` | Quên mật khẩu |
+| | `POST /api/auth/reset-password` | Đặt lại mật khẩu |
+| | `GET /api/auth/me` | Thông tin user hiện tại |
+| | `PUT /api/auth/me` | Cập nhật profile |
+| | `GET /api/auth/drivers` | Danh sách tài xế |
+| **Users** | `GET /api/users` | Danh sách users |
+| | `POST /api/users` | Tạo user (Admin) |
+| | `PUT /api/users/:id` | Cập nhật user |
+| | `DELETE /api/users/:id` | Xóa user |
+| **Warehouses** | `GET /api/warehouses` | Danh sách kho |
+| | `GET /api/warehouses/:id` | Chi tiết kho |
+| | `POST /api/warehouses` | Tạo kho |
+| | `PUT /api/warehouses/:id` | Cập nhật kho |
+| **Inventory** | `GET /api/inventory` | Danh sách tồn kho |
+| | `GET /api/inventory/:id` | Chi tiết tồn kho |
+| | `POST /api/inventory` | Nhập hàng |
+| | `PUT /api/inventory/:id` | Cập nhật tồn kho |
+| | `GET /api/inventory/alerts` | Danh sách cảnh báo |
+| | `PUT /api/inventory/alerts/:id/resolve` | Giải quyết cảnh báo |
+| **Products** | `GET /api/products` | Danh sách sản phẩm |
+| | `GET /api/products/:id` | Chi tiết sản phẩm |
+| | `POST /api/products` | Tạo sản phẩm |
+| | `GET /api/products/by-qr/:qrCode` | Tìm bằng QR |
+| | `GET /api/products/by-barcode/:barcode` | Tìm bằng barcode |
+| **Shipments** | `GET /api/shipments` | Danh sách vận đơn |
+| | `GET /api/shipments/:id` | Chi tiết vận đơn |
+| | `GET /api/shipments/stats` | Thống kê vận đơn |
+| | `POST /api/shipments` | Tạo vận đơn |
+| | `PUT /api/shipments/:id` | Cập nhật vận đơn |
+| | `PUT /api/shipments/:id/approve` | Duyệt vận đơn |
+| | `PUT /api/shipments/:id/reject` | Từ chối vận đơn |
+| | `PUT /api/shipments/:id/loading` | Bắt đầu xếp hàng |
+| | `POST /api/shipments/:id/receive` | Nhận hàng |
+| **Notifications** | `GET /api/notifications` | Danh sách thông báo |
+| | `PUT /api/notifications/:id/read` | Đánh dấu đã đọc |
+| | `PUT /api/notifications/read-all` | Đọc tất cả |
+| **Health** | `GET /health` | Kiểm tra server |
+
+> 📖 API documentation tự động: `http://localhost:5000/api-docs` (Swagger UI)
+
+---
+
+## 🧪 Kiểm Thử
+
+```bash
+# Backend unit tests
+cd backend
+npm test
+
+# Frontend E2E tests (Playwright)
+cd frontend
+npx playwright install
+npm run test:e2e
+```
+
+---
+
+## ☁️ Triển Khai (Deployment)
+
+### Frontend → Vercel
+```bash
+cd frontend
+npx vercel --prod
+```
+Cấu hình environment variables trên Vercel dashboard:
+- `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SOCKET_URL`, `NEXTAUTH_SECRET`, `API_URL`
+
+### Backend → Render
+Sử dụng file `render.yaml` có sẵn trong repo. Triển khai qua Render Dashboard:
+1. Connect GitHub repo
+2. Chọn "Blueprint" — Render tự động đọc `render.yaml`
+3. Điền các secrets: `DATABASE_URL`, `JWT_SECRET`, `SMTP_*`
+
+### Database → Supabase
+1. Tạo project Supabase miễn phí
+2. Lấy `DATABASE_URL` (có PgBouncer) và `DIRECT_URL` (không PgBouncer)
+3. Chạy `npx prisma db push` và `npm run seed`
+
+---
+
+## 📚 Kiến Trúc Cơ Sở Dữ Liệu (Prisma Schema)
+
+12 models trong database:
+- **User** — Người dùng (4 roles: ADMIN, MANAGER, STAFF, DRIVER)
+- **Warehouse** — Kho hàng (manager + staff, zones)
+- **WarehouseZone** — Phân khu trong kho
+- **Product** — Sản phẩm (SKU, barcode, QR code, categories)
+- **InventoryItem** — Tồn kho (theo vị trí: zone, rack, shelf)
+- **Shipment** — Vận đơn (trạng thái: PENDING → DELIVERED)
+- **ShipmentItem** — Chi tiết vận đơn
+- **ShipmentCheckpoint** — Trạm kiểm soát
+- **TrackingHistory** — Lịch sử GPS
+- **StockAlert** — Cảnh báo tồn kho
+- **Notification** — Thông báo người dùng
+- **TokenBlacklist** — Danh sách token bị thu hồi
+
+---
+
+## 📝 Ghi Chú Phát Triển
+
+- **PWA Icons**: Chạy `npm run generate-icons` trong `frontend/` để tạo icons từ ảnh gốc.
+- **MapLibre GL**: Sử dụng CartoDB Positron (light) / Dark Matter (dark). Theme tự động đồng bộ với dark mode của ứng dụng.
+- **Offline**: Dữ liệu vận đơn được cache 7 ngày trong IndexedDB. Mutation queue tự động đồng bộ khi online.
+- **Rate Limiting**: Có thể điều chỉnh qua env vars. Mặc định: auth=10 lần/15ph, API=500 lần/15ph.
+
+---
+
+> **LogistiQ** — *Nâng tầm chuỗi cung ứng Việt với công nghệ số.*
