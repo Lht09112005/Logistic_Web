@@ -1,4 +1,4 @@
-// Default: no modal is shown when navigating directly
-export default function ModalDefault() {
+// Default parallel route slot — renders nothing when no intercepting route matches
+export default function Default() {
   return null
 }

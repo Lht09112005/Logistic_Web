@@ -124,11 +124,6 @@ export async function getShipmentById(id: string, role?: string, userId?: string
   return shipment
 }
 
-async function generateShipmentCode(): Promise<string> {
-  const count = await prisma.shipment.count()
-  return `SHP-${String(count + 1).padStart(6, '0')}`
-}
-
 export async function createShipment(data: {
   driverId: string
   vehicleNumber: string
@@ -157,39 +152,45 @@ export async function createShipment(data: {
     throw Object.assign(new Error(`Vui lòng nhập các thông tin bắt buộc: ${missingFields.join(', ')}.`), { statusCode: 400 })
   }
 
-  const shipmentCode = await generateShipmentCode()
+  // Use transaction to ensure atomic creation: shipment, items, checkpoints + code generation
+  const shipment = await prisma.$transaction(async (tx) => {
+    const count = await tx.shipment.count()
+    const shipmentCode = `SHP-${String(count + 1).padStart(6, '0')}`
 
-  const shipment = await prisma.shipment.create({
-    data: {
-      shipmentCode,
-      driverId: data.driverId,
-      createdById: data.createdById,
-      vehicleNumber: data.vehicleNumber,
-      vehicleType: data.vehicleType,
-      originWarehouseId: data.originWarehouseId,
-      destinationWarehouseId: data.destinationWarehouseId,
-      originAddress: data.originAddress,
-      destinationAddress: data.destinationAddress,
-      originLat: data.originLat,
-      originLng: data.originLng,
-      destinationLat: data.destinationLat,
-      destinationLng: data.destinationLng,
-      currentLat: data.originLat,
-      currentLng: data.originLng,
-      estimatedArrival: data.estimatedArrival ? new Date(data.estimatedArrival) : undefined,
-      notes: data.notes,
-      items: { create: (data.items || []).map(item => ({ productId: item.productId, quantity: item.quantity, weight: item.weight, notes: item.notes })) },
-      checkpoints: { create: (data.checkpoints || []).map((cp, idx) => ({ name: cp.name, address: cp.address, latitude: cp.latitude, longitude: cp.longitude, sequence: cp.sequence || idx + 1, estimatedAt: cp.estimatedAt ? new Date(cp.estimatedAt) : undefined })) },
-    },
-    include: {
-      driver: { select: { id: true, name: true, phone: true } },
-      items: { include: { product: { select: { id: true, name: true } } } },
-      checkpoints: { orderBy: { sequence: 'asc' } },
-    },
+    const created = await tx.shipment.create({
+      data: {
+        shipmentCode,
+        driverId: data.driverId,
+        createdById: data.createdById,
+        vehicleNumber: data.vehicleNumber,
+        vehicleType: data.vehicleType,
+        originWarehouseId: data.originWarehouseId,
+        destinationWarehouseId: data.destinationWarehouseId,
+        originAddress: data.originAddress,
+        destinationAddress: data.destinationAddress,
+        originLat: data.originLat,
+        originLng: data.originLng,
+        destinationLat: data.destinationLat,
+        destinationLng: data.destinationLng,
+        currentLat: data.originLat,
+        currentLng: data.originLng,
+        estimatedArrival: data.estimatedArrival ? new Date(data.estimatedArrival) : undefined,
+        notes: data.notes,
+        items: { create: (data.items || []).map(item => ({ productId: item.productId, quantity: item.quantity, weight: item.weight, notes: item.notes })) },
+        checkpoints: { create: (data.checkpoints || []).map((cp, idx) => ({ name: cp.name, address: cp.address, latitude: cp.latitude, longitude: cp.longitude, sequence: cp.sequence || idx + 1, estimatedAt: cp.estimatedAt ? new Date(cp.estimatedAt) : undefined })) },
+      },
+      include: {
+        driver: { select: { id: true, name: true, phone: true } },
+        items: { include: { product: { select: { id: true, name: true } } } },
+        checkpoints: { orderBy: { sequence: 'asc' } },
+      },
+    })
+
+    return created
   })
 
-  // Notify admins
-  await notifyAdmins(shipment.id, shipmentCode)
+  // Notify admins — outside transaction to keep side effects separate
+  await notifyAdmins(shipment.id, shipment.shipmentCode)
 
   return shipment
 }
@@ -252,57 +253,60 @@ export async function updateShipment(
   if (data.estimatedArrival) updateData.estimatedArrival = new Date(data.estimatedArrival)
   if (data.notes !== undefined) updateData.notes = data.notes
 
-  // Tracking history
-  if (data.currentLat !== undefined && data.currentLng !== undefined) {
-    updateData.currentLat = data.currentLat
-    updateData.currentLng = data.currentLng
-    await prisma.trackingHistory.create({
-      data: {
-        shipmentId: id, latitude: data.currentLat, longitude: data.currentLng,
-        status: data.status || undefined,
-        description: data.status ? `Trạng thái: ${data.status}` : 'Cập nhật vị trí',
-      },
-    })
-  }
+  // Use transaction to atomically write tracking history, checkpoint updates, and shipment update
+  const { shipment, completedNames } = await prisma.$transaction(async (tx) => {
+    const txUpdateData: Record<string, unknown> = { ...updateData }
+    const txCompletedNames: { id: string; name: string }[] = []
 
-  if (data.status === 'IN_TRANSIT') updateData.startedAt = new Date()
-  if (data.status === 'DELIVERED') updateData.actualArrival = new Date()
+    // Tracking history
+    if (data.currentLat !== undefined && data.currentLng !== undefined) {
+      txUpdateData.currentLat = data.currentLat
+      txUpdateData.currentLng = data.currentLng
+      await tx.trackingHistory.create({
+        data: {
+          shipmentId: id, latitude: data.currentLat, longitude: data.currentLng,
+          status: data.status || undefined,
+          description: data.status ? `Trạng thái: ${data.status}` : 'Cập nhật vị trí',
+        },
+      })
+    }
 
-  // Handle checkpoint updates
-  const completedNames: { id: string; name: string }[] = []
-  if (data.checkpoints?.length) {
-    for (const cp of data.checkpoints) {
-      if (!cp.id) continue
-      const cpData: Record<string, unknown> = {}
-      if (cp.isCompleted !== undefined) cpData.isCompleted = cp.isCompleted
-      if (cp.isCompleted) cpData.arrivedAt = cp.arrivedAt ? new Date(cp.arrivedAt) : new Date()
-      if (Object.keys(cpData).length > 0) {
-        const updatedCp = await prisma.shipmentCheckpoint.update({ where: { id: cp.id }, data: cpData })
-        if (cp.isCompleted) completedNames.push({ id: updatedCp.id, name: updatedCp.name })
+    if (data.status === 'IN_TRANSIT') txUpdateData.startedAt = new Date()
+    if (data.status === 'DELIVERED') txUpdateData.actualArrival = new Date()
+
+    // Handle checkpoint updates
+    if (data.checkpoints?.length) {
+      for (const cp of data.checkpoints) {
+        if (!cp.id) continue
+        const cpData: Record<string, unknown> = {}
+        if (cp.isCompleted !== undefined) cpData.isCompleted = cp.isCompleted
+        if (cp.isCompleted) cpData.arrivedAt = cp.arrivedAt ? new Date(cp.arrivedAt) : new Date()
+        if (Object.keys(cpData).length > 0) {
+          const updatedCp = await tx.shipmentCheckpoint.update({ where: { id: cp.id }, data: cpData })
+          if (cp.isCompleted) txCompletedNames.push({ id: updatedCp.id, name: updatedCp.name })
+        }
       }
     }
-  }
 
-  const shipment = await prisma.shipment.update({
-    where: { id },
-    data: updateData,
-    include: {
-      driver: { select: { id: true, name: true, phone: true } },
-      checkpoints: { orderBy: { sequence: 'asc' } },
-    },
+    const updatedShipment = await tx.shipment.update({
+      where: { id },
+      data: txUpdateData,
+      include: {
+        driver: { select: { id: true, name: true, phone: true } },
+        checkpoints: { orderBy: { sequence: 'asc' } },
+      },
+    })
+
+    return { shipment: updatedShipment, completedNames: txCompletedNames }
   })
 
-  // Incident notifications
+  // Side effects — outside transaction
   if (data.notes?.includes('[SỰ CỐ')) {
     await notifyIncident(id, shipment.shipmentCode, data.notes, shipment.originWarehouseId, shipment.destinationWarehouseId)
   }
-
-  // Realtime checkpoint notifications
   if (completedNames.length > 0 && existing.destinationWarehouseId) {
     emitCheckpointEvents(id, existing.shipmentCode, completedNames, existing.destinationWarehouseId, existing.destinationWarehouse?.name)
   }
-
-  // Position broadcast
   if (data.currentLat !== undefined && data.currentLng !== undefined) {
     emitPositionEvents(id, data.currentLat, data.currentLng, data.status, existing.originWarehouseId, existing.destinationWarehouseId)
   }
@@ -390,37 +394,43 @@ export async function receiveShipment(id: string) {
     throw Object.assign(new Error('Vận đơn không có kho đích'), { statusCode: 400 })
   }
 
-  const inventoryResults = []
-  for (const item of shipment.items) {
-    const existing = await prisma.inventoryItem.findFirst({
-      where: { productId: item.productId, warehouseId: shipment.destinationWarehouseId! },
-      include: { product: true },
+  // Use transaction for atomic inventory update + stock alert resolution + status change
+  const { shipment: updated, inventoryItems } = await prisma.$transaction(async (tx) => {
+    const inventoryResults: unknown[] = []
+    for (const item of shipment!.items) {
+      const existing = await tx.inventoryItem.findFirst({
+        where: { productId: item.productId, warehouseId: shipment!.destinationWarehouseId! },
+        include: { product: true },
+      })
+
+      if (existing) {
+        const newQty = existing.quantity + item.quantity
+        const updated = await tx.inventoryItem.update({ where: { id: existing.id }, data: { quantity: newQty } })
+        inventoryResults.push(updated)
+        if (newQty >= existing.product.minStockLevel) {
+          await tx.stockAlert.updateMany({
+            where: { productId: item.productId, warehouseId: shipment!.destinationWarehouseId!, isResolved: false },
+            data: { isResolved: true, resolvedAt: new Date() },
+          })
+        }
+      } else {
+        const created = await tx.inventoryItem.create({
+          data: { productId: item.productId, warehouseId: shipment!.destinationWarehouseId!, quantity: item.quantity },
+        })
+        inventoryResults.push(created)
+      }
+    }
+
+    const updatedShipment = await tx.shipment.update({
+      where: { id },
+      data: { status: 'DELIVERED', actualArrival: new Date() },
+      include: { driver: { select: { id: true, name: true, phone: true } }, checkpoints: { orderBy: { sequence: 'asc' } } },
     })
 
-    if (existing) {
-      const newQty = existing.quantity + item.quantity
-      const updated = await prisma.inventoryItem.update({ where: { id: existing.id }, data: { quantity: newQty } })
-      inventoryResults.push(updated)
-      if (newQty >= existing.product.minStockLevel) {
-        await prisma.stockAlert.updateMany({
-          where: { productId: item.productId, warehouseId: shipment.destinationWarehouseId!, isResolved: false },
-          data: { isResolved: true, resolvedAt: new Date() },
-        })
-      }
-    } else {
-      const created = await prisma.inventoryItem.create({
-        data: { productId: item.productId, warehouseId: shipment.destinationWarehouseId!, quantity: item.quantity },
-      })
-      inventoryResults.push(created)
-    }
-  }
-
-  const updated = await prisma.shipment.update({
-    where: { id }, data: { status: 'DELIVERED', actualArrival: new Date() },
-    include: { driver: { select: { id: true, name: true, phone: true } }, checkpoints: { orderBy: { sequence: 'asc' } } },
+    return { shipment: updatedShipment, inventoryItems: inventoryResults }
   })
 
-  return { shipment: updated, inventoryItems: inventoryResults }
+  return { shipment: updated, inventoryItems }
 }
 
 export async function approveShipment(id: string, userId: string, userRole: string) {
@@ -440,35 +450,43 @@ export async function approveShipment(id: string, userId: string, userRole: stri
     }
   }
 
-  // Reserve inventory
-  if (shipment.originWarehouseId && shipment.items.length > 0) {
-    for (const item of shipment.items) {
-      const inventoryItems = await prisma.inventoryItem.findMany({
-        where: { productId: item.productId, warehouseId: shipment.originWarehouseId, quantity: { gt: 0 } },
-        orderBy: { quantity: 'desc' },
-      })
-      const totalAvailable = inventoryItems.reduce((sum, inv) => sum + (inv.quantity - inv.reservedQty), 0)
-      if (totalAvailable < item.quantity) {
-        throw Object.assign(new Error(`Kho nguồn không đủ hàng. Yêu cầu ${item.quantity}, khả dụng ${totalAvailable}`), { statusCode: 400 })
-      }
-      let remaining = item.quantity
-      for (const inv of inventoryItems) {
-        if (remaining <= 0) break
-        const available = inv.quantity - inv.reservedQty
-        if (available <= 0) continue
-        const toReserve = Math.min(remaining, available)
-        await prisma.inventoryItem.update({ where: { id: inv.id }, data: { reservedQty: inv.reservedQty + toReserve } })
-        remaining -= toReserve
+  // Use transaction to atomically reserve inventory + update shipment status
+  await prisma.$transaction(async (tx) => {
+    // Reserve inventory
+    if (shipment.originWarehouseId && shipment.items.length > 0) {
+      for (const item of shipment.items) {
+        const inventoryItems = await tx.inventoryItem.findMany({
+          where: { productId: item.productId, warehouseId: shipment.originWarehouseId, quantity: { gt: 0 } },
+          orderBy: { quantity: 'desc' },
+        })
+        const totalAvailable = inventoryItems.reduce((sum, inv) => sum + (inv.quantity - inv.reservedQty), 0)
+        if (totalAvailable < item.quantity) {
+          throw Object.assign(new Error(`Kho nguồn không đủ hàng. Yêu cầu ${item.quantity}, khả dụng ${totalAvailable}`), { statusCode: 400 })
+        }
+        let remaining = item.quantity
+        for (const inv of inventoryItems) {
+          if (remaining <= 0) break
+          const available = inv.quantity - inv.reservedQty
+          if (available <= 0) continue
+          const toReserve = Math.min(remaining, available)
+          await tx.inventoryItem.update({ where: { id: inv.id }, data: { reservedQty: inv.reservedQty + toReserve } })
+          remaining -= toReserve
+        }
       }
     }
-  }
 
-  const updated = await prisma.shipment.update({
-    where: { id }, data: { status: 'CONFIRMED' },
+    await tx.shipment.update({
+      where: { id }, data: { status: 'CONFIRMED' },
+    })
+  })
+
+  // Fetch updated shipment for response — outside transaction
+  const updated = await prisma.shipment.findUnique({
+    where: { id },
     include: { driver: { select: { id: true, name: true, phone: true } }, checkpoints: { orderBy: { sequence: 'asc' } } },
   })
 
-  // Notifications
+  // Notifications — outside transaction
   await notifyApproval(id, shipment.shipmentCode, shipment.createdById, shipment.driverId, userId)
 
   return updated
@@ -541,27 +559,34 @@ export async function startLoadingShipment(id: string) {
     throw Object.assign(new Error('Chỉ có thể xếp hàng cho vận đơn đã duyệt'), { statusCode: 400 })
   }
 
-  // Deduct inventory
-  if (shipment.originWarehouseId && shipment.items.length > 0) {
-    for (const item of shipment.items) {
-      const inventoryItems = await prisma.inventoryItem.findMany({
-        where: { productId: item.productId, warehouseId: shipment.originWarehouseId, reservedQty: { gte: 1 } },
-        orderBy: { reservedQty: 'desc' },
-      })
-      let remaining = item.quantity
-      for (const inv of inventoryItems) {
-        if (remaining <= 0) break
-        const toDeduct = Math.min(remaining, inv.reservedQty, inv.quantity)
-        await prisma.inventoryItem.update({
-          where: { id: inv.id },
-          data: { quantity: inv.quantity - toDeduct, reservedQty: inv.reservedQty - toDeduct },
+  // Use transaction to atomically deduct inventory + update shipment status
+  return prisma.$transaction(async (tx) => {
+    // Deduct inventory
+    if (shipment.originWarehouseId && shipment.items.length > 0) {
+      for (const item of shipment.items) {
+        const inventoryItems = await tx.inventoryItem.findMany({
+          where: { productId: item.productId, warehouseId: shipment.originWarehouseId, reservedQty: { gte: 1 } },
+          orderBy: { reservedQty: 'desc' },
         })
-        remaining -= toDeduct
+        let remaining = item.quantity
+        for (const inv of inventoryItems) {
+          if (remaining <= 0) break
+          const toDeduct = Math.min(remaining, inv.reservedQty, inv.quantity)
+          await tx.inventoryItem.update({
+            where: { id: inv.id },
+            data: { quantity: inv.quantity - toDeduct, reservedQty: inv.reservedQty - toDeduct },
+          })
+          remaining -= toDeduct
+        }
       }
     }
-  }
 
-  return prisma.shipment.update({ where: { id }, data: { status: 'LOADING' } })
+    return tx.shipment.update({
+      where: { id },
+      data: { status: 'LOADING' },
+      include: { driver: { select: { id: true, name: true, phone: true } }, checkpoints: { orderBy: { sequence: 'asc' } } },
+    })
+  })
 }
 
 export async function getShipmentStats(role?: string, userId?: string) {
