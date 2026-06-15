@@ -18,6 +18,7 @@ import inventoryRoutes from './routes/inventory.routes'
 import shipmentRoutes from './routes/shipment.routes'
 import warehouseRoutes from './routes/warehouse.routes'
 import notificationRoutes from './routes/notification.routes'
+import { verifySMTPConnection } from './lib/email'
 import { swaggerSpec } from './config/swagger'
 import { apiLimiter, pollingLimiter, adminLimiter } from './middleware/rate-limiter.middleware'
 import { cleanupExpiredTokens } from './services/token-blacklist.service'
@@ -79,7 +80,7 @@ app.get('/api-docs.json', (_req, res) => {
 })
 
 // Health check
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
   const dbUrl = process.env.DATABASE_URL || '';
   let dbHost = 'unknown';
   let maskedDbUrl = 'none';
@@ -92,12 +93,21 @@ app.get('/health', (_req, res) => {
     }
   } catch (e) {}
 
+  const smtpCheck = await verifySMTPConnection();
+
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     commit: '2f738c4-health-diagnostics',
     databaseHost: dbHost,
-    databaseUrlMasked: maskedDbUrl
+    databaseUrlMasked: maskedDbUrl,
+    smtp: {
+      success: smtpCheck.success,
+      error: smtpCheck.error || null,
+      user: process.env.SMTP_USER || null,
+      host: process.env.SMTP_HOST || null,
+      port: process.env.SMTP_PORT || null
+    }
   })
 })
 

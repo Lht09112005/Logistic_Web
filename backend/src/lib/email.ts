@@ -136,3 +136,19 @@ export async function sendTestEmail(to: string): Promise<{ success: boolean; err
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Verify SMTP connection configuration
+ */
+export async function verifySMTPConnection(): Promise<{ success: boolean; error?: string }> {
+  const transport = getTransporter();
+  if (!transport) {
+    return { success: false, error: "SMTP not configured (missing user/pass)" };
+  }
+  try {
+    await transport.verify();
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
