@@ -3,6 +3,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   devIndicators: false,
 
+  // Ignore ESLint checks during builds to prevent FlatCompat + ESLint 9 crash on Vercel
+  // @ts-ignore
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // ─── Image Optimization ────────────────────────────────────
   images: {
     // Allow remote images from the backend API server
