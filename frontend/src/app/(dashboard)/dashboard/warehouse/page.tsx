@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { ssrFetch } from "@/lib/server-api";
+import { isrFetch } from "@/lib/server-api";
 import WarehouseClient from "./_components/warehouse-client";
-
-export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: "Quản lý kho | LogistiQ",
@@ -13,9 +11,11 @@ export const metadata: Metadata = {
   },
 };
 
+// ISR: Revalidate warehouse list every 60 seconds
+// Warehouse data (name, address, capacity) changes infrequently,
+// so ISR is optimal — fast cached response with periodic refresh
 export default async function WarehousePage() {
-  // SSR: Fetch fresh data per-request (attaches user's auth token)
-  const warehouses = await ssrFetch("/warehouses");
+  const warehouses = await isrFetch("/warehouses", 60);
   const list: unknown[] = Array.isArray(warehouses) ? warehouses : [];
 
   return <WarehouseClient warehouses={list} />;

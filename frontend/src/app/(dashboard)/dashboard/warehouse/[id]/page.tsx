@@ -1,13 +1,29 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ssrFetch } from "@/lib/server-api";
+import { ssgFetch } from "@/lib/server-api";
 import WarehouseDetailClient, { type WarehouseDetail } from "./_components/warehouse-detail-client";
 
-export const dynamic = 'force-dynamic';
+// SSG + ISR hybrid: pre-render known warehouses at build time via generateStaticParams,
+// then revalidate on-demand for any new warehouses added after deployment.
+// dynamicParams is true by default, so new warehouses render on first visit and cache forever.
+
+export async function generateStaticParams() {
+  // Fetch all warehouse IDs at build time for static pre-rendering
+  try {
+    const warehouses = await ssgFetch("/warehouses");
+    if (!Array.isArray(warehouses)) return [];
+    return (warehouses as { id: string }[])
+      .filter((w) => w.id)
+      .map((w) => ({ id: w.id }));
+  } catch {
+    // If API is unavailable at build time, fall back to dynamic rendering
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const warehouse = await ssrFetch(`/warehouses/${id}`);
+  const warehouse = await ssgFetch(`/warehouses/${id}`);
   if (!warehouse) {
     return { title: "Kho hàng không tồn tại" };
   }
@@ -24,11 +40,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     },
   };
 }
-// SSR: Fetch warehouse detail fresh per-request (attaches user's auth token)
+
+// SSG: Fetch warehouse detail with force-cache (cached until next deployment)
 export default async function WarehouseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const warehouse = await ssrFetch(`/warehouses/${id}`);
+  const warehouse = await ssgFetch(`/warehouses/${id}`);
 
   if (!warehouse) {
     return notFound();
