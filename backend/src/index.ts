@@ -189,28 +189,44 @@ server.listen(PORT, async () => {
   console.log(`[Server] LogistiQ API running on port ${PORT}`)
   console.log(`[Socket] Socket.io ready`)
 
-  // Run startup migration to fix PostgreSQL enum column if it exists
+  // Run startup migration to fix all PostgreSQL custom enum columns
   try {
-    console.log('[Migration] Checking database column types...')
+    console.log('[Migration] Checking and converting all enum columns to VARCHAR...')
     await prisma.$executeRawUnsafe(`
       DO $$
+      DECLARE
+          r RECORD;
       BEGIN
-        IF EXISTS (
-          SELECT 1 
-          FROM information_schema.columns 
-          WHERE table_name = 'users' 
-            AND column_name = 'role' 
-            AND data_type = 'USER-DEFINED'
-        ) THEN
-          RAISE NOTICE 'Converting role column from enum to VARCHAR...';
-          ALTER TABLE users ALTER COLUMN role DROP DEFAULT;
-          ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(50) USING role::VARCHAR;
-          ALTER TABLE users ALTER COLUMN role SET DEFAULT 'STAFF';
-        END IF;
+          FOR r IN 
+              SELECT table_name, column_name, column_default
+              FROM information_schema.columns 
+              WHERE table_schema = 'public' 
+                AND data_type = 'USER-DEFINED'
+          LOOP
+              RAISE NOTICE 'Converting %.% from enum to VARCHAR...', r.table_name, r.column_name;
+              
+              -- Drop default first
+              EXECUTE format('ALTER TABLE %I ALTER COLUMN %I DROP DEFAULT', r.table_name, r.column_name);
+              
+              -- Alter column type
+              EXECUTE format('ALTER TABLE %I ALTER COLUMN %I TYPE VARCHAR(50) USING %I::VARCHAR', r.table_name, r.column_name, r.column_name);
+              
+              -- Re-add default value if it had one
+              IF r.column_default IS NOT NULL THEN
+                  DECLARE
+                      clean_default TEXT;
+                  BEGIN
+                      clean_default := split_part(r.column_default, '::', 1);
+                      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT %s', r.table_name, r.column_name, clean_default);
+                  EXCEPTION WHEN OTHERS THEN
+                      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT %s', r.table_name, r.column_name, r.column_default);
+                  END;
+              END IF;
+          END LOOP;
       END
       $$;
     `)
-    console.log('[Migration] Database column types checked successfully.')
+    console.log('[Migration] Database column types checked and updated successfully.')
   } catch (err) {
     console.error('[Migration] Error running startup migrations:', err)
   }
