@@ -16,8 +16,8 @@ Hệ thống hỗ trợ **PWA (Progressive Web App)** — có thể cài đặt 
 ## 🎯 Tính Năng Cốt Lõi
 
 ### 1. 🗺️ Bản Đồ Giám Sát Hành Trình & GPS Thời Gian Thực
-- **Bản đồ tương tác MapCN (mapcn.dev)**: Thư viện component map React hiện đại, built on top of MapLibre GL, styled với Tailwind CSS. Tự động chuyển đổi theme light/dark.
-- **Định vị thời gian thực**: Xe tải được hiển thị trên bản đồ với cập nhật tọa độ qua **Socket.io**.
+- **Bản đồ tương tác MapCN (mapcn.dev)**: Thư viện component map React hiện đại, built on top of MapLibre GL, styled với Tailwind CSS.
+- **Định vị thời gian thực**: Phương tiện được hiển thị trên bản đồ với cập nhật tọa độ qua **Socket.io**.
 - **Bộ điều khiển bản đồ**: Zoom In/Out, Compass, Locate (định vị người dùng), Fullscreen.
 - **Marker, Popup, Route, Cluster Layer**: Hệ thống component map đầy đủ với marker tùy chỉnh, popup, tooltip, route và cluster layer.
 
@@ -156,12 +156,11 @@ graph TD
 ## 📂 Cấu Trúc Thư Mục
 
 ```
-LogiWeb/
+Logistic_Web/
 ├── backend/                          # MÃ NGUỒN BACKEND
 │   ├── prisma/
-│   │   ├── schema.prisma             # Định nghĩa database (11 models)
-│   │   ├── seed.ts                   # Dữ liệu mẫu
-│   │   └── dev.db                    # SQLite dev (optional)
+│   │   ├── schema.prisma             # Định nghĩa database (12 models)
+│   │   └── seed.ts                   # Dữ liệu mẫu
 │   ├── src/
 │   │   ├── config/                   # env, database, jwt, swagger
 │   │   ├── controllers/              # auth, user, warehouse, shipment, inventory, notification
@@ -207,8 +206,7 @@ LogiWeb/
 │
 ├── docker-compose.yml                # Docker Compose (DB + Backend + Frontend)
 ├── render.yaml                       # Render deployment config
-├── .github/workflows/ci-cd.yml       # GitHub Actions CI/CD
-└── assessment_report.html            # Báo cáo đánh giá đồ án
+└── .github/workflows/ci-cd.yml       # GitHub Actions CI/CD
 ```
 
 ---
@@ -224,8 +222,8 @@ LogiWeb/
 ### 1. Clone & Cài Đặt
 
 ```bash
-git clone <repository-url>
-cd LogiWeb
+git clone https://github.com/Lht09112005/Logistic_Web.git
+cd Logistic_Web
 
 # Cài đặt backend
 cd backend
@@ -238,16 +236,16 @@ npm install
 
 ### 2. Cấu Hình Backend
 
-Tạo file `backend/.env`:
+Sao chép `backend/.env.example` thành `backend/.env` và điền các giá trị:
 
 ```env
 # Database (Supabase PostgreSQL)
-DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?schema=public"
-DIRECT_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
+DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres?schema=public"
+DIRECT_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres"
 
-# JWT
-JWT_SECRET="your-super-secret-jwt-key-here"
-JWT_REFRESH_SECRET="your-refresh-token-secret-here"
+# JWT Secrets
+JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
+JWT_REFRESH_SECRET="your-refresh-token-secret-change-this-in-production"
 JWT_EXPIRES_IN="15m"
 JWT_REFRESH_EXPIRES_IN="7d"
 
@@ -256,15 +254,15 @@ PORT=5000
 NODE_ENV=development
 
 # Rate Limiting
-RATE_LIMIT_AUTH_MAX=10
-RATE_LIMIT_STRICT_MAX=5
-RATE_LIMIT_API_MAX=500
-RATE_LIMIT_POLLING_MAX=300
+RATE_LIMIT_AUTH_MAX=10      # Max login/register attempts per 15 min
+RATE_LIMIT_STRICT_MAX=5     # Max refresh/password reset attempts per 15 min
+RATE_LIMIT_API_MAX=500      # Max general API requests per 15 min
+RATE_LIMIT_POLLING_MAX=300  # Max polling GET requests per 15 min
 
-# CORS
+# Frontend URL (for CORS)
 FRONTEND_URL="http://localhost:3000"
 
-# Email (SMTP) — optional, for password reset
+# Email (SMTP) — password reset (Gmail, etc.)
 SMTP_HOST="smtp.gmail.com"
 SMTP_PORT=465
 SMTP_USER="your-email@gmail.com"
@@ -283,12 +281,30 @@ npm run seed    # Nạp dữ liệu mẫu
 
 ### 4. Cấu Hình Frontend
 
-Tạo file `frontend/.env.local`:
+Sao chép `frontend/.env.example` thành `frontend/.env.local` và điền các giá trị:
 
 ```env
-NEXTAUTH_SECRET="your-nextauth-secret"
+# ─── NextAuth ──────────────────────────────────────────────
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-nextauth-secret-key-change-this"
+
+# ─── Backend API ───────────────────────────────────────────
+# NEXT_PUBLIC_* dùng cho cả client-side (browser) và server-side
 NEXT_PUBLIC_API_URL="http://localhost:5000/api"
 NEXT_PUBLIC_SOCKET_URL="http://localhost:5000"
+
+# API_URL — server-side only (Server Actions, Route Handlers)
+# Docker: đặt là "http://backend:5000/api" (Docker internal network)
+# API_URL="http://backend:5000/api"
+
+# ─── Routing API (OpenRouteService) ────────────────────────
+# Lấy API key miễn phí tại: https://openrouteservice.org/dev/#/signup
+# Dùng cho tính năng tối ưu lộ trình vận chuyển
+NEXT_PUBLIC_ORS_API_KEY=""
+
+# ─── Supabase (Optional — direct access) ──────────────────
+# NEXT_PUBLIC_SUPABASE_URL="https://[YOUR-PROJECT-REF].supabase.co"
+# NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
 ```
 
 ### 5. Chạy Ứng Dụng
@@ -322,17 +338,19 @@ docker compose exec backend npx prisma db seed
 
 ## 👥 Tài Khoản Kiểm Thử
 
-| Vai trò | Email | Mật khẩu |
-|---|---|---|
-| **Quản trị viên (Admin)** | `admin@logistiq.vn` | `admin123` |
-| **Quản lý kho HCM** | `manager.hcm@logistiq.vn` | `staff123` |
-| **Quản lý kho HN** | `manager.hn@logistiq.vn` | `staff123` |
-| **Quản lý kho ĐN** | `manager.dn@logistiq.vn` | `staff123` |
-| **Nhân viên kho** | `nam@logistiq.vn` | `staff123` |
-| **Tài xế 1** | `driver1@logistiq.vn` | `staff123` |
-| **Tài xế 2** | `driver2@logistiq.vn` | `staff123` |
+| Vai trò | Email | Mật khẩu | Kho phụ trách |
+|---|---|---|---|
+| **Quản trị viên (Admin)** | `admin@logistiq.vn` | `admin123` | Toàn hệ thống |
+| **Quản lý kho HCM** | `manager.hcm@logistiq.vn` | `staff123` | Kho Trung Tâm HCM |
+| **Quản lý kho HN** | `manager.hn@logistiq.vn` | `staff123` | Kho Hà Nội |
+| **Quản lý kho ĐN** | `manager.dn@logistiq.vn` | `staff123` | Kho Đà Nẵng |
+| **Nhân viên HCM** | `nam@logistiq.vn` | `staff123` | Kho Trung Tâm HCM |
+| **Nhân viên HN** | `staff.hn@logistiq.vn` | `staff123` | Kho Hà Nội |
+| **Nhân viên ĐN** | `staff.dn@logistiq.vn` | `staff123` | Kho Đà Nẵng |
+| **Tài xế 1** | `driver1@logistiq.vn` | `staff123` | — |
+| **Tài xế 2** | `driver2@logistiq.vn` | `staff123` | — |
 
-> Mỗi manager quản lý đúng 1 kho. Xem chi tiết trong hệ thống.
+> Mỗi manager và staff được gán đúng 1 kho. Xem chi tiết trong hệ thống.
 
 ---
 
