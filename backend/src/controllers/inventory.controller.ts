@@ -1,5 +1,5 @@
-import { Request, Response } from 'express'
-import { sendSuccess, sendError } from '../utils/response'
+import { Request, Response, NextFunction } from 'express'
+import { sendSuccess } from '../utils/response'
 import { AuthRequest } from '../middleware/auth.middleware'
 import {
   getInventory as getInventoryService,
@@ -11,7 +11,7 @@ import {
 } from '../services/inventory.service'
 
 // GET /api/inventory
-export const getInventory = async (req: Request, res: Response): Promise<void> => {
+export const getInventory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { page = '1', limit = '20', warehouseId, lowStock, search, productId } = req.query
     const authUser = (req as AuthRequest).user
@@ -34,12 +34,12 @@ export const getInventory = async (req: Request, res: Response): Promise<void> =
       totalPages: result.totalPages,
     })
   } catch (error) {
-    sendError(res, 'Lỗi lấy tồn kho', 500, error)
+    next(error)
   }
 }
 
 // GET /api/inventory/alerts
-export const getAlerts = async (req: Request, res: Response): Promise<void> => {
+export const getAlerts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { isResolved = 'false', severity } = req.query
     const authUser = (req as AuthRequest).user
@@ -53,12 +53,12 @@ export const getAlerts = async (req: Request, res: Response): Promise<void> => {
 
     sendSuccess(res, alerts, 'Lấy cảnh báo thành công')
   } catch (error) {
-    sendError(res, 'Lỗi lấy cảnh báo', 500, error)
+    next(error)
   }
 }
 
 // PUT /api/inventory/:id
-export const updateInventory = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateInventory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { quantity, rack, shelf, zoneId, notes } = req.body
 
@@ -70,14 +70,13 @@ export const updateInventory = async (req: AuthRequest, res: Response): Promise<
     )
 
     sendSuccess(res, updated, 'Cập nhật tồn kho thành công')
-  } catch (error: any) {
-    const status = error.statusCode || 500
-    sendError(res, error.message || 'Lỗi cập nhật tồn kho', status, status === 500 ? error : undefined)
+  } catch (error) {
+    next(error)
   }
 }
 
 // POST /api/inventory
-export const createInventory = async (req: AuthRequest, res: Response): Promise<void> => {
+export const createInventory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { productId, warehouseId, zoneId, rack, shelf, quantity, notes } = req.body
 
@@ -88,31 +87,29 @@ export const createInventory = async (req: AuthRequest, res: Response): Promise<
     )
 
     sendSuccess(res, item, 'Thêm vào tồn kho thành công', 201)
-  } catch (error: any) {
-    const status = error.statusCode || 500
-    sendError(res, error.message || 'Lỗi thêm tồn kho', status, status === 500 ? error : undefined)
+  } catch (error) {
+    next(error)
   }
 }
 
 // PUT /api/inventory/alerts/:id/resolve
-export const resolveAlert = async (req: Request, res: Response): Promise<void> => {
+export const resolveAlert = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const alert = await resolveAlertService(req.params.id)
     sendSuccess(res, alert, 'Đã xử lý cảnh báo')
-  } catch (error: any) {
-    const status = error.statusCode || 500
-    sendError(res, error.message || 'Không tìm thấy cảnh báo', status, status === 500 ? error : undefined)
+  } catch (error) {
+    next(error)
   }
 }
 
 // GET /api/inventory/:id
-export const getInventoryById = async (req: Request, res: Response): Promise<void> => {
+export const getInventoryById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authUser = (req as AuthRequest).user
     const item = await getInventoryByIdService(req.params.id, authUser?.role, authUser?.userId)
     sendSuccess(res, item, 'Lấy chi tiết tồn kho thành công')
-  } catch (error: any) {
-    const status = error.statusCode || 500
-    sendError(res, error.message || 'Lỗi lấy chi tiết tồn kho', status, status === 500 ? error : undefined)
+  } catch (error) {
+    next(error)
   }
 }
+
