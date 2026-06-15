@@ -7,7 +7,7 @@
 
 ## 🌟 Tổng Quan
 
-**LogistiQ** là hệ thống quản lý logistics và kho bãi hiện đại, tích hợp **bản đồ số MapLibre GL** thông minh và **định vị GPS thời gian thực** qua Socket.io. Hệ thống giúp doanh nghiệp tự động hóa quy trình quản lý lưu kho, giám sát hành trình di chuyển của đội xe, cảnh báo tồn kho an toàn và tối ưu hóa luồng công việc giữa các phòng ban (Quản trị viên, Quản lý kho, Nhân viên, Tài xế).
+**LogistiQ** là hệ thống quản lý logistics và kho bãi hiện đại, tích hợp **bản đồ MapCN (mapcn.dev)** thông minh và **định vị GPS thời gian thực** qua Socket.io. Hệ thống giúp doanh nghiệp tự động hóa quy trình quản lý lưu kho, giám sát hành trình di chuyển của đội xe, cảnh báo tồn kho an toàn và tối ưu hóa luồng công việc giữa các phòng ban (Quản trị viên, Quản lý kho, Nhân viên, Tài xế).
 
 Hệ thống hỗ trợ **PWA (Progressive Web App)** — có thể cài đặt như ứng dụng di động, hoạt động **offline-first** với IndexedDB cache và hàng đợi đồng bộ tự động khi có mạng trở lại.
 
@@ -16,7 +16,7 @@ Hệ thống hỗ trợ **PWA (Progressive Web App)** — có thể cài đặt 
 ## 🎯 Tính Năng Cốt Lõi
 
 ### 1. 🗺️ Bản Đồ Giám Sát Hành Trình & GPS Thời Gian Thực
-- **Bản đồ tương tác MapLibre GL**: Tích hợp theme CartoDB Positron (light) & Dark Matter (dark), tự động chuyển đổi theo theme hệ thống.
+- **Bản đồ tương tác MapCN (mapcn.dev)**: Thư viện component map React hiện đại, built on top of MapLibre GL, styled với Tailwind CSS. Tự động chuyển đổi theme light/dark.
 - **Định vị thời gian thực**: Xe tải được hiển thị trên bản đồ với cập nhật tọa độ qua **Socket.io**.
 - **Bộ điều khiển bản đồ**: Zoom In/Out, Compass, Locate (định vị người dùng), Fullscreen.
 - **Marker, Popup, Route, Cluster Layer**: Hệ thống component map đầy đủ với marker tùy chỉnh, popup, tooltip, route và cluster layer.
@@ -109,7 +109,7 @@ graph TD
 | **Ngôn ngữ** | `TypeScript` | An toàn kiểu dữ liệu |
 | **Styling** | `Tailwind CSS v4` + CSS Variables | Giao diện responsive, dark/light mode |
 | **UI Components** | `shadcn/ui`, `Radix UI`, `Base UI` | Component library tái sử dụng |
-| **Bản đồ** | `MapLibre GL` + CartoDB tiles | Hiển thị bản đồ, route, marker, cluster |
+| **Bản đồ** | `MapCN (mapcn.dev)` — built on MapLibre GL | Component map React, styled với Tailwind CSS, hỗ trợ shadcn/ui |
 | **Xác thực** | `NextAuth.js v5` (Auth.js) | Quản lý phiên JWT |
 | **State Management** | `Zustand` + `Immer` | Store toàn cục (alerts, sidebar, positions) |
 | **API Client** | `Axios` | Kết nối API, interceptor token |
@@ -186,7 +186,7 @@ LogiWeb/
 │   │   │   ├── offline/              # PWA offline page
 │   │   │   └── actions/              # Server Actions (shipments, inventory)
 │   │   ├── components/
-│   │   │   ├── ui/                   # Map (MapLibre GL), Button, OptimizedImage
+│   │   │   ├── ui/                   # Map (MapCN / MapLibre GL), Button, OptimizedImage
 │   │   │   ├── layout/               # Sidebar, Header, OfflineBanner
 │   │   │   ├── auth/                 # RoleGuard
 │   │   │   └── providers.tsx         # Session + Theme + Auth providers
@@ -444,7 +444,7 @@ Sử dụng file `render.yaml` có sẵn trong repo. Triển khai qua Render Das
 ## 📝 Ghi Chú Phát Triển
 
 - **PWA Icons**: Chạy `npm run generate-icons` trong `frontend/` để tạo icons từ ảnh gốc.
-- **MapLibre GL**: Sử dụng CartoDB Positron (light) / Dark Matter (dark). Theme tự động đồng bộ với dark mode của ứng dụng.
+- **MapCN (mapcn.dev)**: Thư viện component bản đồ React built on top of MapLibre GL. Theme tự động đồng bộ với dark mode của ứng dụng. Xem thêm tại [mapcn.dev](https://www.mapcn.dev/).
 - **Offline**: Dữ liệu vận đơn được cache 7 ngày trong IndexedDB. Mutation queue tự động đồng bộ khi online.
 - **Rate Limiting**: Có thể điều chỉnh qua env vars. Mặc định: auth=10 lần/15ph, API=500 lần/15ph.
 
