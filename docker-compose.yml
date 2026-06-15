@@ -106,6 +106,7 @@ services:
       # ── NextAuth ──
       NEXTAUTH_URL: "http://localhost:3000"
       NEXTAUTH_SECRET: "docker-nextauth-secret-change-in-production"
+      AUTH_TRUST_HOST: "true"   # Required for Docker: allows NextAuth v5 to trust localhost
 
       # ── Backend API ──
       # NOTE: NEXT_PUBLIC_API_URL dùng localhost (cho browser qua Docker port mapping)

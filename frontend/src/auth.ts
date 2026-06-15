@@ -2,7 +2,8 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 // Dùng NEXT_PUBLIC_ hoặc server-side env, fallback localhost
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://127.0.0.1:5000/api";
+// Priority: API_URL for server-side (Docker internal DNS), NEXT_PUBLIC_API_URL for client-side (browser via port mapping)
+const API_BASE = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000/api";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [

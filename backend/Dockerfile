@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Install dependencies first (layer caching)
 COPY package*.json ./
-RUN npm ci --include=dev
+RUN apk add --no-cache openssl && npm ci --include=dev
 
 # Generate Prisma client
 COPY prisma ./prisma
@@ -29,7 +29,7 @@ ENV NODE_ENV=production
 
 # Install only production dependencies
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN apk add --no-cache openssl && npm ci --omit=dev && npm cache clean --force
 
 # Copy Prisma schema & generate client for production
 COPY prisma ./prisma
