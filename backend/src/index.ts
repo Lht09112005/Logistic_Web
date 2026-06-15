@@ -2,6 +2,7 @@
 import './config/env'
 
 import express, { Request, Response, NextFunction } from 'express'
+import { prisma } from './config/database'
 import http from 'http'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -184,9 +185,35 @@ export { io }
 
 const PORT = process.env.PORT || 5000
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`[Server] LogistiQ API running on port ${PORT}`)
   console.log(`[Socket] Socket.io ready`)
+
+  // Run startup migration to fix PostgreSQL enum column if it exists
+  try {
+    console.log('[Migration] Checking database column types...')
+    await prisma.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 
+          FROM information_schema.columns 
+          WHERE table_name = 'users' 
+            AND column_name = 'role' 
+            AND data_type = 'USER-DEFINED'
+        ) THEN
+          RAISE NOTICE 'Converting role column from enum to VARCHAR...';
+          ALTER TABLE users ALTER COLUMN role DROP DEFAULT;
+          ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(50) USING role::VARCHAR;
+          ALTER TABLE users ALTER COLUMN role SET DEFAULT 'STAFF';
+        END IF;
+      END
+      $$;
+    `)
+    console.log('[Migration] Database column types checked successfully.')
+  } catch (err) {
+    console.error('[Migration] Error running startup migrations:', err)
+  }
 })
 
 export default app

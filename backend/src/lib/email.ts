@@ -113,7 +113,7 @@ export async function sendPasswordResetEmail(
 }
 
 /**
- * Send a generic test email to verify SMTP configuration
+ * Send a generic test email to verify configuration
  */
 export async function sendTestEmail(to: string): Promise<{ success: boolean; error?: string }> {
   const transport = getTransporter();
