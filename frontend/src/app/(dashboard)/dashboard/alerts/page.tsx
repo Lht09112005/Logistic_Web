@@ -190,7 +190,7 @@ function AlertsPage() {
                         <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
                           {alert.product?.name}
                         </span>
-                        <code className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
+                        <code className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "middle", maxWidth: "100%" }}>
                           {alert.product?.sku}
                         </code>
                         <span className={`badge whitespace-nowrap ${getAlertSeverityBadge(alert.severity)}`}>
@@ -263,7 +263,7 @@ function AlertsPage() {
                           <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
                             {alert.product?.name}
                           </span>
-                          <code className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>{alert.product?.sku}</code>
+                          <code className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "middle", maxWidth: "100%" }}>{alert.product?.sku}</code>
                           <span className={`badge ${getAlertSeverityBadge(alert.severity)}`}>
                             {alert.severity}
                           </span>

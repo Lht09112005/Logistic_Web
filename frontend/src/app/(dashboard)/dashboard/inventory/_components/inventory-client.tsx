@@ -294,8 +294,9 @@ export default function InventoryClient(props: Props) {
                         >
                           {item.product.name}
                         </Link>
-                        <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                          {item.product.sku} • {getCategoryLabel(item.product.category)}
+                        <div className="text-xs mt-0.5 flex items-center gap-1 min-w-0" style={{ color: "var(--text-muted)" }}>
+                          <span className="truncate md:max-w-[15ch]">{item.product.sku}</span>
+                          <span className="shrink-0">{getCategoryLabel(item.product.category)}</span>
                         </div>
                       </div>
                     </div>

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Plus, MapPin, Clipboard, Tag, AlertCircle
+  ArrowLeft, Plus, MapPin, Clipboard, Tag, AlertCircle, Package
 } from "lucide-react";
 import { createInventoryAction } from "@/app/actions/inventory";
+import { productsApi } from "@/lib/api";
 import { RoleGuard } from "@/components/auth/role-guard";
 
 interface Warehouse {
@@ -27,46 +28,99 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
 
   // Form states
   const [productId, setProductId] = useState("");
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductUnit, setNewProductUnit] = useState("Cái");
   const [warehouseId, setWarehouseId] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [rack, setRack] = useState("");
   const [shelf, setShelf] = useState("");
   const [quantity, setQuantity] = useState(0);
   const [notes, setNotes] = useState("");
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
 
   // Get zones for selected warehouse
   const selectedWarehouse = warehouses.find(w => w.id === warehouseId);
   const zones = selectedWarehouse?.zones || [];
 
+  // Auto-generate SKU from product name
+  const generateSku = (name: string) => {
+    const slug = name
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 20)
+      .toUpperCase();
+    const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${slug}-${suffix}`;
+  };
+
   // Submit form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productId || !warehouseId) {
-      setError("Vui lòng chọn đầy đủ Sản phẩm và Kho hàng!");
+
+    // Validate: need either productId OR newProductName
+    const isNewProduct = !productId && newProductName.trim();
+    if (!productId && !isNewProduct) {
+      setError("Vui lòng chọn sản phẩm có sẵn hoặc nhập tên sản phẩm mới!");
+      return;
+    }
+    if (!warehouseId) {
+      setError("Vui lòng chọn Kho hàng!");
       return;
     }
 
     setLoading(true);
     setError(null);
 
-    const payload = {
-      productId,
-      warehouseId,
-      zoneId: zoneId || undefined,
-      rack: rack || undefined,
-      shelf: shelf || undefined,
-      quantity: quantity || 0,
-      notes: notes || undefined
-    };
+    try {
+      let finalProductId = productId;
 
-    const res = await createInventoryAction(payload);
-    setLoading(false);
+      // If creating a new product
+      if (isNewProduct) {
+        setIsCreatingProduct(true);
+        const sku = generateSku(newProductName.trim());
+        const createRes = await productsApi.create({
+          name: newProductName.trim(),
+          sku,
+          unit: newProductUnit || "Cái",
+          category: "OTHER",
+          minStockLevel: 10,
+        });
+        const newProduct = createRes.data?.data;
+        if (!newProduct?.id) {
+          throw new Error("Không thể tạo sản phẩm mới!");
+        }
+        finalProductId = newProduct.id;
+        setIsCreatingProduct(false);
+      }
 
-    if (res.success) {
-      router.push("/dashboard/inventory");
-      router.refresh();
-    } else {
-      setError(res.message || "Thêm vào tồn kho thất bại!");
+      const payload = {
+        productId: finalProductId,
+        warehouseId,
+        zoneId: zoneId || undefined,
+        rack: rack || undefined,
+        shelf: shelf || undefined,
+        quantity: quantity || 0,
+        notes: notes || undefined
+      };
+
+      const res = await createInventoryAction(payload);
+
+      if (res.success) {
+        router.push("/dashboard/inventory");
+        router.refresh();
+      } else {
+        setError(res.message || "Thêm vào tồn kho thất bại!");
+      }
+    } catch (err: unknown) {
+      setIsCreatingProduct(false);
+      const message = (err as { response?: { data?: { message?: string } }, message?: string })?.response?.data?.message
+        || (err as Error)?.message
+        || "Lỗi không xác định!";
+      setError(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -104,15 +158,20 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               Sản phẩm & Địa điểm *
             </h2>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* Existing product selector */}
               <div>
-                <label htmlFor="new-inventory-product" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Sản phẩm *</label>
+                <label htmlFor="new-inventory-product" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  Chọn sản phẩm có sẵn
+                </label>
                 <select
                   id="new-inventory-product"
                   name="productId"
-                  required
                   value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
+                  onChange={(e) => {
+                    setProductId(e.target.value);
+                    if (e.target.value) setNewProductName(""); // Clear new product name when selecting existing
+                  }}
                   className="input-base text-sm"
                 >
                   <option value="">-- Chọn sản phẩm trong hệ thống --</option>
@@ -120,6 +179,50 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
                     <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px" style={{ background: "var(--border-light)" }} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Hoặc thêm mới</span>
+                <div className="flex-1 h-px" style={{ background: "var(--border-light)" }} />
+              </div>
+
+              {/* New product fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="new-product-name" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    <Package size={12} className="inline mr-1" style={{ color: "var(--color-warning)" }} />
+                    Tên sản phẩm mới
+                  </label>
+                  <input
+                    id="new-product-name"
+                    name="newProductName"
+                    type="text"
+                    value={newProductName}
+                    onChange={(e) => {
+                      setNewProductName(e.target.value);
+                      if (e.target.value) setProductId(""); // Clear selected product when typing new name
+                    }}
+                    placeholder="VD: Máy in Laser HP 1018..."
+                    className="input-base text-sm"
+                  />
+                  <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>SKU sẽ được tự động tạo từ tên sản phẩm</p>
+                </div>
+                <div>
+                  <label htmlFor="new-product-unit" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    Đơn vị tính
+                  </label>
+                  <input
+                    id="new-product-unit"
+                    name="newProductUnit"
+                    type="text"
+                    value={newProductUnit}
+                    onChange={(e) => setNewProductUnit(e.target.value)}
+                    placeholder="VD: Cái, Thùng, Kg..."
+                    className="input-base text-sm"
+                  />
+                </div>
               </div>
 
               <div>
@@ -241,7 +344,10 @@ export default function NewInventoryClient({ warehouses, products }: Props) {
               className="btn btn-primary w-full justify-center py-3 text-sm rounded-xl font-bold"
             >
               {loading ? (
-                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span className="flex items-center gap-2">
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {isCreatingProduct ? "Đang tạo sản phẩm..." : "Đang thêm tồn kho..."}
+                </span>
               ) : (
                 <>
                   <Plus size={16} />

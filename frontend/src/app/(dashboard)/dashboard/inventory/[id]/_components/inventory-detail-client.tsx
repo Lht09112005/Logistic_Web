@@ -261,7 +261,7 @@ export default function InventoryDetailClient({ item: initialItem, zones }: Prop
               <div className="space-y-1 min-w-0 flex-1">
                 <h2 className="text-base sm:text-xl font-bold truncate" style={{ color: "var(--text-primary)" }}>{item.product.name}</h2>
                 <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-xs" style={{ color: "var(--text-muted)" }}>
-                  <span className="font-semibold px-1.5 sm:px-2 py-0.5 rounded" style={{ background: "var(--bg-input)" }}>SKU: {item.product.sku}</span>
+                  <span className="font-semibold px-1.5 sm:px-2 py-0.5 rounded" style={{ background: "var(--bg-input)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "middle", maxWidth: "100%" }}>SKU: {item.product.sku}</span>
                   <span className="font-semibold px-1.5 sm:px-2 py-0.5 rounded" style={{ background: "var(--bg-input)" }}>Phân loại: {getCategoryLabel(item.product.category)}</span>
                   <span className="font-semibold px-1.5 sm:px-2 py-0.5 rounded" style={{ background: "var(--bg-input)" }}>Đơn vị: {item.product.unit}</span>
                 </div>

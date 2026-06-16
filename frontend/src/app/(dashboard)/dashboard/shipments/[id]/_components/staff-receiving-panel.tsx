@@ -142,7 +142,7 @@ export default function StaffReceivingPanel({
               <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
                 {item.product.name}
               </div>
-              <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+              <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
                 SKU: {item.product.sku}
               </div>
             </div>

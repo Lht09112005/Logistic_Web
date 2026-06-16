@@ -122,7 +122,7 @@ export default function WarehouseClient({ warehouses: initial }: Props) {
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
             </span>
           </div>
-          <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }}>
+          <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }} suppressHydrationWarning>
             {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </span>
         </div>
@@ -710,7 +710,7 @@ function StaffWarehouseInventory({ assignedWarehouses }: { assignedWarehouses: {
               {socketConnected ? "Trực tiếp" : "Đang kết nối..."}
             </span>
           </div>
-          <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }}>
+          <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }} suppressHydrationWarning>
             {lastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </span>
         </div>
@@ -799,8 +799,9 @@ function StaffWarehouseInventory({ assignedWarehouses }: { assignedWarehouses: {
                     </div>
                     <div>
                       <p className="font-semibold text-sm line-clamp-1" style={{ color: "var(--text-primary)" }}>{item.product.name}</p>
-                      <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                        {item.product.sku} · {getCategoryLabel(item.product.category)}
+                      <div className="text-xs mt-0.5 flex items-center gap-1 min-w-0" style={{ color: "var(--text-muted)" }}>
+                        <span className="truncate md:max-w-[15ch]">{item.product.sku}</span>
+                        <span className="shrink-0">{getCategoryLabel(item.product.category)}</span>
                       </div>
                     </div>
                   </div>

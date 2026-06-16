@@ -345,7 +345,7 @@ export default function WarehouseDetailClient({ warehouse: initial }: Props) {
                               <p className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
                                 {item.product.name}
                               </p>
-                              <code className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                              <code className="text-[10px] truncate" style={{ color: "var(--text-muted)", display: "inline-block", maxWidth: "100%" }}>
                                 {item.product.sku}
                               </code>
                             </div>

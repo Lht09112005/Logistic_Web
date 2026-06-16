@@ -52,7 +52,8 @@ export default function QRScanClient() {
 
   const { assignedWarehouses, isStaffOnly } = useAuth();
 
-  // New product form state — simplified: only quantity + min stock level
+  // New product form state
+  const [newProductName, setNewProductName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
   const [newQuantity, setNewQuantity] = useState(1);
   const [newMinStockLevel, setNewMinStockLevel] = useState(10);
@@ -60,6 +61,7 @@ export default function QRScanClient() {
   const [createError, setCreateError] = useState("");
 
   // Add inventory state (after creating new product)
+  const [editProductName, setEditProductName] = useState("");
   const [initWarehouseId, setInitWarehouseId] = useState("");
   const [initQuantity, setInitQuantity] = useState(1);
   const [initZone, setInitZone] = useState("");
@@ -111,6 +113,13 @@ export default function QRScanClient() {
       });
     }
   }, [preloadId, lookupInventory]);
+
+  // Sync editProductName when product changes on found state
+  useEffect(() => {
+    if (product && scanState === "found") {
+      setEditProductName(product.name);
+    }
+  }, [product, scanState]);
 
   // Pre-populate warehouse list when entering "found" with no inventory in accessible warehouses
   useEffect(() => {
@@ -184,7 +193,8 @@ export default function QRScanClient() {
         setInventoryRecords(records);
         if (records[0]) setSelectedInventoryId(records[0].id);
       } else {
-        // Không tìm thấy → chuyển sang form nhập số lượng & mức cảnh báo tối thiểu
+        // Không tìm thấy → chuyển sang form nhập tên, số lượng & mức cảnh báo
+        setNewProductName("");
         setNewBarcode(code);
         setNewQuantity(1);
         setNewMinStockLevel(10);
@@ -230,9 +240,10 @@ export default function QRScanClient() {
 
     setIsCreating(true);
     try {
+      const productName = newProductName.trim() || `Sản phẩm - ${newBarcode}`;
       const autoSku = `SP-${newBarcode}`;
       const payload: Record<string, unknown> = {
-        name: `Sản phẩm - ${newBarcode}`,
+        name: productName,
         sku: autoSku,
         qrCode: scanMode === "QR_CODE" ? newBarcode : undefined,
         barcode: scanMode === "BARCODE" ? newBarcode : undefined,
@@ -306,6 +317,13 @@ export default function QRScanClient() {
     setIsAddingInventory(true);
     setAddInventoryError("");
     try {
+      // Cập nhật tên sản phẩm nếu người dùng thay đổi
+      const trimmedName = editProductName.trim();
+      if (trimmedName && trimmedName !== product.name) {
+        await productsApi.update(product.id, { name: trimmedName });
+        setProduct({ ...product, name: trimmedName });
+      }
+
       await inventoryApi.create({
         productId: product.id,
         warehouseId: initWarehouseId,
@@ -396,7 +414,10 @@ export default function QRScanClient() {
     setNotes("");
     setManualCode("");
     setSuccessMsg("");
-    setSelectedInventoryId("");        setNewBarcode("");
+    setSelectedInventoryId("");
+    setEditProductName("");
+    setNewProductName("");
+    setNewBarcode("");
     setNewQuantity(1);
     setNewMinStockLevel(10);
     setCreateError("");
@@ -650,10 +671,29 @@ export default function QRScanClient() {
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   {scanMode === "QR_CODE" ? "Mã QR" : "Mã vạch"}
                 </label>
-                <div className="input-base text-sm flex items-center gap-2" style={{ opacity: 0.7 }}>
-                  {scanMode === "QR_CODE" ? <QrCode size={14} /> : <Barcode size={14} />}
-                  <span className="font-mono">{newBarcode}</span>
+                <div className="input-base text-sm flex items-center gap-2 overflow-x-auto no-scrollbar" style={{ opacity: 0.7 }}>
+                  <span className="shrink-0">{scanMode === "QR_CODE" ? <QrCode size={14} /> : <Barcode size={14} />}</span>
+                  <span className="font-mono whitespace-nowrap">{newBarcode}</span>
                 </div>
+              </div>
+
+              {/* Tên sản phẩm */}
+              <div>
+                <label htmlFor="new-product-name" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  Tên sản phẩm <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <input
+                  id="new-product-name"
+                  type="text"
+                  value={newProductName}
+                  onChange={(e) => setNewProductName(e.target.value)}
+                  placeholder="VD: Máy in Laser HP 1018..."
+                  className="input-base text-sm"
+                  autoFocus
+                />
+                <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>
+                  Để trống để hệ thống tự động đặt tên
+                </p>
               </div>
 
               {/* Số lượng nhập kho */}
@@ -668,7 +708,6 @@ export default function QRScanClient() {
                   value={newQuantity}
                   onChange={(e) => setNewQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                   className="input-base text-sm"
-                  autoFocus
                 />
               </div>
 
@@ -936,7 +975,7 @@ export default function QRScanClient() {
                   <div className="min-w-0">
                     <h3 className="font-bold text-sm sm:text-base truncate" style={{ color: "var(--text-primary)" }}>{product.name}</h3>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <code className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
+                      <code className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded truncate" style={{ background: "var(--bg-input)", color: "var(--text-muted)", display: "inline-block", verticalAlign: "middle", maxWidth: "100%" }}>
                         {product.sku}
                       </code>
                       <span className="text-[10px] sm:text-xs" style={{ color: "var(--text-muted)" }}>
@@ -1073,6 +1112,21 @@ export default function QRScanClient() {
               )}
 
               <div className="space-y-3">
+                {/* Tên sản phẩm (có thể sửa) */}
+                <div>
+                  <label htmlFor="inline-product-name" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    Tên sản phẩm
+                  </label>
+                  <input
+                    id="inline-product-name"
+                    type="text"
+                    value={editProductName}
+                    onChange={(e) => setEditProductName(e.target.value)}
+                    placeholder="Nhập tên sản phẩm..."
+                    className="input-base text-sm"
+                  />
+                </div>
+
                 {/* Warehouse */}
                 <div>
                   <label htmlFor="inline-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>

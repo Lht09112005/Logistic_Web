@@ -37,8 +37,9 @@ export async function createInventoryAction(data: {
     const api = await getServerApi();
     const res = await api.post("/inventory", data);
 
-    // Revalidate inventory page list
+    // Revalidate inventory + warehouse pages so new items appear
     revalidatePath("/dashboard/inventory");
+    revalidatePath("/dashboard/warehouse");
 
     return { success: true, data: res.data.data };
   } catch (error: unknown) {

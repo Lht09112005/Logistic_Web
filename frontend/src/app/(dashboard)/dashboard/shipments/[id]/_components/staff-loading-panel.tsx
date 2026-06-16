@@ -110,7 +110,7 @@ export default function StaffLoadingPanel({
               <CheckCircle size={16} className="text-success flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{item.product.name}</div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>SKU: {item.product.sku}</div>
+                <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>SKU: {item.product.sku}</div>
               </div>
               <div className="text-right flex-shrink-0">
                 <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{item.quantity} {item.product.unit}</div>

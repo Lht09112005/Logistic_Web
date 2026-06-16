@@ -574,7 +574,7 @@ export default function ShipmentDetailClient({ shipment: initial, refresh, refre
                   {shipment.items.map((item) => (
                     <tr key={item.id} className="hover:bg-(--bg-input) transition-colors">
                       <td className="font-medium text-sm">{item.product.name}</td>
-                      <td><code className="text-[11px] px-1 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>{item.product.sku}</code></td>
+                      <td><code className="text-[11px] px-1 py-0.5 rounded truncate" style={{ background: "var(--bg-input)", color: "var(--text-muted)", display: "inline-block", maxWidth: "100%" }}>{item.product.sku}</code></td>
                       <td className="text-right font-semibold">{item.quantity} <span className="text-[10px] font-normal" style={{ color: "var(--text-muted)" }}>{item.product.unit}</span></td>
                       <td className="text-right">{item.weight ? `${item.weight} kg` : "—"}</td>
                     </tr>
