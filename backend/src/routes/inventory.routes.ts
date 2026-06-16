@@ -14,8 +14,9 @@ router.use(authenticate)
 router.get('/', authorize('ADMIN', 'MANAGER', 'STAFF'), getInventory)
 router.get('/alerts', authorize('ADMIN', 'MANAGER', 'STAFF'), getAlerts)
 router.get('/:id', authorize('ADMIN', 'MANAGER', 'STAFF'), getInventoryById)
-router.post('/', authorize('ADMIN', 'MANAGER'), validateCreateInventory, createInventory)
+// STAFF được phép tạo và cập nhật tồn kho (service layer đã kiểm tra quyền theo warehouse)
+router.post('/', authorize('ADMIN', 'MANAGER', 'STAFF'), validateCreateInventory, createInventory)
 router.put('/alerts/:id/resolve', authorize('ADMIN', 'MANAGER'), resolveAlert)
-router.put('/:id', authorize('ADMIN', 'MANAGER'), validateUpdateInventory, updateInventory)
+router.put('/:id', authorize('ADMIN', 'MANAGER', 'STAFF'), validateUpdateInventory, updateInventory)
 
 export default router

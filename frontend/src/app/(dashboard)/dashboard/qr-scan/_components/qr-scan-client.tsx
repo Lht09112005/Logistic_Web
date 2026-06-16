@@ -6,11 +6,13 @@ import {
   QrCode, Camera, CheckCircle, AlertCircle, Loader2,
   Package, RotateCcw, Minus, Plus, Save, X, Scan,
   Barcode, PlusCircle,
-  ArrowRight,
+  ArrowRight, Warehouse,
 } from "lucide-react";
 import type { Html5Qrcode } from "html5-qrcode";
-import { productsApi, inventoryApi } from "@/lib/api";
+import { productsApi, inventoryApi, warehousesApi } from "@/lib/api";
 import { getCategoryLabel } from "@/lib/utils";
+import { useAuth } from "@/context/auth-context";
+import Link from "next/link";
 
 type ScanMode = "QR_CODE" | "BARCODE";
 
@@ -20,12 +22,7 @@ interface ScannedProduct {
   inventory: { id: string; quantity: number; warehouse: { name: string; code: string } }[];
 }
 
-type ScanState = "idle" | "scanning" | "found" | "new_product" | "updating" | "success" | "error";
-
-const CATEGORIES = [
-  "ELECTRONICS", "CLOTHING", "FOOD", "FURNITURE",
-  "MEDICAL", "AUTOMOTIVE", "CHEMICAL", "OTHER",
-];
+type ScanState = "idle" | "scanning" | "found" | "new_product" | "add_inventory" | "updating" | "success" | "error";
 
 export default function QRScanClient() {
   const searchParams = useSearchParams();
@@ -42,15 +39,25 @@ export default function QRScanClient() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
-  // New product form state
+  const { assignedWarehouses, isStaffOnly } = useAuth();
+
+  // New product form state — simplified: only quantity + min stock level
   const [newBarcode, setNewBarcode] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newSku, setNewSku] = useState("");
-  const [newCategory, setNewCategory] = useState("OTHER");
-  const [newUnit, setNewUnit] = useState("pcs");
+  const [newQuantity, setNewQuantity] = useState(1);
   const [newMinStockLevel, setNewMinStockLevel] = useState(10);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+
+  // Add inventory state (after creating new product)
+  const [initWarehouseId, setInitWarehouseId] = useState("");
+  const [initQuantity, setInitQuantity] = useState(1);
+  const [initZone, setInitZone] = useState("");
+  const [initRack, setInitRack] = useState("");
+  const [initShelf, setInitShelf] = useState("");
+  const [initNotes, setInitNotes] = useState("");
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [isAddingInventory, setIsAddingInventory] = useState(false);
+  const [addInventoryError, setAddInventoryError] = useState("");
 
   // Hàm cleanup đồng bộ
   const destroyScanner = useCallback(() => {
@@ -74,6 +81,22 @@ export default function QRScanClient() {
     }
   }, [preloadId]);
 
+  // Pre-populate warehouse list when entering "found" with no inventory
+  useEffect(() => {
+    if (scanState === "found" && product && (!product.inventory || product.inventory.length === 0) && !initWarehouseId) {
+      if (isStaffOnly && assignedWarehouses.length > 0) {
+        setInitWarehouseId(assignedWarehouses[0].id);
+      } else {
+        warehousesApi.getAll().then((res) => {
+          const whList = (res.data.data || []) as { id: string; name: string; code: string }[];
+          setWarehouses(whList);
+          if (whList.length > 0) setInitWarehouseId(whList[0].id);
+        }).catch(() => {});
+      }
+      setInitQuantity(1);
+    }
+  }, [scanState, product, initWarehouseId, isStaffOnly, assignedWarehouses]);
+
   // Tra cứu sản phẩm theo code
   const lookupProduct = useCallback(async (code: string) => {
     if (scanMode === "QR_CODE") {
@@ -82,6 +105,19 @@ export default function QRScanClient() {
       return productsApi.getByBarcode(code);
     }
   }, [scanMode]);
+
+  // Try to find a product by a scanned code using both QR and barcode lookups
+  const findProductByCode = useCallback(async (code: string): Promise<ScannedProduct | null> => {
+    try {
+      const res = await productsApi.getByQR(code);
+      return res.data.data as ScannedProduct;
+    } catch { /* not found by QR */ }
+    try {
+      const res = await productsApi.getByBarcode(code);
+      return res.data.data as ScannedProduct;
+    } catch { /* not found by barcode */ }
+    return null;
+  }, []);
 
   const handleScanResult = useCallback(async (code: string) => {
     setScanState("scanning");
@@ -92,54 +128,145 @@ export default function QRScanClient() {
       setScanState("found");
       if (p.inventory?.[0]) setSelectedInventoryId(p.inventory[0].id);
     } catch {
-      // Không tìm thấy → chuyển sang form tạo sản phẩm mới với mã đã điền sẵn
-      setNewBarcode(code);
-      setNewSku("");
-      setNewName("");
-      setNewCategory("OTHER");
-      setNewUnit("pcs");
-      setNewMinStockLevel(10);
-      setCreateError("");
-      setScanState("new_product");
+      // Primary lookup failed — try the other scan method before giving up
+      const fallback = await findProductByCode(code);
+      if (fallback) {
+        setProduct(fallback);
+        setScanState("found");
+        if (fallback.inventory?.[0]) setSelectedInventoryId(fallback.inventory[0].id);
+      } else {
+        // Không tìm thấy → chuyển sang form nhập số lượng & mức cảnh báo tối thiểu
+        setNewBarcode(code);
+        setNewQuantity(1);
+        setNewMinStockLevel(10);
+        setCreateError("");
+        setScanState("new_product");
+      }
     }
-  }, [lookupProduct]);
+  }, [lookupProduct, findProductByCode]);
 
-  // Tự động sinh SKU từ barcode nếu người dùng chưa nhập
-  const generateSku = useCallback(() => {
-    if (!newSku.trim() && newBarcode) {
-      setNewSku(`SP-${newBarcode}`);
-    }
-  }, [newSku, newBarcode]);
-
-  // Lưu sản phẩm mới
+  // Lưu sản phẩm mới + thêm vào kho — tự động sinh tên/SKU, chỉ cần số lượng & mức cảnh báo
   const handleCreateProduct = async () => {
-    if (!newName.trim()) return;
     setCreateError("");
+
+    // Ensure warehouse ID is set before proceeding
+    let whId = initWarehouseId;
+    if (!whId) {
+      if (isStaffOnly && assignedWarehouses.length > 0) {
+        whId = assignedWarehouses[0].id;
+        setInitWarehouseId(whId);
+      } else if (warehouses.length > 0) {
+        whId = warehouses[0].id;
+        setInitWarehouseId(whId);
+      } else {
+        // Try to fetch warehouses
+        try {
+          const whRes = await warehousesApi.getAll();
+          const whList = (whRes.data.data || []) as { id: string; name: string; code: string }[];
+          setWarehouses(whList);
+          if (whList.length > 0) {
+            whId = whList[0].id;
+            setInitWarehouseId(whId);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    if (!whId) {
+      setCreateError("Vui lòng chọn kho lưu trữ.");
+      return;
+    }
+
     setIsCreating(true);
     try {
+      const autoSku = `SP-${newBarcode}`;
       const payload: Record<string, unknown> = {
-        name: newName.trim(),
-        sku: newSku.trim() || `SP-${newBarcode}`,
+        name: `Sản phẩm - ${newBarcode}`,
+        sku: autoSku,
         qrCode: scanMode === "QR_CODE" ? newBarcode : undefined,
         barcode: scanMode === "BARCODE" ? newBarcode : undefined,
-        category: newCategory,
-        unit: newUnit,
+        category: "OTHER",
+        unit: "pcs",
         minStockLevel: newMinStockLevel,
       };
       const res = await productsApi.create(payload);
       const createdProduct = res.data.data as ScannedProduct;
 
-      // Fetch lại với inventory để có đủ thông tin
+      // Create inventory record in one step
+      await inventoryApi.create({
+        productId: createdProduct.id,
+        warehouseId: whId,
+        quantity: newQuantity,
+      });
+
+      // Fetch full detail with inventory
       const detailRes = await productsApi.getById(createdProduct.id);
+      const p = detailRes.data.data as ScannedProduct;
+      setProduct(p);
+      setSuccessMsg(`Tạo sản phẩm thành công! Tồn kho: ${newQuantity} pcs`);
+      setScanState("success");
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { status?: number; data?: { message?: string } } };
+
+      // 409 = SKU/barcode already exists → try to find and show the existing product
+      if (apiErr?.response?.status === 409) {
+        const existingProduct = await findProductByCode(newBarcode);
+        if (existingProduct) {
+          setProduct(existingProduct);
+          setScanState("found");
+          if (existingProduct.inventory?.[0]) setSelectedInventoryId(existingProduct.inventory[0].id);
+          setIsCreating(false);
+          return;
+        }
+        // If can't find by QR/barcode, try searching by auto-generated SKU
+        try {
+          const searchRes = await productsApi.getAll({ search: `SP-${newBarcode}`, limit: "5" });
+          const list = (searchRes.data.data || []) as ScannedProduct[];
+          if (list.length > 0) {
+            const detailRes = await productsApi.getById(list[0].id);
+            const foundProduct = detailRes.data.data as ScannedProduct;
+            setProduct(foundProduct);
+            setScanState("found");
+            if (foundProduct.inventory?.[0]) setSelectedInventoryId(foundProduct.inventory[0].id);
+            setIsCreating(false);
+            return;
+          }
+        } catch { /* silent fallthrough */ }
+      }
+
+      setCreateError(apiErr?.response?.data?.message || "Không thể tạo sản phẩm. Vui lòng thử lại.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Thêm sản phẩm mới vào kho
+  const handleAddInventory = async () => {
+    if (!product || !initWarehouseId) return;
+    setIsAddingInventory(true);
+    setAddInventoryError("");
+    try {
+      await inventoryApi.create({
+        productId: product.id,
+        warehouseId: initWarehouseId,
+        quantity: initQuantity,
+        zoneId: initZone || undefined,
+        rack: initRack || undefined,
+        shelf: initShelf || undefined,
+        notes: initNotes || undefined,
+      });
+
+      // Fetch lại product với inventory
+      const detailRes = await productsApi.getById(product.id);
       const p = detailRes.data.data as ScannedProduct;
       setProduct(p);
       setScanState("found");
       if (p.inventory?.[0]) setSelectedInventoryId(p.inventory[0].id);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      setCreateError(apiErr?.response?.data?.message || "Không thể tạo sản phẩm. Vui lòng thử lại.");
+      setAddInventoryError(apiErr?.response?.data?.message || "Không thể thêm vào kho. Vui lòng thử lại.");
     } finally {
-      setIsCreating(false);
+      setIsAddingInventory(false);
     }
   };
 
@@ -208,14 +335,18 @@ export default function QRScanClient() {
     setNotes("");
     setManualCode("");
     setSuccessMsg("");
-    setSelectedInventoryId("");
-    setNewBarcode("");
-    setNewName("");
-    setNewSku("");
-    setNewCategory("OTHER");
-    setNewUnit("pcs");
+    setSelectedInventoryId("");        setNewBarcode("");
+    setNewQuantity(1);
     setNewMinStockLevel(10);
     setCreateError("");
+    setInitWarehouseId("");
+    setInitQuantity(1);
+    setInitZone("");
+    setInitRack("");
+    setInitShelf("");
+    setInitNotes("");
+    setWarehouses([]);
+    setAddInventoryError("");
   };
 
   const handleManualLookup = async () => {
@@ -226,15 +357,21 @@ export default function QRScanClient() {
   };
 
   const handleUpdateInventory = async () => {
-    if (!selectedInventoryId) return;
+    if (!selectedInventoryId || !product) return;
     setIsUpdating(true);
-    const invItem = product?.inventory.find((i) => i.id === selectedInventoryId);
+    const invItem = product?.inventory?.find((i) => i.id === selectedInventoryId);
     if (!invItem) { setIsUpdating(false); return; }
 
     const newQty = Math.max(0, invItem.quantity + adjustment);
     try {
       await inventoryApi.update(selectedInventoryId, { quantity: newQty, notes });
-      setSuccessMsg(`Cập nhật thành công! Tồn kho mới: ${newQty} ${product?.unit}`);
+
+      // Refresh product data to reflect latest state
+      const detailRes = await productsApi.getById(product.id);
+      const p = detailRes.data.data as ScannedProduct;
+      setProduct(p);
+
+      setSuccessMsg(`Cập nhật thành công! Tồn kho mới: ${newQty} ${product.unit}`);
       setScanState("success");
     } catch {
       setScanState("error");
@@ -251,7 +388,7 @@ export default function QRScanClient() {
     setCameraError("");
   };
 
-  const selectedInv = product?.inventory.find((i) => i.id === selectedInventoryId);
+  const selectedInv = product?.inventory?.find((i) => i.id === selectedInventoryId);
   const newQty = selectedInv ? Math.max(0, selectedInv.quantity + adjustment) : 0;
 
   const isScanning = scanState === "idle" || scanState === "scanning";
@@ -410,22 +547,22 @@ export default function QRScanClient() {
           </div>
         </div>
       ) : scanState === "new_product" ? (
-        /* ─── Form tạo sản phẩm mới ─── */
+        /* ─── Form thêm sản phẩm mới — chỉ nhập số lượng & mức cảnh báo ─── */
         <div className="space-y-4 animate-scale-in">
           <div className="card p-4 sm:p-5">
             <div className="flex items-center gap-3 mb-4">
               <div
                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: "#eef2ff" }}
+                style={{ background: "#fff7ed" }}
               >
-                <PlusCircle size={20} className="sm:w-6 sm:h-6" style={{ color: "#6366f1" }} />
+                <Package size={20} className="sm:w-6 sm:h-6" style={{ color: "#f97316" }} />
               </div>
               <div>
                 <h2 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>
                   Sản phẩm mới
                 </h2>
                 <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>
-                  Mã này chưa có trong hệ thống. Vui lòng nhập thông tin sản phẩm.
+                  Mã này chưa có trong hệ thống. Nhập số lượng và mức tồn tối thiểu.
                 </p>
               </div>
             </div>
@@ -438,7 +575,7 @@ export default function QRScanClient() {
             )}
 
             <div className="space-y-4">
-              {/* Mã quét được (pre-filled, readonly) */}
+              {/* Mã quét được (read-only) */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   {scanMode === "QR_CODE" ? "Mã QR" : "Mã vạch"}
@@ -449,77 +586,26 @@ export default function QRScanClient() {
                 </div>
               </div>
 
-              {/* Tên sản phẩm */}
+              {/* Số lượng nhập kho */}
               <div>
-                <label htmlFor="new-product-name" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                  Tên sản phẩm <span style={{ color: "#ef4444" }}>*</span>
+                <label htmlFor="new-product-qty" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  Số lượng tồn kho <span style={{ color: "#ef4444" }}>*</span>
                 </label>
                 <input
-                  id="new-product-name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="VD: Bóng đèn LED 12W"
+                  id="new-product-qty"
+                  type="number"
+                  min={1}
+                  value={newQuantity}
+                  onChange={(e) => setNewQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                   className="input-base text-sm"
                   autoFocus
                 />
               </div>
 
-              {/* SKU */}
-              <div>
-                <label htmlFor="new-product-sku" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                  Mã SKU
-                </label>
-                <input
-                  id="new-product-sku"
-                  value={newSku}
-                  onChange={(e) => setNewSku(e.target.value)}
-                  onBlur={generateSku}
-                  placeholder={`SP-${newBarcode}`}
-                  className="input-base text-sm"
-                />
-                <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>
-                  Để trống để tự động sinh từ mã {scanMode === "QR_CODE" ? "QR" : "vạch"}
-                </p>
-              </div>
-
-              {/* Category + Unit row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="new-product-category" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                    Danh mục
-                  </label>
-                  <select
-                    id="new-product-category"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="input-base text-sm"
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>{getCategoryLabel(cat)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="new-product-unit" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                    Đơn vị
-                  </label>
-                  <select
-                    id="new-product-unit"
-                    value={newUnit}
-                    onChange={(e) => setNewUnit(e.target.value)}
-                    className="input-base text-sm"
-                  >
-                    {["pcs", "kg", "box", "liter", "m", "pair", "set"].map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Min stock level */}
+              {/* Mức tồn tối thiểu (trigger alert) */}
               <div>
                 <label htmlFor="new-product-min-stock" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                  Tồn kho tối thiểu
+                  Mức cảnh báo tồn kho tối thiểu <span style={{ color: "#ef4444" }}>*</span>
                 </label>
                 <input
                   id="new-product-min-stock"
@@ -529,6 +615,39 @@ export default function QRScanClient() {
                   onChange={(e) => setNewMinStockLevel(Math.max(0, parseInt(e.target.value) || 0))}
                   className="input-base text-sm"
                 />
+                <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>
+                  Hệ thống sẽ cảnh báo khi tồn kho dưới mức này
+                </p>
+              </div>
+
+              {/* Chọn kho */}
+              <div>
+                <label htmlFor="new-product-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  Kho lưu trữ <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                {isStaffOnly && assignedWarehouses.length === 1 ? (
+                  <div className="input-base text-sm flex items-center gap-2" style={{ opacity: 0.7 }}>
+                    <Warehouse size={14} />
+                    <span>{assignedWarehouses[0].name} ({assignedWarehouses[0].code})</span>
+                  </div>
+                ) : (
+                  <select
+                    id="new-product-warehouse"
+                    value={initWarehouseId}
+                    onChange={(e) => setInitWarehouseId(e.target.value)}
+                    className="input-base text-sm"
+                  >
+                    {(isStaffOnly ? assignedWarehouses : warehouses).length === 0 ? (
+                      <option value="">Đang tải danh sách kho...</option>
+                    ) : (
+                      (isStaffOnly ? assignedWarehouses : warehouses).map((wh) => (
+                        <option key={wh.id} value={wh.id}>
+                          {wh.name} ({wh.code})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                )}
               </div>
 
               {/* Actions */}
@@ -538,12 +657,163 @@ export default function QRScanClient() {
                 </button>
                 <button
                   onClick={handleCreateProduct}
-                  disabled={isCreating || !newName.trim()}
+                  disabled={isCreating}
                   className="btn btn-primary flex-1 justify-center"
                 >
                   {isCreating
                     ? <><Loader2 size={14} className="animate-spin" /> Đang tạo...</>
-                    : <><Save size={14} /> Lưu sản phẩm</>
+                    : <><Save size={14} /> Thêm vào kho</>
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : scanState === "add_inventory" ? (
+        /* ─── Thêm sản phẩm mới vào kho ─── */
+        <div className="space-y-4 animate-scale-in">
+          <div className="card p-4 sm:p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "#fff7ed" }}
+              >
+                <Package size={20} className="sm:w-6 sm:h-6" style={{ color: "#f97316" }} />
+              </div>
+              <div>
+                <h2 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>
+                  Thêm vào kho
+                </h2>
+                <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>
+                  Sản phẩm <strong>{product?.name}</strong> đã được tạo. Vui lòng chọn kho và nhập số lượng ban đầu.
+                </p>
+              </div>
+            </div>
+
+            {addInventoryError && (
+              <div className="flex items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 mb-4 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{addInventoryError}</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Chọn kho */}
+              <div>
+                <label htmlFor="init-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  Kho lưu trữ <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                {isStaffOnly && assignedWarehouses.length === 1 ? (
+                  /* Staff có 1 kho — hiển thị dạng text */
+                  <div className="input-base text-sm flex items-center gap-2" style={{ opacity: 0.7 }}>
+                    <Package size={14} />
+                    <span>{assignedWarehouses[0].name} ({assignedWarehouses[0].code})</span>
+                  </div>
+                ) : (
+                  /* Nhiều kho — cho phép chọn */
+                  <select
+                    id="init-warehouse"
+                    value={initWarehouseId}
+                    onChange={(e) => setInitWarehouseId(e.target.value)}
+                    className="input-base text-sm"
+                  >
+                    {(isStaffOnly ? assignedWarehouses : warehouses).length === 0 ? (
+                      <option value="">Đang tải danh sách kho...</option>
+                    ) : (
+                      (isStaffOnly ? assignedWarehouses : warehouses).map((wh) => (
+                        <option key={wh.id} value={wh.id}>
+                          {wh.name} ({wh.code})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                )}
+              </div>
+
+              {/* Số lượng */}
+              <div>
+                <label htmlFor="init-quantity" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  Số lượng tồn kho ban đầu <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <input
+                  id="init-quantity"
+                  type="number"
+                  min={1}
+                  value={initQuantity}
+                  onChange={(e) => setInitQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="input-base text-sm"
+                  autoFocus
+                />
+              </div>
+
+              {/* Zone + Rack + Shelf */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label htmlFor="init-zone" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    Phân khu (Zone)
+                  </label>
+                  <input
+                    id="init-zone"
+                    value={initZone}
+                    onChange={(e) => setInitZone(e.target.value)}
+                    placeholder="VD: A"
+                    className="input-base text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="init-rack" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    Kệ (Rack)
+                  </label>
+                  <input
+                    id="init-rack"
+                    value={initRack}
+                    onChange={(e) => setInitRack(e.target.value)}
+                    placeholder="VD: 01"
+                    className="input-base text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="init-shelf" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    Ngăn (Shelf)
+                  </label>
+                  <input
+                    id="init-shelf"
+                    value={initShelf}
+                    onChange={(e) => setInitShelf(e.target.value)}
+                    placeholder="VD: 3"
+                    className="input-base text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Ghi chú */}
+              <div>
+                <label htmlFor="init-notes" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  Ghi chú
+                </label>
+                <textarea
+                  id="init-notes"
+                  value={initNotes}
+                  onChange={(e) => setInitNotes(e.target.value)}
+                  placeholder="Ghi chú nhập kho..."
+                  rows={2}
+                  className="input-base text-sm resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button onClick={handleReset} className="btn btn-secondary flex-1 justify-center">
+                  <X size={14} /> Hủy
+                </button>
+                <button
+                  onClick={handleAddInventory}
+                  disabled={isAddingInventory || !initWarehouseId}
+                  className="btn btn-primary flex-1 justify-center"
+                >
+                  {isAddingInventory
+                    ? <><Loader2 size={14} className="animate-spin" /> Đang thêm vào kho...</>
+                    : <><Save size={14} /> Thêm vào kho</>
                   }
                 </button>
               </div>
@@ -555,7 +825,15 @@ export default function QRScanClient() {
           <CheckCircle size={40} className="mx-auto" style={{ color: "#10b981" }} />
           <h3 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>Cập nhật thành công!</h3>
           <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>{successMsg}</p>
-          <button onClick={handleReset} className="btn btn-primary btn-sm"><RotateCcw size={14} /> Kiểm kho tiếp</button>
+          <div className="flex gap-3 justify-center pt-2">
+            <button onClick={handleReset} className="btn btn-primary btn-sm"><RotateCcw size={14} /> Kiểm kho tiếp</button>
+            <Link
+              href="/dashboard/warehouse"
+              className="btn btn-secondary btn-sm"
+            >
+              <Warehouse size={14} /> Xem kho hàng
+            </Link>
+          </div>
         </div>
       ) : null}
 
@@ -597,8 +875,8 @@ export default function QRScanClient() {
             </div>
           </div>
 
-          {/* Inventory selection */}
-          {product.inventory.length > 1 && (
+          {/* Inventory selection (when product has inventory) */}
+          {(product.inventory?.length ?? 0) > 1 && (
             <div className="card p-3 sm:p-4">
               <label className="block text-xs sm:text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
                 Chọn vị trí kho
@@ -608,12 +886,149 @@ export default function QRScanClient() {
                 onChange={(e) => setSelectedInventoryId(e.target.value)}
                 className="input-base text-xs sm:text-sm"
               >
-                {product.inventory.map((inv) => (
+                {product.inventory?.map((inv) => (
                   <option key={inv.id} value={inv.id}>
                     {inv.warehouse.code} — Tồn: {inv.quantity} {product.unit}
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* No inventory yet — inline add-to-warehouse form (thay vì nút chuyển sang "add_inventory") */}
+          {(!product.inventory || product.inventory.length === 0) && (
+            <div className="card p-4 sm:p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: "#fff7ed" }}
+                >
+                  <Package size={20} style={{ color: "#f97316" }} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+                    Thêm sản phẩm vào kho
+                  </h3>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    Sản phẩm chưa có trong kho. Nhập số lượng và vị trí lưu trữ.
+                  </p>
+                </div>
+              </div>
+
+              {addInventoryError && (
+                <div className="flex items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span>{addInventoryError}</span>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {/* Warehouse */}
+                <div>
+                  <label htmlFor="inline-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    Kho lưu trữ <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  {isStaffOnly && assignedWarehouses.length === 1 ? (
+                    <div className="input-base text-sm flex items-center gap-2" style={{ opacity: 0.7 }}>
+                      <Package size={14} />
+                      <span>{assignedWarehouses[0].name} ({assignedWarehouses[0].code})</span>
+                    </div>
+                  ) : (
+                    <select
+                      id="inline-warehouse"
+                      value={initWarehouseId}
+                      onChange={(e) => setInitWarehouseId(e.target.value)}
+                      className="input-base text-sm"
+                    >
+                      {(isStaffOnly ? assignedWarehouses : warehouses).length === 0 ? (
+                        <option value="">Đang tải danh sách kho...</option>
+                      ) : (
+                        (isStaffOnly ? assignedWarehouses : warehouses).map((wh) => (
+                          <option key={wh.id} value={wh.id}>
+                            {wh.name} ({wh.code})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  )}
+                </div>
+
+                {/* Quantity */}
+                <div>
+                  <label htmlFor="inline-quantity" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    Số lượng tồn kho ban đầu <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <input
+                    id="inline-quantity"
+                    type="number"
+                    min={1}
+                    value={initQuantity}
+                    onChange={(e) => setInitQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="input-base text-sm"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Zone/Rack/Shelf */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label htmlFor="inline-zone" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                      Phân khu
+                    </label>
+                    <input
+                      id="inline-zone"
+                      value={initZone}
+                      onChange={(e) => setInitZone(e.target.value)}
+                      placeholder="VD: A"
+                      className="input-base text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="inline-rack" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                      Kệ
+                    </label>
+                    <input
+                      id="inline-rack"
+                      value={initRack}
+                      onChange={(e) => setInitRack(e.target.value)}
+                      placeholder="VD: 01"
+                      className="input-base text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="inline-shelf" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                      Ngăn
+                    </label>
+                    <input
+                      id="inline-shelf"
+                      value={initShelf}
+                      onChange={(e) => setInitShelf(e.target.value)}
+                      placeholder="VD: 3"
+                      className="input-base text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={handleReset}
+                    className="btn btn-secondary flex-1 justify-center text-sm"
+                  >
+                    <X size={14} /> Hủy
+                  </button>
+                  <button
+                    onClick={handleAddInventory}
+                    disabled={isAddingInventory || !initWarehouseId}
+                    className="btn btn-primary flex-1 justify-center text-sm"
+                  >
+                    {isAddingInventory
+                      ? <><Loader2 size={14} className="animate-spin" /> Đang thêm...</>
+                      : <><Save size={14} /> Thêm vào kho</>
+                    }
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

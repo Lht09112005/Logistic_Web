@@ -74,7 +74,7 @@ function InventoryContent() {
 
 export default function InventoryPage() {
   return (
-    <RoleGuard allowedRoles={["ADMIN", "MANAGER"]} fallback="denied">
+    <RoleGuard allowedRoles={["ADMIN", "MANAGER", "STAFF"]} fallback="denied">
     <Suspense fallback={
       <div className="space-y-6 animate-pulse">
         <div className="skeleton h-10 w-48 rounded-xl" />

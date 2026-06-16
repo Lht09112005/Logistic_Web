@@ -137,8 +137,15 @@ export async function deleteProduct(id: string) {
 }
 
 export async function getProductByQR(qrCode: string) {
+  // Search by both qrCode and barcode fields so that scanning works regardless
+  // of which field the value was stored in when the product was created.
   const product = await prisma.product.findFirst({
-    where: { qrCode },
+    where: {
+      OR: [
+        { qrCode },
+        { barcode: qrCode },
+      ],
+    },
     include: {
       inventory: {
         include: { warehouse: { select: { id: true, name: true, code: true } } },
@@ -154,8 +161,14 @@ export async function getProductByQR(qrCode: string) {
 }
 
 export async function getProductByBarcode(barcode: string) {
+  // Search by both barcode and qrCode fields for the same reason as above.
   const product = await prisma.product.findFirst({
-    where: { barcode },
+    where: {
+      OR: [
+        { barcode },
+        { qrCode: barcode },
+      ],
+    },
     include: {
       inventory: {
         include: { warehouse: { select: { id: true, name: true, code: true } } },

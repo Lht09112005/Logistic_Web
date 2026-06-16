@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ssgFetch } from "@/lib/server-api";
+import { isrFetch } from "@/lib/server-api";
 import WarehouseDetailClient, { type WarehouseDetail } from "./_components/warehouse-detail-client";
 
-// SSG + ISR hybrid: pre-render known warehouses at build time via generateStaticParams,
-// then revalidate on-demand for any new warehouses added after deployment.
-// dynamicParams is true by default, so new warehouses render on first visit and cache forever.
+// ISR + SSR hybrid: known warehouses are pre-rendered at build time via generateStaticParams,
+// then revalidated every 60s so that inventory updates from QR scan are reflected promptly.
 
 export async function generateStaticParams() {
   // Fetch all warehouse IDs at build time for static pre-rendering
   try {
-    const warehouses = await ssgFetch("/warehouses");
+    const warehouses = await isrFetch("/warehouses", 300);
     if (!Array.isArray(warehouses)) return [];
     return (warehouses as { id: string }[])
       .filter((w) => w.id)
@@ -23,7 +22,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const warehouse = await ssgFetch(`/warehouses/${id}`);
+  const warehouse = await isrFetch(`/warehouses/${id}`, 60);
   if (!warehouse) {
     return { title: "Kho hàng không tồn tại" };
   }
@@ -41,11 +40,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-// SSG: Fetch warehouse detail with force-cache (cached until next deployment)
+// ISR: Fetch warehouse detail with 60s revalidation (inventory updates reflect within 1 minute)
+// The client component also auto-polls every 15s and listens to socket.io for instant refresh.
 export default async function WarehouseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const warehouse = await ssgFetch(`/warehouses/${id}`);
+  const warehouse = await isrFetch(`/warehouses/${id}`, 60);
 
   if (!warehouse) {
     return notFound();
