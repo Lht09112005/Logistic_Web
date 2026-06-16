@@ -19,7 +19,16 @@ type ScanMode = "QR_CODE" | "BARCODE";
 interface ScannedProduct {
   id: string; name: string; sku: string; category: string;
   unit: string; minStockLevel: number; qrCode?: string; barcode?: string;
-  inventory: { id: string; quantity: number; warehouse: { name: string; code: string } }[];
+}
+
+/** Inventory record từ inventoryApi (đã được backend filter theo role) */
+interface InventoryRecord {
+  id: string;
+  quantity: number;
+  warehouse: { id: string; name: string; code: string };
+  zone?: { id: string; name: string; description?: string | null } | null;
+  rack?: string | null;
+  shelf?: string | null;
 }
 
 type ScanState = "idle" | "scanning" | "found" | "new_product" | "add_inventory" | "updating" | "success" | "error";
@@ -31,12 +40,14 @@ export default function QRScanClient() {
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [scanMode, setScanMode] = useState<ScanMode>("QR_CODE");
   const [product, setProduct] = useState<ScannedProduct | null>(null);
+  const [inventoryRecords, setInventoryRecords] = useState<InventoryRecord[]>([]);
   const [selectedInventoryId, setSelectedInventoryId] = useState("");
   const [adjustment, setAdjustment] = useState(0);
   const [notes, setNotes] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [cameraError, setCameraError] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isCheckingInventory, setIsCheckingInventory] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
   const { assignedWarehouses, isStaffOnly } = useAuth();
@@ -59,6 +70,20 @@ export default function QRScanClient() {
   const [isAddingInventory, setIsAddingInventory] = useState(false);
   const [addInventoryError, setAddInventoryError] = useState("");
 
+  /**
+   * Tra cứu inventory của product thông qua inventoryApi (backend tự động lọc theo role):
+   * - ADMIN: xem tất cả inventory
+   * - STAFF: chỉ xem inventory trong kho được phân quyền
+   */
+  const lookupInventory = useCallback(async (productId: string): Promise<InventoryRecord[]> => {
+    try {
+      const res = await inventoryApi.getAll({ productId, limit: "50" });
+      return (res.data.data || []) as InventoryRecord[];
+    } catch {
+      return [];
+    }
+  }, []);
+
   // Hàm cleanup đồng bộ
   const destroyScanner = useCallback(() => {
     if (scannerRef.current) {
@@ -69,21 +94,27 @@ export default function QRScanClient() {
 
   useEffect(() => () => { destroyScanner(); }, [destroyScanner]);
 
-  // Pre-load from URL param
+  // Pre-load from URL param — gọi inventoryApi để backend tự filter theo role
   useEffect(() => {
     if (preloadId) {
-      productsApi.getById(preloadId).then((res) => {
+      setIsCheckingInventory(true);
+      productsApi.getById(preloadId).then(async (res) => {
         const p = res.data.data as ScannedProduct;
         setProduct(p);
         setScanState("found");
-        if (p.inventory?.[0]) setSelectedInventoryId(p.inventory[0].id);
-      }).catch(() => {});
+        // Dùng inventoryApi thay vì product.inventory — backend tự filter theo role
+        const records = await lookupInventory(p.id);
+        setInventoryRecords(records);
+        if (records[0]) setSelectedInventoryId(records[0].id);
+      }).catch(() => {}).finally(() => {
+        setIsCheckingInventory(false);
+      });
     }
-  }, [preloadId]);
+  }, [preloadId, lookupInventory]);
 
-  // Pre-populate warehouse list when entering "found" with no inventory
+  // Pre-populate warehouse list when entering "found" with no inventory in accessible warehouses
   useEffect(() => {
-    if (scanState === "found" && product && (!product.inventory || product.inventory.length === 0) && !initWarehouseId) {
+    if (scanState === "found" && product && inventoryRecords.length === 0 && !initWarehouseId) {
       if (isStaffOnly && assignedWarehouses.length > 0) {
         setInitWarehouseId(assignedWarehouses[0].id);
       } else {
@@ -95,9 +126,8 @@ export default function QRScanClient() {
       }
       setInitQuantity(1);
     }
-  }, [scanState, product, initWarehouseId, isStaffOnly, assignedWarehouses]);
+  }, [scanState, product, inventoryRecords, initWarehouseId, isStaffOnly, assignedWarehouses]);
 
-  // Tra cứu sản phẩm theo code
   const lookupProduct = useCallback(async (code: string) => {
     if (scanMode === "QR_CODE") {
       return productsApi.getByQR(code);
@@ -106,34 +136,53 @@ export default function QRScanClient() {
     }
   }, [scanMode]);
 
-  // Try to find a product by a scanned code using both QR and barcode lookups
+  // Try to find a product by a scanned code using QR, barcode, and SKU lookups
   const findProductByCode = useCallback(async (code: string): Promise<ScannedProduct | null> => {
+    // Try 1: exact match by QR code
     try {
       const res = await productsApi.getByQR(code);
       return res.data.data as ScannedProduct;
     } catch { /* not found by QR */ }
+    // Try 2: exact match by barcode
     try {
       const res = await productsApi.getByBarcode(code);
       return res.data.data as ScannedProduct;
     } catch { /* not found by barcode */ }
+    // Try 3: search by SKU hoặc tên sản phẩm
+    try {
+      const searchRes = await productsApi.getAll({ search: code, limit: "10" });
+      const list = (searchRes.data.data || []) as ScannedProduct[];
+      if (list.length > 0) {
+        // Get full detail for the first match
+        const detailRes = await productsApi.getById(list[0].id);
+        return detailRes.data.data as ScannedProduct;
+      }
+    } catch { /* search failed */ }
     return null;
   }, []);
 
   const handleScanResult = useCallback(async (code: string) => {
     setScanState("scanning");
+    setIsCheckingInventory(true);
     try {
       const res = await lookupProduct(code);
       const p = res.data.data as ScannedProduct;
       setProduct(p);
       setScanState("found");
-      if (p.inventory?.[0]) setSelectedInventoryId(p.inventory[0].id);
+      // Tra cứu inventory qua inventoryApi — backend tự filter theo role
+      const records = await lookupInventory(p.id);
+      setInventoryRecords(records);
+      if (records[0]) setSelectedInventoryId(records[0].id);
     } catch {
       // Primary lookup failed — try the other scan method before giving up
       const fallback = await findProductByCode(code);
       if (fallback) {
         setProduct(fallback);
         setScanState("found");
-        if (fallback.inventory?.[0]) setSelectedInventoryId(fallback.inventory[0].id);
+        // Tra cứu inventory qua inventoryApi — backend tự filter theo role
+        const records = await lookupInventory(fallback.id);
+        setInventoryRecords(records);
+        if (records[0]) setSelectedInventoryId(records[0].id);
       } else {
         // Không tìm thấy → chuyển sang form nhập số lượng & mức cảnh báo tối thiểu
         setNewBarcode(code);
@@ -142,8 +191,10 @@ export default function QRScanClient() {
         setCreateError("");
         setScanState("new_product");
       }
+    } finally {
+      setIsCheckingInventory(false);
     }
-  }, [lookupProduct, findProductByCode]);
+  }, [lookupProduct, findProductByCode, lookupInventory]);
 
   // Lưu sản phẩm mới + thêm vào kho — tự động sinh tên/SKU, chỉ cần số lượng & mức cảnh báo
   const handleCreateProduct = async () => {
@@ -199,10 +250,10 @@ export default function QRScanClient() {
         quantity: newQuantity,
       });
 
-      // Fetch full detail with inventory
-      const detailRes = await productsApi.getById(createdProduct.id);
-      const p = detailRes.data.data as ScannedProduct;
-      setProduct(p);
+      // Fetch full detail with inventory — dùng inventoryApi để backend tự filter theo role
+      const records = await lookupInventory(createdProduct.id);
+      setProduct({ id: createdProduct.id, name: createdProduct.name, sku: createdProduct.sku, category: createdProduct.category, unit: createdProduct.unit, minStockLevel: createdProduct.minStockLevel });
+      setInventoryRecords(records);
       setSuccessMsg(`Tạo sản phẩm thành công! Tồn kho: ${newQuantity} pcs`);
       setScanState("success");
     } catch (err: unknown) {
@@ -210,28 +261,37 @@ export default function QRScanClient() {
 
       // 409 = SKU/barcode already exists → try to find and show the existing product
       if (apiErr?.response?.status === 409) {
-        const existingProduct = await findProductByCode(newBarcode);
-        if (existingProduct) {
-          setProduct(existingProduct);
-          setScanState("found");
-          if (existingProduct.inventory?.[0]) setSelectedInventoryId(existingProduct.inventory[0].id);
-          setIsCreating(false);
-          return;
-        }
-        // If can't find by QR/barcode, try searching by auto-generated SKU
+        setIsCheckingInventory(true);
         try {
-          const searchRes = await productsApi.getAll({ search: `SP-${newBarcode}`, limit: "5" });
-          const list = (searchRes.data.data || []) as ScannedProduct[];
-          if (list.length > 0) {
-            const detailRes = await productsApi.getById(list[0].id);
-            const foundProduct = detailRes.data.data as ScannedProduct;
-            setProduct(foundProduct);
+          const existingProduct = await findProductByCode(newBarcode);
+          if (existingProduct) {
+            setProduct(existingProduct);
             setScanState("found");
-            if (foundProduct.inventory?.[0]) setSelectedInventoryId(foundProduct.inventory[0].id);
+            const records = await lookupInventory(existingProduct.id);
+            setInventoryRecords(records);
+            if (records[0]) setSelectedInventoryId(records[0].id);
             setIsCreating(false);
             return;
           }
-        } catch { /* silent fallthrough */ }
+          // If can't find by QR/barcode, try searching by auto-generated SKU
+          try {
+            const searchRes = await productsApi.getAll({ search: `SP-${newBarcode}`, limit: "5" });
+            const list = (searchRes.data.data || []) as ScannedProduct[];
+            if (list.length > 0) {
+              const detailRes = await productsApi.getById(list[0].id);
+              const foundProduct = detailRes.data.data as ScannedProduct;
+              setProduct(foundProduct);
+              setScanState("found");
+              const records = await lookupInventory(foundProduct.id);
+              setInventoryRecords(records);
+              if (records[0]) setSelectedInventoryId(records[0].id);
+              setIsCreating(false);
+              return;
+            }
+          } catch { /* silent fallthrough */ }
+        } finally {
+          setIsCheckingInventory(false);
+        }
       }
 
       setCreateError(apiErr?.response?.data?.message || "Không thể tạo sản phẩm. Vui lòng thử lại.");
@@ -256,12 +316,11 @@ export default function QRScanClient() {
         notes: initNotes || undefined,
       });
 
-      // Fetch lại product với inventory
-      const detailRes = await productsApi.getById(product.id);
-      const p = detailRes.data.data as ScannedProduct;
-      setProduct(p);
+      // Fetch lại inventory qua inventoryApi — backend tự filter theo role
+      const records = await lookupInventory(product.id);
+      setInventoryRecords(records);
       setScanState("found");
-      if (p.inventory?.[0]) setSelectedInventoryId(p.inventory[0].id);
+      if (records[0]) setSelectedInventoryId(records[0].id);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
       setAddInventoryError(apiErr?.response?.data?.message || "Không thể thêm vào kho. Vui lòng thử lại.");
@@ -330,7 +389,9 @@ export default function QRScanClient() {
   const handleReset = () => {
     destroyScanner();
     setProduct(null);
+    setInventoryRecords([]);
     setScanState("idle");
+    setIsCheckingInventory(false);
     setAdjustment(0);
     setNotes("");
     setManualCode("");
@@ -359,17 +420,16 @@ export default function QRScanClient() {
   const handleUpdateInventory = async () => {
     if (!selectedInventoryId || !product) return;
     setIsUpdating(true);
-    const invItem = product?.inventory?.find((i) => i.id === selectedInventoryId);
+    const invItem = inventoryRecords.find((i) => i.id === selectedInventoryId);
     if (!invItem) { setIsUpdating(false); return; }
 
     const newQty = Math.max(0, invItem.quantity + adjustment);
     try {
       await inventoryApi.update(selectedInventoryId, { quantity: newQty, notes });
 
-      // Refresh product data to reflect latest state
-      const detailRes = await productsApi.getById(product.id);
-      const p = detailRes.data.data as ScannedProduct;
-      setProduct(p);
+      // Refresh inventory records to reflect latest state
+      const records = await lookupInventory(product.id);
+      setInventoryRecords(records);
 
       setSuccessMsg(`Cập nhật thành công! Tồn kho mới: ${newQty} ${product.unit}`);
       setScanState("success");
@@ -388,7 +448,17 @@ export default function QRScanClient() {
     setCameraError("");
   };
 
-  const selectedInv = product?.inventory?.find((i) => i.id === selectedInventoryId);
+  // selectedInv: tìm trong inventoryRecords (đã được backend filter theo role)
+  // Helper hiển thị vị trí lưu trữ (zone → rack → shelf)
+  const formatLocation = (inv: InventoryRecord): string => {
+    const parts: string[] = [];
+    if (inv.zone?.name) parts.push(`Khu ${inv.zone.name}`);
+    if (inv.rack) parts.push(`Kệ ${inv.rack}`);
+    if (inv.shelf) parts.push(`Ngăn ${inv.shelf}`);
+    return parts.length > 0 ? parts.join(' • ') : '';
+  };
+
+  const selectedInv = inventoryRecords.find((i) => i.id === selectedInventoryId);
   const newQty = selectedInv ? Math.max(0, selectedInv.quantity + adjustment) : 0;
 
   const isScanning = scanState === "idle" || scanState === "scanning";
@@ -837,8 +907,20 @@ export default function QRScanClient() {
         </div>
       ) : null}
 
+      {/* Product found — inventory check loading */}
+      {scanState === "found" && product && isCheckingInventory && (
+        <div className="card p-8 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 size={32} className="animate-spin" style={{ color: "#f97316" }} />
+            <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+              Đang kiểm tra tồn kho...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Product found — update form */}
-      {(scanState === "found" || scanState === "error") && product && (
+      {(scanState === "found" || scanState === "error") && product && !isCheckingInventory && (
         <div className="space-y-3 sm:space-y-4 animate-scale-in">
           {/* Product info card */}
           <div className="card p-4 sm:p-5">
@@ -875,28 +957,96 @@ export default function QRScanClient() {
             </div>
           </div>
 
-          {/* Inventory selection (when product has inventory) */}
-          {(product.inventory?.length ?? 0) > 1 && (
+          {/* Inventory selection (khi có nhiều inventory trong warehouse được phân quyền) */}
+          {/* Inventory status badge */}
+          <div
+            className={`card p-3 sm:p-4 flex items-center gap-3 ${
+              inventoryRecords.length > 0
+                ? "border-success/30"
+                : "border-warning/30"
+            }`}
+            style={{
+              background: inventoryRecords.length > 0
+                ? "var(--color-success-bg)"
+                : "var(--color-warning-bg)",
+            }}
+          >
+            <div
+              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                inventoryRecords.length > 0 ? "bg-success" : ""
+              }`}
+              style={{
+                background: inventoryRecords.length > 0
+                  ? "rgba(16,185,129,0.15)"
+                  : "rgba(245,158,11,0.15)",
+              }}
+            >
+              {inventoryRecords.length > 0 ? (
+                <CheckCircle size={18} style={{ color: "#10b981" }} />
+              ) : (
+                <AlertCircle size={18} style={{ color: "#f59e0b" }} />
+              )}
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-semibold" style={{ color: inventoryRecords.length > 0 ? "#059669" : "#d97706" }}>
+                {inventoryRecords.length > 0
+                  ? "Đã có trong kho"
+                  : "Chưa có trong kho"}
+              </p>
+              <p className="text-[10px] sm:text-xs mt-0.5" style={{ color: inventoryRecords.length > 0 ? "#047857" : "#b45309" }}>
+                {inventoryRecords.length > 0
+                  ? `${inventoryRecords.length} vị trí lưu trữ • Tổng: ${inventoryRecords.reduce((s, r) => s + r.quantity, 0)} ${product.unit}`
+                  : "Sản phẩm chưa được nhập vào kho nào. Thêm vào kho bên dưới."}
+              </p>
+            </div>
+          </div>
+
+          {/* Inventory summary (when there are multiple records) */}
+          {inventoryRecords.length > 1 && (
             <div className="card p-3 sm:p-4">
-              <label className="block text-xs sm:text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
+              <label className="block text-xs sm:text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
                 Chọn vị trí kho
               </label>
-              <select
-                value={selectedInventoryId}
-                onChange={(e) => setSelectedInventoryId(e.target.value)}
-                className="input-base text-xs sm:text-sm"
-              >
-                {product.inventory?.map((inv) => (
-                  <option key={inv.id} value={inv.id}>
-                    {inv.warehouse.code} — Tồn: {inv.quantity} {product.unit}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-1.5">
+                {inventoryRecords.map((inv) => {
+                  const loc = formatLocation(inv);
+                  const isSelected = selectedInventoryId === inv.id;
+                  return (
+                    <button
+                      key={inv.id}
+                      onClick={() => setSelectedInventoryId(inv.id)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs sm:text-sm transition-all ${
+                        isSelected ? "font-semibold" : "hover:bg-(--bg-input)"
+                      }`}
+                      style={{
+                        background: isSelected ? "rgba(249,115,22,0.1)" : "transparent",
+                        color: isSelected ? "#ea580c" : "var(--text-primary)",
+                        boxShadow: isSelected ? "0 0 0 1px rgba(249,115,22,0.3)" : "none",
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Warehouse size={14} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                          <span className="font-medium">{inv.warehouse.name} ({inv.warehouse.code})</span>
+                          {loc && (
+                            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                              {loc}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-bold shrink-0 ml-2">
+                          {inv.quantity} {product.unit}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          {/* No inventory yet — inline add-to-warehouse form (thay vì nút chuyển sang "add_inventory") */}
-          {(!product.inventory || product.inventory.length === 0) && (
+          {/* No inventory in accessible warehouse — inline add-to-warehouse form */}
+          {inventoryRecords.length === 0 && (
             <div className="card p-4 sm:p-5 space-y-4">
               <div className="flex items-start gap-3">
                 <div
@@ -1038,6 +1188,11 @@ export default function QRScanClient() {
               <h3 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>
                 Cập nhật — {selectedInv.warehouse.code}
               </h3>
+              {selectedInv && formatLocation(selectedInv) ? (
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  Vị trí: {formatLocation(selectedInv)}
+                </p>
+              ) : null}
 
               <div className="rounded-xl p-3 sm:p-4 text-center" style={{ background: "var(--bg-input)" }}>
                 <div className="text-[10px] sm:text-xs font-medium uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>

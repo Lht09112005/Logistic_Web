@@ -5,42 +5,60 @@ import autoTable from "jspdf-autotable";
 import type ExcelJS from "exceljs";
 
 // ─── Font caching ──────────────────────────────────────────────
-let _fontBase64: string | null = null;
-let _fontLoading: Promise<string | null> | null = null;
+// Font files được self-host trong /public/fonts/ để tránh phụ thuộc CDN.
+// Tải từ Google Fonts gốc: https://fonts.google.com/specimen/Noto+Sans
+// Copy 2 file .ttf (Regular 400 + Bold 700) vào public/fonts/.
+let _fontRegularBase64: string | null = null;
+let _fontBoldBase64: string | null = null;
+let _fontLoading: Promise<boolean> | null = null;
 
-const FONT_URL =
-  "https://fonts.gstatic.com/s/notosans/v38/o-0IIpQlx3QUlC5A4PNr5TRF.ttf";
+const FONT_REGULAR_URL = "/fonts/NotoSans-Regular.ttf";
+const FONT_BOLD_URL = "/fonts/NotoSans-Bold.ttf";
 const FONT_NAME = "NotoSans";
 
 /**
- * Load Noto Sans font (supports Vietnamese) from Google Fonts CDN.
- * Returns the base64-encoded font data, or null on failure.
- * Caches the result so it's only fetched once.
+ * Load Noto Sans font (Regular + Bold) từ thư mục public/fonts/ của project.
+ * Dùng self-host để đảm bảo font luôn hoạt động, không phụ thuộc CDN.
  */
-async function getFontBase64(): Promise<string | null> {
-  if (_fontBase64) return _fontBase64;
+async function loadFonts(): Promise<boolean> {
+  if (_fontRegularBase64 && _fontBoldBase64) return true;
   if (_fontLoading) return _fontLoading;
 
   _fontLoading = (async () => {
     try {
-      const response = await fetch(FONT_URL);
-      const blob = await response.blob();
+      const [regularRes, boldRes] = await Promise.all([
+        fetch(FONT_REGULAR_URL),
+        fetch(FONT_BOLD_URL),
+      ]);
 
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(",")[1]); // Remove data:...;base64, prefix
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      // Kiểm tra response OK trước khi đọc blob
+      if (!regularRes.ok || !boldRes.ok) {
+        throw new Error(`Font files not found: Regular=${regularRes.status}, Bold=${boldRes.status}`);
+      }
 
-      _fontBase64 = base64;
-      return base64;
+      const [regularBlob, boldBlob] = await Promise.all([
+        regularRes.blob(),
+        boldRes.blob(),
+      ]);
+
+      const toBase64 = (blob: Blob): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]); // Remove data:...;base64, prefix
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      };
+
+      _fontRegularBase64 = await toBase64(regularBlob);
+      _fontBoldBase64 = await toBase64(boldBlob);
+      return true;
     } catch (error) {
-      console.warn("[PDF Export] Failed to load Unicode font, falling back to standard fonts:", error);
-      return null;
+      console.warn("[PDF Export] Failed to load Unicode fonts, falling back to standard fonts:", error);
+      return false;
     }
   })();
 
@@ -48,19 +66,24 @@ async function getFontBase64(): Promise<string | null> {
 }
 
 /**
- * Register the cached font on a specific jsPDF instance.
- * Must be called after getFontBase64() has resolved.
+ * Register both Regular và Bold font trên một instance jsPDF cụ thể.
+ * Cả 2 đều đăng ký dưới cùng font family "NotoSans" — jsPDF sẽ dùng
+ * "normal" style cho Regular và "bold" style cho Bold.
  */
-function registerFontOnDoc(doc: jsPDF): void {
-  if (!_fontBase64) return;
-  doc.addFileToVFS(`${FONT_NAME}-Regular.ttf`, _fontBase64);
-  doc.addFont(`${FONT_NAME}-Regular.ttf`, FONT_NAME, "normal");
-  doc.addFont(`${FONT_NAME}-Regular.ttf`, `${FONT_NAME}-bold`, "bold");
+function registerFontsOnDoc(doc: jsPDF): void {
+  if (_fontRegularBase64) {
+    doc.addFileToVFS("NotoSans-Regular.ttf", _fontRegularBase64);
+    doc.addFont("NotoSans-Regular.ttf", FONT_NAME, "normal");
+  }
+  if (_fontBoldBase64) {
+    doc.addFileToVFS("NotoSans-Bold.ttf", _fontBoldBase64);
+    doc.addFont("NotoSans-Bold.ttf", FONT_NAME, "bold");
+  }
 }
 
 function applyFont(doc: jsPDF, style: "normal" | "bold" = "normal"): void {
-  if (_fontBase64) {
-    doc.setFont(FONT_NAME, style === "bold" ? "bold" : "normal");
+  if (_fontRegularBase64) {
+    doc.setFont(FONT_NAME, style);
   } else {
     doc.setFont("helvetica", style);
   }
@@ -98,12 +121,12 @@ export async function exportAnalyticsPDF(params: {
 }): Promise<void> {
   const { total, inTransit, delivered, pending, failed, inventoryCount, alertsCount, warehouseCount } = params;
 
-  // Load Unicode font first
-  await getFontBase64();
+  // Load Unicode fonts first (Regular + Bold từ Fontsource CDN)
+  await loadFonts();
 
-  // Create doc and register font on THIS instance
+  // Create doc and register fonts on THIS instance
   const doc = new jsPDF("p", "mm", "a4");
-  registerFontOnDoc(doc);
+  registerFontsOnDoc(doc);
 
   const pageH = doc.internal.pageSize.getHeight();
   const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
@@ -160,18 +183,20 @@ export async function exportAnalyticsPDF(params: {
       ["Tỷ lệ giao hàng thành công", `${deliveryRate}%`, deliveryRate >= 80 ? "Mức tối ưu" : "Cần cải thiện"],
     ],
     theme: "grid",
+    styles: { font: FONT_NAME },
     headStyles: {
+      font: FONT_NAME,
+      fontStyle: "bold",
       fillColor: COLORS.primary,
       textColor: 255,
-      fontStyle: "bold",
       fontSize: 10,
       halign: "center",
     },
-    bodyStyles: { fontSize: 10, textColor: COLORS.text },
+    bodyStyles: { font: FONT_NAME, fontSize: 10, textColor: COLORS.text },
     columnStyles: {
-      0: { cellWidth: 80, fontStyle: "bold" },
-      1: { cellWidth: 40, halign: "center" },
-      2: { cellWidth: 50, halign: "center" },
+      0: { font: FONT_NAME, fontStyle: "bold", cellWidth: 80 },
+      1: { font: FONT_NAME, cellWidth: 40, halign: "center" },
+      2: { font: FONT_NAME, cellWidth: 50, halign: "center" },
     },
     margin: { left: MARGIN, right: MARGIN },
     didParseCell(data) {
@@ -202,18 +227,20 @@ export async function exportAnalyticsPDF(params: {
       ["Cảnh báo tồn kho", `${alertsCount}`, alertsCount === 0 ? "An toàn" : `${alertsCount} cảnh báo`],
     ],
     theme: "grid",
+    styles: { font: FONT_NAME },
     headStyles: {
+      font: FONT_NAME,
+      fontStyle: "bold",
       fillColor: COLORS.accent,
       textColor: 255,
-      fontStyle: "bold",
       fontSize: 10,
       halign: "center",
     },
-    bodyStyles: { fontSize: 10, textColor: COLORS.text },
+    bodyStyles: { font: FONT_NAME, fontSize: 10, textColor: COLORS.text },
     columnStyles: {
-      0: { cellWidth: 80, fontStyle: "bold" },
-      1: { cellWidth: 40, halign: "center" },
-      2: { cellWidth: 50, halign: "center" },
+      0: { font: FONT_NAME, fontStyle: "bold", cellWidth: 80 },
+      1: { font: FONT_NAME, cellWidth: 40, halign: "center" },
+      2: { font: FONT_NAME, cellWidth: 50, halign: "center" },
     },
     margin: { left: MARGIN, right: MARGIN },
   });
