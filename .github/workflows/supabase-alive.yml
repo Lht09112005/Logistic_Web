@@ -1,32 +1,31 @@
-name: Ping Supabase Directly
+name: Ping Supabase via Connection String
 
 on:
   schedule:
-    # Tự động chạy vào lúc 00:00 (giờ UTC) mỗi 3 ngày một lần
+    # Tự động chạy mỗi 3 ngày một lần vào lúc 00:00 UTC
     - cron: '0 0 */3 * *'
-  # Cho phép bấm nút chạy bằng tay trên giao diện GitHub Actions để kiểm tra
   workflow_dispatch: 
 
 jobs:
-  supabase-ping:
+  postgres-ping:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Call Supabase Rest API
+    - name: Install PostgreSQL Client
       run: |
-        echo "Bắt đầu gửi request trực tiếp tới API Supabase..."
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+
+    - name: Query Database Directly
+      run: |
+        echo "Bắt đầu kết nối trực tiếp vào PostgreSQL của Supabase..."
         
-        # Gửi request GET tới endpoint "/" của Rest API kèm theo API Key để kích hoạt DB
-        STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
-          -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}")
-          
-        echo "Kết quả HTTP Status Code từ Supabase: $STATUS_CODE"
+        # Chạy một câu lệnh SQL siêu nhẹ "SELECT 1;" để kích hoạt DB thức giấc
+        psql "${{ secrets.SUPABASE_CONN_STRING }}" -c "SELECT 1;"
         
-        if [ "$STATUS_CODE" -eq 200 ]; then
-          echo "Thành công! Supabase đã nhận được tín hiệu và sẽ không bị pause."
+        if [ $? -eq 0 ]; then
+          echo " Kết nối thành công! Supabase đã được đánh thức trực tiếp."
         else
-          echo "Có lỗi xảy ra hoặc Supabase phản hồi mã lỗi: $STATUS_CODE"
+          echo " Thất bại! Không thể kết nối tới database. Vui lòng kiểm tra lại Connection String hoặc mật khẩu."
           exit 1
         fi
