@@ -1,0 +1,24 @@
+name: Keep System Alive (Backend & Supabase)
+
+on:
+  schedule:
+    # Cứ mỗi 3 ngày chạy một lần lúc 00:00 UTC
+    - cron: '0 0 */3 * *'
+  workflow_dispatch: 
+
+jobs:
+  ping-systems:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Wake up Render Backend and Ping Supabase
+      run: |
+        echo "Đang gọi tới Backend trên Render để kích hoạt toàn bộ hệ thống..."
+        
+        # Thêm tham số --connect-timeout và --max-time để đợi Render thức dậy (đợi tối đa 120 giây)
+        curl -s -o /dev/null -w "%{http_code}" \
+          --connect-timeout 60 \
+          --max-time 120 \
+          -X GET "https://logistics-backend-byis.onrender.com/api/products"
+          
+        echo " Đã gửi request thành công!"
