@@ -1,0 +1,32 @@
+name: Ping Supabase Directly
+
+on:
+  schedule:
+    # Tự động chạy vào lúc 00:00 (giờ UTC) mỗi 3 ngày một lần
+    - cron: '0 0 */3 * *'
+  # Cho phép bấm nút chạy bằng tay trên giao diện GitHub Actions để kiểm tra
+  workflow_dispatch: 
+
+jobs:
+  supabase-ping:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Call Supabase Rest API
+      run: |
+        echo "Bắt đầu gửi request trực tiếp tới API Supabase..."
+        
+        # Gửi request GET tới endpoint "/" của Rest API kèm theo API Key để kích hoạt DB
+        STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+          -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}")
+          
+        echo "Kết quả HTTP Status Code từ Supabase: $STATUS_CODE"
+        
+        if [ "$STATUS_CODE" -eq 200 ]; then
+          echo "Thành công! Supabase đã nhận được tín hiệu và sẽ không bị pause."
+        else
+          echo "Có lỗi xảy ra hoặc Supabase phản hồi mã lỗi: $STATUS_CODE"
+          exit 1
+        fi
