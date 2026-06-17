@@ -485,7 +485,7 @@ export default function QRScanClient() {
   const isScanning = scanState === "idle" || scanState === "scanning";
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-3xl mx-auto px-2 sm:px-0">
+    <div className="space-y-4 sm:space-y-6 max-w-3xl mx-auto px-3 sm:px-0">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div
@@ -589,10 +589,8 @@ export default function QRScanClient() {
                 </p>
               </div>
             )}
-          </div>
-
-          {/* Controls */}
-          <div className="p-3 sm:p-5 space-y-3 sm:space-y-4">
+          </div>              {/* Controls */}
+          <div className="p-2.5 sm:p-5 space-y-2.5 sm:space-y-4">
             {cameraError && (
               <div className="flex items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
                 <AlertCircle size={14} className="sm:w-4 sm:h-4 shrink-0" />
@@ -600,7 +598,7 @@ export default function QRScanClient() {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
                 id="start-camera"
                 onClick={async () => {
@@ -611,7 +609,7 @@ export default function QRScanClient() {
                     await startCamera();
                   }
                 }}
-                className={`btn flex-1 justify-center text-xs sm:text-sm ${scanState === "scanning" ? "btn-secondary" : "btn-primary"}`}
+                className={`btn w-full sm:flex-1 justify-center text-xs sm:text-sm ${scanState === "scanning" ? "btn-secondary" : "btn-primary"}`}
                 style={{ height: "42px" }}
               >
                 {scanState === "scanning" ? (
@@ -639,33 +637,33 @@ export default function QRScanClient() {
         </div>
       ) : scanState === "new_product" ? (
         /* ─── Form thêm sản phẩm mới — chỉ nhập số lượng & mức cảnh báo ─── */
-        <div className="space-y-4 animate-scale-in">
-          <div className="card p-4 sm:p-5">
-            <div className="flex items-center gap-3 mb-4">
+        <div className="space-y-3 sm:space-y-4 animate-scale-in">
+          <div className="card p-3 sm:p-5">
+            <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 mb-3 sm:mb-4">
               <div
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
+                className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: "#fff7ed" }}
               >
-                <Package size={20} className="sm:w-6 sm:h-6" style={{ color: "#f97316" }} />
+                <Package size={16} className="sm:w-6 sm:h-6" style={{ color: "#f97316" }} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h2 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>
                   Sản phẩm mới
                 </h2>
-                <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>
+                <p className="text-[11px] sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
                   Mã này chưa có trong hệ thống. Nhập số lượng và mức tồn tối thiểu.
                 </p>
               </div>
             </div>
 
             {createError && (
-              <div className="flex items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 mb-4 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+              <div className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3 mb-3 sm:mb-4 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
                 <AlertCircle size={14} className="shrink-0" />
                 <span>{createError}</span>
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {/* Mã quét được (read-only) */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
@@ -698,7 +696,7 @@ export default function QRScanClient() {
 
               {/* Số lượng nhập kho */}
               <div>
-                <label htmlFor="new-product-qty" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                <label htmlFor="new-product-qty" className="block text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   Số lượng tồn kho <span style={{ color: "#ef4444" }}>*</span>
                 </label>
                 <input
@@ -713,7 +711,7 @@ export default function QRScanClient() {
 
               {/* Mức tồn tối thiểu (trigger alert) */}
               <div>
-                <label htmlFor="new-product-min-stock" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                <label htmlFor="new-product-min-stock" className="block text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   Mức cảnh báo tồn kho tối thiểu <span style={{ color: "#ef4444" }}>*</span>
                 </label>
                 <input
@@ -731,7 +729,7 @@ export default function QRScanClient() {
 
               {/* Chọn kho */}
               <div>
-                <label htmlFor="new-product-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                <label htmlFor="new-product-warehouse" className="block text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   Kho lưu trữ <span style={{ color: "#ef4444" }}>*</span>
                 </label>
                 {isStaffOnly && assignedWarehouses.length === 1 ? (
@@ -760,7 +758,7 @@ export default function QRScanClient() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2 sm:gap-3 pt-1 sm:pt-2">
                 <button onClick={handleReset} className="btn btn-secondary flex-1 justify-center">
                   <X size={14} /> Hủy
                 </button>
@@ -780,33 +778,33 @@ export default function QRScanClient() {
         </div>
       ) : scanState === "add_inventory" ? (
         /* ─── Thêm sản phẩm mới vào kho ─── */
-        <div className="space-y-4 animate-scale-in">
-          <div className="card p-4 sm:p-5">
-            <div className="flex items-center gap-3 mb-4">
+        <div className="space-y-3 sm:space-y-4 animate-scale-in">
+          <div className="card p-3 sm:p-5">
+            <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 mb-3 sm:mb-4">
               <div
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
+                className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: "#fff7ed" }}
               >
-                <Package size={20} className="sm:w-6 sm:h-6" style={{ color: "#f97316" }} />
+                <Package size={16} className="sm:w-6 sm:h-6" style={{ color: "#f97316" }} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h2 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>
                   Thêm vào kho
                 </h2>
-                <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>
+                <p className="text-[11px] sm:text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
                   Sản phẩm <strong>{product?.name}</strong> đã được tạo. Vui lòng chọn kho và nhập số lượng ban đầu.
                 </p>
               </div>
             </div>
 
             {addInventoryError && (
-              <div className="flex items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 mb-4 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+              <div className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3 mb-3 sm:mb-4 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
                 <AlertCircle size={14} className="shrink-0" />
                 <span>{addInventoryError}</span>
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {/* Chọn kho */}
               <div>
                 <label htmlFor="init-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
@@ -841,7 +839,7 @@ export default function QRScanClient() {
 
               {/* Số lượng */}
               <div>
-                <label htmlFor="init-quantity" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                <label htmlFor="init-quantity" className="block text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   Số lượng tồn kho ban đầu <span style={{ color: "#ef4444" }}>*</span>
                 </label>
                 <input
@@ -856,7 +854,7 @@ export default function QRScanClient() {
               </div>
 
               {/* Zone + Rack + Shelf */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label htmlFor="init-zone" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     Phân khu (Zone)
@@ -911,7 +909,7 @@ export default function QRScanClient() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2 sm:gap-3 pt-1 sm:pt-2">
                 <button onClick={handleReset} className="btn btn-secondary flex-1 justify-center">
                   <X size={14} /> Hủy
                 </button>
@@ -930,11 +928,11 @@ export default function QRScanClient() {
           </div>
         </div>
       ) : scanState === "success" ? (
-        <div className="card p-6 sm:p-8 text-center space-y-3">
-          <CheckCircle size={40} className="mx-auto" style={{ color: "#10b981" }} />
+        <div className="card p-4 sm:p-8 text-center space-y-3">
+          <CheckCircle size={36} className="mx-auto sm:w-10 sm:h-10" style={{ color: "#10b981" }} />
           <h3 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>Cập nhật thành công!</h3>
           <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>{successMsg}</p>
-          <div className="flex gap-3 justify-center pt-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center pt-2">
             <button onClick={handleReset} className="btn btn-primary btn-sm"><RotateCcw size={14} /> Kiểm kho tiếp</button>
             <Link
               href="/dashboard/warehouse"
@@ -962,33 +960,33 @@ export default function QRScanClient() {
       {(scanState === "found" || scanState === "error") && product && !isCheckingInventory && (
         <div className="space-y-3 sm:space-y-4 animate-scale-in">
           {/* Product info card */}
-          <div className="card p-4 sm:p-5">
-            <div className="flex items-start gap-3 sm:gap-4">
+          <div className="card p-3 sm:p-5">
+            <div className="flex items-start gap-2.5 sm:gap-4">
               <div
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
+                className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: "#fff7ed" }}
               >
-                <Package size={18} className="sm:w-5.5 sm:h-5.5" style={{ color: "#f97316" }} />
+                <Package size={16} className="sm:w-5.5 sm:h-5.5" style={{ color: "#f97316" }} />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                  <div className="min-w-0 overflow-hidden">
                     <h3 className="font-bold text-sm sm:text-base truncate" style={{ color: "var(--text-primary)" }}>{product.name}</h3>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <code className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded truncate" style={{ background: "var(--bg-input)", color: "var(--text-muted)", display: "inline-block", verticalAlign: "middle", maxWidth: "100%" }}>
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
+                      <code className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded truncate max-w-full" style={{ background: "var(--bg-input)", color: "var(--text-muted)", verticalAlign: "middle" }}>
                         {product.sku}
                       </code>
                       <span className="text-[10px] sm:text-xs" style={{ color: "var(--text-muted)" }}>
                         {getCategoryLabel(product.category)}
                       </span>
                       {product.barcode && (
-                        <code className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
+                        <code className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded truncate max-w-full" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
                           {product.barcode}
                         </code>
                       )}
                     </div>
                   </div>
-                  <button onClick={handleReset} className="btn-icon shrink-0" title="Quét lại">
+                  <button onClick={handleReset} className="btn-icon shrink-0 self-start" title="Quét lại">
                     <RotateCcw size={14} />
                   </button>
                 </div>
@@ -999,7 +997,7 @@ export default function QRScanClient() {
           {/* Inventory selection (khi có nhiều inventory trong warehouse được phân quyền) */}
           {/* Inventory status badge */}
           <div
-            className={`card p-3 sm:p-4 flex items-center gap-3 ${
+            className={`card p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-3 ${
               inventoryRecords.length > 0
                 ? "border-success/30"
                 : "border-warning/30"
@@ -1021,12 +1019,12 @@ export default function QRScanClient() {
               }}
             >
               {inventoryRecords.length > 0 ? (
-                <CheckCircle size={18} style={{ color: "#10b981" }} />
+                <CheckCircle size={16} className="sm:w-[18px] sm:h-[18px]" style={{ color: "#10b981" }} />
               ) : (
-                <AlertCircle size={18} style={{ color: "#f59e0b" }} />
+                <AlertCircle size={16} className="sm:w-[18px] sm:h-[18px]" style={{ color: "#f59e0b" }} />
               )}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs sm:text-sm font-semibold" style={{ color: inventoryRecords.length > 0 ? "#059669" : "#d97706" }}>
                 {inventoryRecords.length > 0
                   ? "Đã có trong kho"
@@ -1042,11 +1040,11 @@ export default function QRScanClient() {
 
           {/* Inventory summary (when there are multiple records) */}
           {inventoryRecords.length > 1 && (
-            <div className="card p-3 sm:p-4">
-              <label className="block text-xs sm:text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
+            <div className="card p-2.5 sm:p-4">
+              <label className="block text-[11px] sm:text-sm font-medium mb-1.5 sm:mb-2" style={{ color: "var(--text-primary)" }}>
                 Chọn vị trí kho
               </label>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {inventoryRecords.map((inv) => {
                   const loc = formatLocation(inv);
                   const isSelected = selectedInventoryId === inv.id;
@@ -1054,7 +1052,7 @@ export default function QRScanClient() {
                     <button
                       key={inv.id}
                       onClick={() => setSelectedInventoryId(inv.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs sm:text-sm transition-all ${
+                      className={`w-full text-left px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-all ${
                         isSelected ? "font-semibold" : "hover:bg-(--bg-input)"
                       }`}
                       style={{
@@ -1063,17 +1061,17 @@ export default function QRScanClient() {
                         boxShadow: isSelected ? "0 0 0 1px rgba(249,115,22,0.3)" : "none",
                       }}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1 min-w-0 flex-wrap">
                           <Warehouse size={14} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                          <span className="font-medium">{inv.warehouse.name} ({inv.warehouse.code})</span>
+                          <span className="font-medium text-[11px] sm:text-sm">{inv.warehouse.name} ({inv.warehouse.code})</span>
                           {loc && (
-                            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            <span className="text-[10px] w-full sm:w-auto" style={{ color: "var(--text-muted)" }}>
                               {loc}
                             </span>
                           )}
                         </div>
-                        <span className="font-bold shrink-0 ml-2">
+                        <span className="font-bold shrink-0 ml-1 text-[11px] sm:text-sm">
                           {inv.quantity} {product.unit}
                         </span>
                       </div>
@@ -1086,35 +1084,35 @@ export default function QRScanClient() {
 
           {/* No inventory in accessible warehouse — inline add-to-warehouse form */}
           {inventoryRecords.length === 0 && (
-            <div className="card p-4 sm:p-5 space-y-4">
-              <div className="flex items-start gap-3">
+            <div className="card p-3 sm:p-5 space-y-3 sm:space-y-4">
+              <div className="flex items-start gap-2.5 sm:gap-3">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0"
                   style={{ background: "#fff7ed" }}
                 >
-                  <Package size={20} style={{ color: "#f97316" }} />
+                  <Package size={16} className="sm:w-5 sm:h-5" style={{ color: "#f97316" }} />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
                     Thêm sản phẩm vào kho
                   </h3>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                  <p className="text-[11px] sm:text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                     Sản phẩm chưa có trong kho. Nhập số lượng và vị trí lưu trữ.
                   </p>
                 </div>
               </div>
 
               {addInventoryError && (
-                <div className="flex items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                <div className="flex items-center gap-2 text-xs sm:text-sm p-2 sm:p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
                   <AlertCircle size={14} className="shrink-0" />
                   <span>{addInventoryError}</span>
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-2.5 sm:space-y-3">
                 {/* Tên sản phẩm (có thể sửa) */}
                 <div>
-                  <label htmlFor="inline-product-name" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="inline-product-name" className="block text-[11px] sm:text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     Tên sản phẩm
                   </label>
                   <input
@@ -1129,7 +1127,7 @@ export default function QRScanClient() {
 
                 {/* Warehouse */}
                 <div>
-                  <label htmlFor="inline-warehouse" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="inline-warehouse" className="block text-[11px] sm:text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     Kho lưu trữ <span style={{ color: "#ef4444" }}>*</span>
                   </label>
                   {isStaffOnly && assignedWarehouses.length === 1 ? (
@@ -1159,7 +1157,7 @@ export default function QRScanClient() {
 
                 {/* Quantity */}
                 <div>
-                  <label htmlFor="inline-quantity" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                  <label htmlFor="inline-quantity" className="block text-[11px] sm:text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                     Số lượng tồn kho ban đầu <span style={{ color: "#ef4444" }}>*</span>
                   </label>
                   <input
@@ -1174,9 +1172,9 @@ export default function QRScanClient() {
                 </div>
 
                 {/* Zone/Rack/Shelf */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   <div>
-                    <label htmlFor="inline-zone" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    <label htmlFor="inline-zone" className="block text-[11px] sm:text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                       Phân khu
                     </label>
                     <input
@@ -1188,7 +1186,7 @@ export default function QRScanClient() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="inline-rack" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    <label htmlFor="inline-rack" className="block text-[11px] sm:text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                       Kệ
                     </label>
                     <input
@@ -1200,7 +1198,7 @@ export default function QRScanClient() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="inline-shelf" className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    <label htmlFor="inline-shelf" className="block text-[11px] sm:text-xs font-semibold mb-1 sm:mb-1.5" style={{ color: "var(--text-secondary)" }}>
                       Ngăn
                     </label>
                     <input
@@ -1214,17 +1212,17 @@ export default function QRScanClient() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-1">
+                <div className="flex gap-2 sm:gap-3 pt-1">
                   <button
                     onClick={handleReset}
-                    className="btn btn-secondary flex-1 justify-center text-sm"
+                    className="btn btn-secondary flex-1 justify-center text-xs sm:text-sm"
                   >
                     <X size={14} /> Hủy
                   </button>
                   <button
                     onClick={handleAddInventory}
                     disabled={isAddingInventory || !initWarehouseId}
-                    className="btn btn-primary flex-1 justify-center text-sm"
+                    className="btn btn-primary flex-1 justify-center text-xs sm:text-sm"
                   >
                     {isAddingInventory
                       ? <><Loader2 size={14} className="animate-spin" /> Đang thêm...</>
@@ -1238,7 +1236,7 @@ export default function QRScanClient() {
 
           {/* Update form */}
           {selectedInv && (
-            <div className="card p-4 sm:p-5 space-y-4 sm:space-y-5">
+            <div className="card p-3 sm:p-5 space-y-3 sm:space-y-5">
               <h3 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>
                 Cập nhật — {selectedInv.warehouse.code}
               </h3>
@@ -1248,17 +1246,17 @@ export default function QRScanClient() {
                 </p>
               ) : null}
 
-              <div className="rounded-xl p-3 sm:p-4 text-center" style={{ background: "var(--bg-input)" }}>
+              <div className="rounded-xl p-2.5 sm:p-4 text-center" style={{ background: "var(--bg-input)" }}>
                 <div className="text-[10px] sm:text-xs font-medium uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>
-                  Hiện tại <ArrowRight size={14} className="inline" style={{ color: "var(--text-muted)" }} /> Sau cập nhật
+                  Hiện tại <ArrowRight size={12} className="inline sm:w-[14px] sm:h-[14px]" style={{ color: "var(--text-muted)" }} /> Sau cập nhật
                 </div>
-                <div className="text-xl sm:text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+                <div className="text-lg sm:text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
                   <span style={{ color: "var(--text-muted)" }}>{selectedInv.quantity}</span>
-                  <ArrowRight size={14} className="inline mx-1" style={{ color: "var(--text-muted)" }} />
+                  <ArrowRight size={12} className="inline mx-0.5 sm:mx-1" style={{ color: "var(--text-muted)" }} />
                   <span style={{ color: newQty < product.minStockLevel ? "#ef4444" : "#10b981" }}>
                     {newQty}
                   </span>
-                  <span className="text-sm sm:text-base font-normal" style={{ color: "var(--text-muted)" }}> {product.unit}</span>
+                  <span className="text-xs sm:text-base font-normal" style={{ color: "var(--text-muted)" }}> {product.unit}</span>
                 </div>
                 {newQty < product.minStockLevel && (
                   <div className="text-[10px] sm:text-xs mt-1" style={{ color: "#ef4444" }}>
@@ -1271,11 +1269,11 @@ export default function QRScanClient() {
                 <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2" style={{ color: "var(--text-primary)" }}>
                   Điều chỉnh số lượng
                 </label>
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-1.5 sm:gap-3">
                   <button
                     onClick={() => setAdjustment((a) => a - 1)}
                     disabled={newQty <= 0}
-                    className="btn btn-secondary w-9 h-9 sm:w-10 sm:h-10 p-0"
+                    className="btn btn-secondary w-9 h-9 sm:w-10 sm:h-10 p-0 shrink-0"
                   >
                     <Minus size={14} className="sm:w-4 sm:h-4" />
                   </button>
@@ -1283,12 +1281,12 @@ export default function QRScanClient() {
                     type="number"
                     value={adjustment}
                     onChange={(e) => setAdjustment(parseInt(e.target.value) || 0)}
-                    className="input-base text-center font-bold text-base sm:text-lg flex-1"
+                    className="input-base text-center font-bold text-base sm:text-lg flex-1 min-w-0"
                     style={{ height: "40px" }}
                   />
                   <button
                     onClick={() => setAdjustment((a) => a + 1)}
-                    className="btn btn-primary w-9 h-9 sm:w-10 sm:h-10 p-0"
+                    className="btn btn-primary w-9 h-9 sm:w-10 sm:h-10 p-0 shrink-0"
                   >
                     <Plus size={14} className="sm:w-4 sm:h-4" />
                   </button>
@@ -1298,7 +1296,7 @@ export default function QRScanClient() {
                     <button
                       key={v}
                       onClick={() => setAdjustment((a) => Math.max(-selectedInv.quantity, a + v))}
-                      className="btn btn-ghost btn-xs shrink-0 px-3"
+                      className="btn btn-ghost btn-xs shrink-0 px-2.5 sm:px-3"
                     >
                       {v > 0 ? "+" : ""}{v}
                     </button>
@@ -1320,7 +1318,7 @@ export default function QRScanClient() {
               </div>
 
               {scanState === "error" && (
-                <div className="text-xs sm:text-sm p-2.5 sm:p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                <div className="text-xs sm:text-sm p-2 sm:p-3 rounded-lg" style={{ background: "#fee2e2", color: "#b91c1c" }}>
                   Cập nhật thất bại. Vui lòng thử lại.
                 </div>
               )}
@@ -1329,7 +1327,7 @@ export default function QRScanClient() {
                 id="update-inventory"
                 onClick={handleUpdateInventory}
                 disabled={isUpdating || adjustment === 0}
-                className="btn btn-primary w-full justify-center py-2.5 sm:py-3 text-xs sm:text-sm"
+                className="btn btn-primary w-full justify-center py-2 sm:py-3 text-xs sm:text-sm"
               >
                 {isUpdating
                   ? <><Loader2 size={16} className="animate-spin" /> Đang cập nhật...</>
