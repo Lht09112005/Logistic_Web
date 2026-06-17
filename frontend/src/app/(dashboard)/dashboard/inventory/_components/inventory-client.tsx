@@ -241,9 +241,6 @@ export default function InventoryClient(props: Props) {
                 </button>
               ))}
             </div>
-            <button onClick={() => router.refresh()} className="btn btn-ghost btn-sm">
-              <Filter size={14} /> Làm mới
-            </button>
           </div>
 
           {/* Inventory grid */}

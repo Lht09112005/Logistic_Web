@@ -60,8 +60,8 @@ export default function AdminSettingsPage() {
   const [profileError, setProfileError] = useState("");
 
   // Password state
-  const [passwords, setPasswords] = useState({ newPass: "", confirm: "" });
-  const [showPw, setShowPw] = useState({ newPass: false, confirm: false });
+  const [passwords, setPasswords] = useState({ currentPass: "", newPass: "", confirm: "" });
+  const [showPw, setShowPw] = useState({ currentPass: false, newPass: false, confirm: false });
   const [pwSaving, setPwSaving] = useState(false);
   const [pwSuccess, setPwSuccess] = useState("");
   const [pwError, setPwError] = useState("");
@@ -114,7 +114,7 @@ export default function AdminSettingsPage() {
   const handleChangePassword = async () => {
     setPwError("");
     setPwSuccess("");
-    if (!passwords.newPass || !passwords.confirm) {
+    if (!passwords.currentPass || !passwords.newPass || !passwords.confirm) {
       setPwError("Vui lòng nhập đầy đủ các trường");
       return;
     }
@@ -128,9 +128,9 @@ export default function AdminSettingsPage() {
     }
     setPwSaving(true);
     try {
-      await authApi.updateMe({ password: passwords.newPass });
+      await authApi.updateMe({ password: passwords.newPass, oldPassword: passwords.currentPass });
       setPwSuccess("Đổi mật khẩu thành công");
-      setPasswords({ newPass: "", confirm: "" });
+      setPasswords({ currentPass: "", newPass: "", confirm: "" });
       setTimeout(() => setPwSuccess(""), 3000);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
@@ -282,6 +282,28 @@ export default function AdminSettingsPage() {
           )}
 
           <div className="space-y-4 max-w-md">
+            {/* Current Password */}
+            <div>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                Mật khẩu hiện tại <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showPw.currentPass ? "text" : "password"}
+                  value={passwords.currentPass}
+                  onChange={(e) => setPasswords({ ...passwords, currentPass: e.target.value })}
+                  placeholder="Nhập mật khẩu hiện tại"
+                  className="input-base pr-10"
+                />
+                <button
+                  onClick={() => setShowPw({ ...showPw, currentPass: !showPw.currentPass })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon"
+                >
+                  {showPw.currentPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
             {/* New Password */}
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
@@ -347,7 +369,7 @@ export default function AdminSettingsPage() {
           <div className="flex justify-end mt-6 pt-4 border-t" style={{ borderColor: "var(--border-light)" }}>
             <button
               onClick={handleChangePassword}
-              disabled={pwSaving || !!(!passwords.confirm || passwords.newPass !== passwords.confirm)}
+              disabled={pwSaving || !!(!passwords.currentPass || !passwords.confirm || passwords.newPass !== passwords.confirm)}
               className="btn btn-primary"
             >
               {pwSaving ? "Đang lưu..." : "Đổi mật khẩu"}

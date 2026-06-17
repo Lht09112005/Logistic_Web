@@ -1,55 +1,81 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { isrFetch } from "@/lib/server-api";
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { warehousesApi } from "@/lib/api";
 import WarehouseDetailClient, { type WarehouseDetail } from "./_components/warehouse-detail-client";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 
-// ISR + SSR hybrid: known warehouses are pre-rendered at build time via generateStaticParams,
-// then revalidated every 60s so that inventory updates from QR scan are reflected promptly.
+export default function WarehouseDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params?.id as string;
 
-export async function generateStaticParams() {
-  // Fetch all warehouse IDs at build time for static pre-rendering
-  try {
-    const warehouses = await isrFetch("/warehouses", 300);
-    if (!Array.isArray(warehouses)) return [];
-    return (warehouses as { id: string }[])
-      .filter((w) => w.id)
-      .map((w) => ({ id: w.id }));
-  } catch {
-    // If API is unavailable at build time, fall back to dynamic rendering
-    return [];
-  }
-}
+  const [warehouse, setWarehouse] = useState<WarehouseDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorCode, setErrorCode] = useState<number | null>(null);
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
-  const warehouse = await isrFetch(`/warehouses/${id}`, 60);
-  if (!warehouse) {
-    return { title: "Kho hàng không tồn tại" };
-  }
-  const name = (warehouse as Record<string, string>)?.name || "Kho hàng";
-  const address = (warehouse as Record<string, string>)?.address || "";
-  const city = (warehouse as Record<string, string>)?.city || "";
-  const code = (warehouse as Record<string, string>)?.code || "";
-  return {
-    title: name,
-    description: `Thông tin chi tiết kho ${name} (${code}) — ${address}, ${city}. Quản lý mặt hàng tồn kho, phân khu, thông số vận hành.`,
-    openGraph: {
-      title: `${name} | LogistiQ`,
-      description: `Kho hàng tại ${address}, ${city} — Mã kho: ${code}`,
-    },
-  };
-}
+  const fetchWarehouse = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await warehousesApi.getById(id);
+      setWarehouse(res.data.data);
+      setErrorCode(null);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number } };
+      const status = axiosErr?.response?.status || 500;
+      setErrorCode(status);
+    }
+  }, [id]);
 
-// ISR: Fetch warehouse detail with 60s revalidation (inventory updates reflect within 1 minute)
-// The client component also auto-polls every 15s and listens to socket.io for instant refresh.
-export default async function WarehouseDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  useEffect(() => {
+    fetchWarehouse().finally(() => setLoading(false));
+  }, [fetchWarehouse]);
 
-  const warehouse = await isrFetch(`/warehouses/${id}`, 60);
-
-  if (!warehouse) {
-    return notFound();
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse p-6">
+        <div className="skeleton h-10 w-48 rounded-xl" />
+        <div className="skeleton h-64 rounded-2xl" />
+        <div className="skeleton h-96 rounded-2xl" />
+      </div>
+    );
   }
 
-  return <WarehouseDetailClient warehouse={warehouse as unknown as WarehouseDetail} />;
+  if (errorCode === 404 || (!loading && !warehouse)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 gap-4 p-6">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "rgba(249,115,22,0.1)" }}>
+          <AlertTriangle size={32} style={{ color: "#f97316" }} />
+        </div>
+        <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>Không tìm thấy kho hàng</h2>
+        <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+          Kho hàng không tồn tại hoặc đã bị xóa.
+        </p>
+        <button onClick={() => router.push("/dashboard/warehouse")} className="btn btn-primary btn-sm">
+          Về danh sách kho hàng
+        </button>
+      </div>
+    );
+  }
+
+  if (errorCode && errorCode >= 400) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96 gap-4 p-6">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)" }}>
+          <AlertTriangle size={32} style={{ color: "#ef4444" }} />
+        </div>
+        <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>Lỗi tải dữ liệu ({errorCode})</h2>
+        <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+          Bạn không có quyền xem kho này hoặc có lỗi xảy ra.
+        </p>
+        <button onClick={() => router.back()} className="btn btn-secondary btn-sm">
+          <ArrowLeft size={14} /> Quay lại
+        </button>
+      </div>
+    );
+  }
+
+  return <WarehouseDetailClient warehouse={warehouse!} />;
 }
+

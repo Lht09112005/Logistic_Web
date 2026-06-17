@@ -1,0 +1,31 @@
+name: Ping Supabase via Connection String
+
+on:
+  schedule:
+    # Tự động chạy mỗi 3 ngày một lần vào lúc 00:00 UTC
+    - cron: '0 0 */3 * *'
+  workflow_dispatch: 
+
+jobs:
+  postgres-ping:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Install PostgreSQL Client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+
+    - name: Query Database Directly
+      run: |
+        echo "Bắt đầu kết nối trực tiếp vào PostgreSQL của Supabase..."
+        
+        # Chạy một câu lệnh SQL siêu nhẹ "SELECT 1;" để kích hoạt DB thức giấc
+        psql "${{ secrets.SUPABASE_CONN_STRING }}" -c "SELECT 1;"
+        
+        if [ $? -eq 0 ]; then
+          echo " Kết nối thành công! Supabase đã được đánh thức trực tiếp."
+        else
+          echo " Thất bại! Không thể kết nối tới database. Vui lòng kiểm tra lại Connection String hoặc mật khẩu."
+          exit 1
+        fi

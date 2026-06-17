@@ -156,7 +156,7 @@ export async function getMe(userId: string) {
 
 export async function updateMe(
   userId: string,
-  data: { name?: string; email?: string; phone?: string; password?: string }
+  data: { name?: string; email?: string; phone?: string; password?: string; oldPassword?: string }
 ) {
   const updateData: Record<string, unknown> = {}
 
@@ -183,9 +183,28 @@ export async function updateMe(
   if (data.phone !== undefined) updateData.phone = data.phone
 
   if (data.password !== undefined) {
+    // Require old password verification
+    if (!data.oldPassword) {
+      throw Object.assign(new Error('Vui lòng nhập mật khẩu hiện tại để xác nhận'), { statusCode: 400 })
+    }
     if (data.password.length < 6) {
       throw Object.assign(new Error('Mật khẩu phải có ít nhất 6 ký tự'), { statusCode: 400 })
     }
+
+    // Fetch current user to verify old password
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true },
+    })
+    if (!user) {
+      throw Object.assign(new Error('Không tìm thấy người dùng'), { statusCode: 404 })
+    }
+
+    const isMatch = await bcrypt.compare(data.oldPassword, user.password)
+    if (!isMatch) {
+      throw Object.assign(new Error('Mật khẩu hiện tại không đúng'), { statusCode: 400 })
+    }
+
     updateData.password = await bcrypt.hash(data.password, 12)
   }
 

@@ -44,6 +44,7 @@ export const validateUpdateMe = [
   body('email').optional().trim().isEmail().withMessage('Email không hợp lệ'),
   body('phone').optional().trim().notEmpty().withMessage('Số điện thoại không được để trống'),
   body('password').optional().isLength({ min: 6 }).withMessage('Mật khẩu phải có ít nhất 6 ký tự'),
+  body('oldPassword').optional().notEmpty().withMessage('Mật khẩu hiện tại không được để trống'),
   validateResult
 ]
 
