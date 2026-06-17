@@ -121,21 +121,33 @@ export default function QRScanClient() {
     }
   }, [product, scanState]);
 
-  // Pre-populate warehouse list when entering "found" with no inventory in accessible warehouses
+  // Load warehouse list on mount / user load if not staff only
   useEffect(() => {
-    if (scanState === "found" && product && inventoryRecords.length === 0 && !initWarehouseId) {
+    if (!isStaffOnly && warehouses.length === 0) {
+      warehousesApi.getAll().then((res) => {
+        const whList = (res.data.data || []) as { id: string; name: string; code: string }[];
+        setWarehouses(whList);
+      }).catch(() => {});
+    }
+  }, [isStaffOnly, warehouses.length]);
+
+  // Set default initWarehouseId when warehouses or assignedWarehouses are available
+  useEffect(() => {
+    if (!initWarehouseId) {
       if (isStaffOnly && assignedWarehouses.length > 0) {
         setInitWarehouseId(assignedWarehouses[0].id);
-      } else {
-        warehousesApi.getAll().then((res) => {
-          const whList = (res.data.data || []) as { id: string; name: string; code: string }[];
-          setWarehouses(whList);
-          if (whList.length > 0) setInitWarehouseId(whList[0].id);
-        }).catch(() => {});
+      } else if (!isStaffOnly && warehouses.length > 0) {
+        setInitWarehouseId(warehouses[0].id);
       }
+    }
+  }, [initWarehouseId, isStaffOnly, assignedWarehouses, warehouses]);
+
+  // Pre-populate warehouse details when entering "found" with no inventory in accessible warehouses
+  useEffect(() => {
+    if (scanState === "found" && product && inventoryRecords.length === 0) {
       setInitQuantity(1);
     }
-  }, [scanState, product, inventoryRecords, initWarehouseId, isStaffOnly, assignedWarehouses]);
+  }, [scanState, product, inventoryRecords]);
 
   const lookupProduct = useCallback(async (code: string) => {
     if (scanMode === "QR_CODE") {
@@ -427,7 +439,6 @@ export default function QRScanClient() {
     setInitRack("");
     setInitShelf("");
     setInitNotes("");
-    setWarehouses([]);
     setAddInventoryError("");
   };
 
