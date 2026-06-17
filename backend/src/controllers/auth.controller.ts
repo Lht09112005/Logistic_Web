@@ -99,8 +99,8 @@ export const getMe = async (req: AuthRequest, res: Response, next?: NextFunction
 // PUT /api/auth/me
 export const updateMe = async (req: AuthRequest, res: Response, next?: NextFunction): Promise<void> => {
   try {
-    const { name, email, phone, password } = req.body
-    const updated = await updateMeService(req.user!.userId, { name, email, phone, password })
+    const { name, email, phone, password, oldPassword } = req.body
+    const updated = await updateMeService(req.user!.userId, { name, email, phone, password, oldPassword })
     sendSuccess(res, updated, 'Cập nhật thông tin thành công')
   } catch (error: any) {
     if (next) {

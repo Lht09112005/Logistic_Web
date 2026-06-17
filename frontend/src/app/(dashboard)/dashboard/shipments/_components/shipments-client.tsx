@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Truck, Plus, Search, Filter, MapPin, Clock,
+  Truck, Plus, Search, MapPin, Clock,
   CheckCircle, Eye, RefreshCw, ThumbsUp,
   Navigation, Zap, Flag, Package, ChevronRight,
   AlertTriangle, Circle,
@@ -44,7 +44,7 @@ interface Props {
 
 const POLL_INTERVAL = 15_000;
 
-function useRealtimeShipments(status?: string, page?: string, search?: string, driverId?: string) {
+function useRealtimeShipments(status?: string, page?: string, driverId?: string) {
   const [shipments, setShipments] = useState<unknown[]>([]);
   const [total, setTotal] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -57,7 +57,6 @@ function useRealtimeShipments(status?: string, page?: string, search?: string, d
         page: page || "1",
         limit: "15",
         ...(status && { status }),
-        ...(search && { search }),
         ...(driverId && { driverId }),
       });
       const data = res.data.data || [];
@@ -66,13 +65,13 @@ function useRealtimeShipments(status?: string, page?: string, search?: string, d
       setTotal(metaTotal);
       // Cache for offline use (only non-driver views)
       if (!driverId) {
-        const cacheKey = `app:shipments:${status || "all"}:${search || ""}`;
+        const cacheKey = `app:shipments:${status || "all"}`;
         offlineDB.cacheAppData(cacheKey, { items: data, total: metaTotal }, "shipments").catch((e) => console.warn('[OfflineCache] cache error:', e));
       }
     } catch {
       // Try offline cache (non-driver only)
       if (!driverId) {
-        const cacheKey = `app:shipments:${status || "all"}:${search || ""}`;
+        const cacheKey = `app:shipments:${status || "all"}`;
         const cached = await offlineDB.getCachedAppData<{ items: unknown[]; total: number }>(cacheKey);
         if (cached) {
           setShipments(cached.items);
@@ -81,7 +80,7 @@ function useRealtimeShipments(status?: string, page?: string, search?: string, d
       }
     }
     setLastUpdated(new Date());
-  }, [page, status, search, driverId]);
+  }, [page, status, driverId]);
 
   // Initial fetch + polling
   useEffect(() => {
@@ -127,7 +126,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
   const searchParams = useSearchParams();
   const { isAdmin, isManager, isDriver, user } = useAuth();
   const driverId = isDriver && user?.id ? user.id : undefined;
-  const { shipments, total, loading, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeShipments(status, page, search, driverId);
+  const { shipments, total, loading, lastUpdated, socketConnected, refresh, refreshing } = useRealtimeShipments(status, page, driverId);
   const [searchText, setSearchText] = useState(search || "");
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectModal, setRejectModal] = useState<{ id: string; open: boolean; reason: string }>({ id: "", open: false, reason: "" });
@@ -145,10 +144,43 @@ export default function ShipmentsClient({ status, page, search }: Props) {
     [router, searchParams]
   );
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateParams({ search: searchText });
-  };
+  // Real-time client-side filtering for driver view (card layout)
+  const filteredDriverShipments = useMemo(() => {
+    if (!searchText) return shipments as Record<string, unknown>[];
+    const q = searchText.toLowerCase();
+    return (shipments as Record<string, unknown>[]).filter((s) => {
+      const originWh = s.originWarehouse as Record<string, string> | null;
+      const destWh = s.destinationWarehouse as Record<string, string> | null;
+      return (
+        (s.shipmentCode as string || '').toLowerCase().includes(q) ||
+        (s.originAddress as string || '').toLowerCase().includes(q) ||
+        (s.destinationAddress as string || '').toLowerCase().includes(q) ||
+        (s.vehicleNumber as string || '').toLowerCase().includes(q) ||
+        (originWh?.name || '').toLowerCase().includes(q) ||
+        (destWh?.name || '').toLowerCase().includes(q)
+      );
+    });
+  }, [shipments, searchText]);
+
+  // Real-time client-side filtering for table view (non-driver)
+  const filteredShipments = useMemo(() => {
+    if (!searchText) return shipments as Record<string, unknown>[];
+    const q = searchText.toLowerCase();
+    return (shipments as Record<string, unknown>[]).filter((s) => {
+      const driver = s.driver as Record<string, string> | null;
+      const originWh = s.originWarehouse as Record<string, string> | null;
+      const destWh = s.destinationWarehouse as Record<string, string> | null;
+      return (
+        (s.shipmentCode as string || '').toLowerCase().includes(q) ||
+        (s.originAddress as string || '').toLowerCase().includes(q) ||
+        (s.destinationAddress as string || '').toLowerCase().includes(q) ||
+        (s.vehicleNumber as string || '').toLowerCase().includes(q) ||
+        (driver?.name || '').toLowerCase().includes(q) ||
+        (originWh?.name || '').toLowerCase().includes(q) ||
+        (destWh?.name || '').toLowerCase().includes(q)
+      );
+    });
+  }, [shipments, searchText]);
 
   const handleApprove = async (id: string) => {
     setApprovingId(id);
@@ -224,7 +256,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
         </div>
 
         {/* Search */}
-        <form onSubmit={handleSearch} className="flex gap-2">
+        <div className="flex gap-2">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
             <input
@@ -235,21 +267,20 @@ export default function ShipmentsClient({ status, page, search }: Props) {
               style={{ height: "38px" }}
             />
           </div>
-          <button type="submit" className="btn btn-secondary btn-sm"><Filter size={14} /></button>
           <button type="button" onClick={refresh} disabled={refreshing} className="btn btn-ghost btn-sm">
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
           </button>
-        </form>
+        </div>
 
         {/* Cards */}
-        {(shipments as Record<string, unknown>[]).length === 0 ? (
+        {(filteredDriverShipments as Record<string, unknown>[]).length === 0 ? (
           <div className="card flex flex-col items-center justify-center py-16 gap-3" style={{ color: "var(--text-muted)" }}>
             <Truck size={40} style={{ opacity: 0.2 }} />
             <p className="font-medium">Không có chuyến đi nào</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {(shipments as Record<string, unknown>[]).map((s) => {
+            {(filteredDriverShipments as Record<string, unknown>[]).map((s) => {
               const statusColorMap: Record<string, string> = {
                 LOADING: "#f97316", IN_TRANSIT: "#3b82f6", DELIVERING: "#8b5cf6",
                 CONFIRMED: "#6366f1", DELIVERED: "#10b981", CANCELLED: "#ef4444", PENDING: "#f59e0b",
@@ -400,7 +431,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all snap-start shrink-0 whitespace-nowrap ${
                 activeStatus === tab.value
                   ? "text-white shadow-sm"
-                  : "hover:bg-[var(--bg-input)]"
+                  : "hover:bg-(--bg-input)"
               }`}
               style={
                 activeStatus === tab.value
@@ -414,7 +445,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
         </div>
 
         {/* Search */}
-        <form onSubmit={handleSearch} className="flex gap-2">
+        <div className="flex gap-2">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
             <input
@@ -425,15 +456,12 @@ export default function ShipmentsClient({ status, page, search }: Props) {
               style={{ height: "38px" }}
             />
           </div>
-          <button type="submit" className="btn btn-secondary btn-sm">
-            <Filter size={14} /> Lọc
-          </button>
-        </form>
+        </div>
       </div>
 
       {/* Table */}
       <div className="card overflow-hidden">
-        {shipments.length === 0 ? (
+        {(filteredShipments as Record<string, unknown>[]).length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: "var(--text-muted)" }}>
             <Truck size={48} style={{ opacity: 0.2 }} />
             <p className="font-medium">Không tìm thấy vận đơn</p>
@@ -458,7 +486,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {(shipments as Record<string, unknown>[]).map((s) => (
+                {(filteredShipments as Record<string, unknown>[]).map((s) => (
                   <tr key={s.id as string}>
                     <td>
                       <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
@@ -478,7 +506,7 @@ export default function ShipmentsClient({ status, page, search }: Props) {
                     </td>
                     <td className="hidden lg:table-cell">
                       <div className="flex items-center gap-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                        <MapPin size={12} className="flex-shrink-0" />
+                        <MapPin size={12} className="shrink-0" />
                         <span className="truncate max-w-48">{s.destinationAddress as string}</span>
                       </div>
                     </td>
@@ -544,11 +572,11 @@ export default function ShipmentsClient({ status, page, search }: Props) {
       </div>
 
       {/* Active shipments summary */}
-      {shipments.filter((s) => (s as Record<string, unknown>).status === "IN_TRANSIT").length > 0 && (
+      {(filteredShipments as Record<string, unknown>[]).filter((s) => (s as Record<string, unknown>).status === "IN_TRANSIT").length > 0 && (
         <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           <CheckCircle size={16} style={{ color: "#10b981" }} />
           <span>
-            {shipments.filter((s) => (s as Record<string, unknown>).status === "IN_TRANSIT").length} vận đơn đang trên đường
+            {(filteredShipments as Record<string, unknown>[]).filter((s) => (s as Record<string, unknown>).status === "IN_TRANSIT").length} vận đơn đang trên đường
           </span>
         </div>
       )}
