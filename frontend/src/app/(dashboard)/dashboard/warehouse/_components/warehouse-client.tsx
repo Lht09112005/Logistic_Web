@@ -39,13 +39,14 @@ function useRealtimeWarehouses(initial: unknown[]) {
   // Granular selector for warehouses only
   const sharedWarehouses = useSharedDataStore((s) => s.warehouses);
   const [items, setItems] = useState<unknown[]>(initial);
-  const [lastUpdated] = useState<Date>(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [socketConnected, setSocketConnected] = useState(false);
 
   // Sync shared store data to local state when it updates
   useEffect(() => {
     if (sharedWarehouses.length > 0) {
       setItems(sharedWarehouses);
+      setLastUpdated(new Date());
       // Cache for offline use
       offlineDB.cacheAppData(CACHE_KEYS.WAREHOUSES_LIST, sharedWarehouses, "warehouses").catch((e) => console.warn('[OfflineCache] warehouse cache error:', e));
     }
@@ -88,6 +89,11 @@ function useRealtimeWarehouses(initial: unknown[]) {
     await useSharedDataStore.getState().refresh();
     setRefreshing(false);
   }, []);
+
+  // Auto-refresh on mount
+  useEffect(() => {
+    handleRefresh();
+  }, [handleRefresh]);
 
   return { items, lastUpdated, socketConnected, refresh: handleRefresh, refreshing };
 }
