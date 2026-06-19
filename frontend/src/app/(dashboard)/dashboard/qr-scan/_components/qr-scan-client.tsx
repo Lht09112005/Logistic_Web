@@ -33,6 +33,22 @@ interface InventoryRecord {
 
 type ScanState = "idle" | "scanning" | "found" | "new_product" | "add_inventory" | "updating" | "success" | "error";
 
+/** Sinh SKU ngắn gọn từ mã quét được. Nếu mã dài > 20 ký tự, dùng hash để rút gọn. */
+function generateSku(code: string): string {
+  const maxLen = 20;
+  if (code.length <= maxLen) {
+    return `SP-${code}`;
+  }
+  // Dùng hash djb2 + base36 để tạo chuỗi ngắn, độc đáo
+  let hash = 5381;
+  for (let i = 0; i < code.length; i++) {
+    hash = ((hash << 5) + hash + code.charCodeAt(i)) | 0;
+  }
+  const shortHash = Math.abs(hash).toString(36);
+  const suffix = code.slice(-4);
+  return `SP-${shortHash}${suffix}`;
+}
+
 export default function QRScanClient() {
   const searchParams = useSearchParams();
   const preloadId = searchParams.get("productId");
@@ -252,8 +268,8 @@ export default function QRScanClient() {
 
     setIsCreating(true);
     try {
-      const productName = newProductName.trim() || `Sản phẩm - ${newBarcode}`;
-      const autoSku = `SP-${newBarcode}`;
+      const productName = newProductName.trim() || `Sản phẩm - ${newBarcode.length > 40 ? newBarcode.slice(0, 40) + '...' : newBarcode}`;
+      const autoSku = generateSku(newBarcode);
       const payload: Record<string, unknown> = {
         name: productName,
         sku: autoSku,
@@ -298,7 +314,7 @@ export default function QRScanClient() {
           }
           // If can't find by QR/barcode, try searching by auto-generated SKU
           try {
-            const searchRes = await productsApi.getAll({ search: `SP-${newBarcode}`, limit: "5" });
+            const searchRes = await productsApi.getAll({ search: generateSku(newBarcode), limit: "5" });
             const list = (searchRes.data.data || []) as ScannedProduct[];
             if (list.length > 0) {
               const detailRes = await productsApi.getById(list[0].id);
@@ -496,7 +512,7 @@ export default function QRScanClient() {
   const isScanning = scanState === "idle" || scanState === "scanning";
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-3xl mx-auto px-4 sm:px-0">
+    <div className="space-y-4 sm:space-y-6 max-w-3xl mx-auto px-4 sm:px-0 overflow-x-hidden w-full">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div
@@ -547,7 +563,7 @@ export default function QRScanClient() {
 
       {/* Scanner area */}
       {isScanning ? (
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden w-full max-w-full">
           {/* Camera viewport */}
           <div className="relative" style={{ minHeight: "260px", background: "#0d1117" }}>
             <div id="qr-reader-area" className="w-full" style={{ minHeight: "260px" }} />
@@ -649,7 +665,7 @@ export default function QRScanClient() {
       ) : scanState === "new_product" ? (
         /* ─── Form thêm sản phẩm mới — chỉ nhập số lượng & mức cảnh báo ─── */
         <div className="space-y-4 animate-scale-in">
-          <div className="card p-4 sm:p-5">
+          <div className="card p-4 sm:p-5 overflow-hidden w-full max-w-full">
             <div className="flex items-start sm:items-center gap-3 mb-4">
               <div
                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
@@ -680,7 +696,7 @@ export default function QRScanClient() {
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                   {scanMode === "QR_CODE" ? "Mã QR" : "Mã vạch"}
                 </label>
-                <div className="input-base text-sm flex items-center gap-2" style={{ opacity: 0.7 }}>
+                <div className="input-base text-sm flex items-center gap-2 min-w-0" style={{ opacity: 0.7 }}>
                   <span className="shrink-0">{scanMode === "QR_CODE" ? <QrCode size={14} /> : <Barcode size={14} />}</span>
                   <span className="font-mono truncate">{newBarcode}</span>
                 </div>
@@ -797,7 +813,7 @@ export default function QRScanClient() {
       ) : scanState === "add_inventory" ? (
         /* ─── Thêm sản phẩm mới vào kho ─── */
         <div className="space-y-4 animate-scale-in">
-          <div className="card p-4 sm:p-5">
+          <div className="card p-4 sm:p-5 overflow-hidden w-full max-w-full">
             <div className="flex items-start sm:items-center gap-3 mb-4">
               <div
                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
@@ -953,7 +969,7 @@ export default function QRScanClient() {
           </div>
         </div>
       ) : scanState === "success" ? (
-        <div className="card p-4 sm:p-8 text-center space-y-3">
+        <div className="card p-4 sm:p-8 text-center space-y-3 overflow-hidden w-full max-w-full">
           <CheckCircle size={36} className="mx-auto sm:w-10 sm:h-10" style={{ color: "#10b981" }} />
           <h3 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>Cập nhật thành công!</h3>
           <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>{successMsg}</p>
@@ -971,7 +987,7 @@ export default function QRScanClient() {
 
       {/* Product found — inventory check loading */}
       {scanState === "found" && product && isCheckingInventory && (
-        <div className="card p-8 text-center">
+        <div className="card p-8 text-center overflow-hidden w-full max-w-full">
           <div className="flex flex-col items-center gap-3">
             <Loader2 size={32} className="animate-spin" style={{ color: "#f97316" }} />
             <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
@@ -985,7 +1001,7 @@ export default function QRScanClient() {
       {(scanState === "found" || scanState === "error") && product && !isCheckingInventory && (
         <div className="space-y-3 sm:space-y-4 animate-scale-in">
           {/* Product info card */}
-          <div className="card p-4 sm:p-5">
+          <div className="card p-4 sm:p-5 overflow-hidden w-full max-w-full">
             <div className="flex items-start gap-3 sm:gap-4">
               <div
                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
@@ -998,7 +1014,7 @@ export default function QRScanClient() {
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-sm sm:text-base truncate" style={{ color: "var(--text-primary)" }}>{product.name}</h3>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <code className="text-[11px] sm:text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
+                      <code className="text-[11px] sm:text-xs px-1.5 py-0.5 rounded truncate max-w-[150px] sm:max-w-[260px]" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
                         {product.sku}
                       </code>
                       <span className="text-[11px] sm:text-xs" style={{ color: "var(--text-muted)" }}>
@@ -1021,7 +1037,7 @@ export default function QRScanClient() {
 
           {/* Inventory selection (khi có nhiều inventory trong warehouse được phân quyền) */}            {/* Inventory status badge */}
           <div
-            className={`card p-3 sm:p-4 flex items-center gap-3 ${
+            className={`card p-3 sm:p-4 flex items-center gap-3 overflow-hidden w-full max-w-full ${
               inventoryRecords.length > 0
                 ? "border-success/30"
                 : "border-warning/30"
@@ -1062,7 +1078,7 @@ export default function QRScanClient() {
 
           {/* Inventory summary (when there are multiple records) */}
           {inventoryRecords.length > 1 && (
-            <div className="card p-2.5 sm:p-4">
+            <div className="card p-2.5 sm:p-4 overflow-hidden w-full max-w-full">
               <label className="block text-[11px] sm:text-sm font-medium mb-1.5 sm:mb-2" style={{ color: "var(--text-primary)" }}>
                 Chọn vị trí kho
               </label>
@@ -1106,7 +1122,7 @@ export default function QRScanClient() {
 
           {/* No inventory in accessible warehouse — inline add-to-warehouse form */}
           {inventoryRecords.length === 0 && (
-            <div className="card p-4 sm:p-5 space-y-4">
+            <div className="card p-4 sm:p-5 space-y-4 overflow-hidden w-full max-w-full">
               <div className="flex items-start gap-3">
                 <div
                   className="w-10 h-10 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -1266,7 +1282,7 @@ export default function QRScanClient() {
 
           {/* Update form */}
           {selectedInv && (
-            <div className="card p-4 sm:p-5 space-y-4 sm:space-y-5">
+            <div className="card p-4 sm:p-5 space-y-4 sm:space-y-5 overflow-hidden w-full max-w-full">
               <h3 className="font-bold text-sm sm:text-base" style={{ color: "var(--text-primary)" }}>
                 Cập nhật — {selectedInv.warehouse.code}
               </h3>
